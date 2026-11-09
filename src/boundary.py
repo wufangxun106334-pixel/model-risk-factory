@@ -275,13 +275,16 @@ def run_boundary_suite(run_dir: Path, runtime_config_path: Path) -> dict:
 
     cpu = _run_probe("cpu", CPU_PROBE, work_dir, image)
     payload = cpu["payload"] or {}
+    ratio = payload.get("cpu_ratio")
+    # Two spinning threads on a one-CPU container finish in wall time with about
+    # one CPU-second per wall-second. Without the limit the ratio would approach two.
     checks.append(_check(
         "cpu_limit_triggered",
-        (payload.get("cpu_ratio") or 9) <= 0.75 and (payload.get("cpu_seconds") or 0) >= 2.0,
+        ratio is not None and 0.75 <= ratio <= 1.4 and (payload.get("cpu_seconds") or 0) >= 2.0,
         "two spinning threads consume about one core, not two",
         cpu_seconds=payload.get("cpu_seconds"),
         wall_seconds=payload.get("wall_seconds"),
-        cpu_ratio=payload.get("cpu_ratio"),
+        cpu_ratio=ratio,
     ))
 
     pid = _run_probe("pid", PID_PROBE, work_dir, image)

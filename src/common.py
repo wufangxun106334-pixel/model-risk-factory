@@ -123,7 +123,7 @@ def run_directory(runs_root: str | Path, run_id: str) -> Path:
 
 
 def create_run(runs_root: str | Path, repository: Path, mode: str) -> dict[str, Any]:
-    run_id = f"v1-{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')}-{uuid.uuid4().hex[:8]}"
+    run_id = f"v2-{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')}-{uuid.uuid4().hex[:8]}"
     directory = run_directory(runs_root, run_id)
     directory.mkdir(parents=True, exist_ok=False)
     manifest = {
