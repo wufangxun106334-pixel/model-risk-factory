@@ -15,7 +15,7 @@ from pathlib import Path
 import pytest
 
 from src import cli
-from src.release import _provision_approved_zip, _run_tree_tests, release_check, restore_command_log
+from src.release import _provision_approved_zip, _run_tree_tests, compare_command_log, release_check
 
 RUN_ID = "v2-readonly"
 SKIP_TEST = """import pytest
@@ -79,25 +79,75 @@ def tree_state(run: Path) -> dict[str, str]:
     }
 
 
-def test_restore_command_log_truncates_to_the_snapshot(tmp_path):
+def test_compare_command_log_reports_extras_without_writing(tmp_path):
     repo = make_repo(tmp_path)
     run = make_run(repo, tmp_path, log_lines=5, snapshot_lines=3)
-    result = restore_command_log(run)
-    assert result["snapshot_lines"] == 3
-    assert result["removed_lines"] == 2
-    assert result["byte_identical_to_snapshot"] is True
-    assert result["removed_commands"] == ["step-3", "step-4"]
-    assert (run / "command_log.jsonl").read_bytes() == (run / "command_log_snapshot.jsonl").read_bytes()
-    assert len((run / "command_log.jsonl").read_text().splitlines()) == 3
+    before = tree_state(run)
+    result = compare_command_log(run)
+    assert result["status"] == "DIFFERS"
+    assert result["snapshot_lines"] == 3 and result["live_lines"] == 5
+    assert result["prefix_matches"] is True
+    assert result["extra_live_lines"] == 2
+    assert result["extra_commands"] == ["step-3", "step-4"]
+    assert tree_state(run) == before
+    assert len((run / "command_log.jsonl").read_text().splitlines()) == 5
 
 
-def test_restore_refuses_when_the_live_log_is_not_a_snapshot_prefix(tmp_path):
+def test_compare_command_log_matches_after_the_snapshot_is_authoritative(tmp_path):
+    repo = make_repo(tmp_path)
+    run = make_run(repo, tmp_path, log_lines=3, snapshot_lines=3)
+    result = compare_command_log(run)
+    assert result["status"] == "MATCH"
+    assert result["extra_live_lines"] == 0
+    assert result["live_sha256"] == result["snapshot_sha256"]
+
+
+def test_compare_command_log_can_save_a_copy_outside_the_run(tmp_path):
+    repo = make_repo(tmp_path)
+    run = make_run(repo, tmp_path, log_lines=4, snapshot_lines=3)
+    before = tree_state(run)
+    destination = tmp_path / "copies" / "command_log_snapshot.jsonl"
+    result = compare_command_log(run, save_copy=destination)
+    assert destination.is_file()
+    assert destination.read_bytes() == (run / "command_log_snapshot.jsonl").read_bytes()
+    assert result["saved_copy_sha256"] == result["snapshot_sha256"]
+    assert tree_state(run) == before
+
+
+def test_compare_command_log_refuses_to_write_inside_the_run(tmp_path):
+    repo = make_repo(tmp_path)
+    run = make_run(repo, tmp_path)
+    before = tree_state(run)
+    with pytest.raises(ValueError, match="refusing to write inside the run"):
+        compare_command_log(run, save_copy=run / "copy.jsonl")
+    assert tree_state(run) == before
+
+
+def test_compare_command_log_requires_the_snapshot(tmp_path):
+    repo = make_repo(tmp_path)
+    run = make_run(repo, tmp_path)
+    (run / "command_log_snapshot.jsonl").unlink()
+    with pytest.raises(ValueError, match="command_log_snapshot.jsonl is required"):
+        compare_command_log(run)
+
+
+def tree_state(run: Path) -> dict[str, str]:
+    return {
+        path.relative_to(run).as_posix(): hashlib.sha256(path.read_bytes()).hexdigest()
+        for path in sorted(run.rglob("*"))
+        if path.is_file()
+    }
+
+
+def test_compare_command_log_detects_a_diverged_live_log(tmp_path):
     repo = make_repo(tmp_path)
     run = make_run(repo, tmp_path, log_lines=4, snapshot_lines=3)
     log = run / "command_log.jsonl"
     log.write_text(log.read_text().replace("step-0", "tampered-0"), encoding="utf-8")
-    with pytest.raises(ValueError, match="refusing to truncate"):
-        restore_command_log(run)
+    result = compare_command_log(run)
+    assert result["status"] == "DIFFERS"
+    assert result["prefix_matches"] is False
+    assert result["live_lines"] == 4
 
 
 @pytest.mark.parametrize("command", ["verify-context", "report-status"])
@@ -111,6 +161,20 @@ def test_read_only_commands_do_not_touch_the_run(tmp_path, monkeypatch, command)
     arguments = [command, "--run-id", RUN_ID] + (["--at", "HEAD"] if command == "verify-context" else [])
     cli.main(arguments)
     assert (run / "command_log.jsonl").read_bytes() == log_before
+    assert tree_state(run) == before
+
+
+def test_compare_command_log_via_cli_is_read_only(tmp_path, monkeypatch):
+    repo = make_repo(tmp_path)
+    run = make_run(repo, tmp_path, log_lines=4, snapshot_lines=3)
+    monkeypatch.setattr(cli, "RUNS_ROOT", run.parent)
+    monkeypatch.setattr(cli, "REPOSITORY", repo)
+    before = tree_state(run)
+    cli.main(["compare-command-log", "--run-id", RUN_ID])
+    assert tree_state(run) == before
+    copy = tmp_path / "outside" / "snapshot.jsonl"
+    cli.main(["compare-command-log", "--run-id", RUN_ID, "--save-copy", str(copy)])
+    assert copy.read_bytes() == (run / "command_log_snapshot.jsonl").read_bytes()
     assert tree_state(run) == before
 
 

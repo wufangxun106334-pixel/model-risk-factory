@@ -97,29 +97,64 @@ def _provision_approved_zip(repository: Path, tree: Path, run_dir: Path, zip_pat
     return []
 
 
-def restore_command_log(run_dir: Path) -> dict:
-    """Drop verification rows appended after the export, using the snapshot as authority."""
+def compare_command_log(run_dir: Path, save_copy: Path | None = None) -> dict:
+    """Compare the live command log with the export snapshot without writing the run.
+
+    The snapshot is the sealed record and the live log may have grown after export.
+    Besides reading it, the only supported inspection is saving a copy of the
+    snapshot outside the run directory.
+    """
 
     live_path = run_dir / "command_log.jsonl"
     snapshot_path = run_dir / "command_log_snapshot.jsonl"
-    if not live_path.is_file() or not snapshot_path.is_file():
-        raise ValueError("command_log.jsonl and command_log_snapshot.jsonl are both required")
+    if not snapshot_path.is_file():
+        raise ValueError("command_log_snapshot.jsonl is required")
     snapshot = snapshot_path.read_text(encoding="utf-8").splitlines()
-    live = live_path.read_text(encoding="utf-8").splitlines()
-    if live[: len(snapshot)] != snapshot:
-        raise ValueError("the live command log does not start with the export snapshot; refusing to truncate")
-    removed = live[len(snapshot) :]
-    live_path.write_text("\n".join(snapshot) + ("\n" if snapshot else ""), encoding="utf-8")
-    return {
+    live = live_path.read_text(encoding="utf-8").splitlines() if live_path.is_file() else []
+    prefix_matches = live[: len(snapshot)] == snapshot
+    if prefix_matches:
+        extra = live[len(snapshot) :]
+        missing = snapshot[len(live) :] if len(live) < len(snapshot) else []
+    else:
+        extra = [line for line in live if line not in snapshot]
+        missing = [line for line in snapshot if line not in live]
+
+    def commands(lines: list[str]) -> list[str]:
+        names: list[str] = []
+        for line in lines:
+            try:
+                payload = json.loads(line)
+            except ValueError:
+                names.append("<unparsable>")
+                continue
+            argv = payload.get("argv") if isinstance(payload, dict) else None
+            names.append(str(argv[3]) if isinstance(argv, list) and len(argv) > 3 else "<unknown>")
+        return names
+
+    result = {
         "run_id": read_json(run_dir / "run_manifest.json").get("run_id") if (run_dir / "run_manifest.json").is_file() else None,
+        "status": "MATCH" if live == snapshot else "DIFFERS",
         "snapshot_lines": len(snapshot),
-        "live_lines_before": len(live),
-        "removed_lines": len(removed),
-        "removed_commands": [row.get("argv", [None] * 4)[3] for row in (json.loads(line) for line in removed)],
-        "restored_sha256": sha256_file(live_path),
+        "live_lines": len(live),
+        "prefix_matches": prefix_matches,
+        "extra_live_lines": len(extra),
+        "missing_live_lines": len(missing),
+        "extra_commands": commands(extra),
+        "missing_commands": commands(missing),
         "snapshot_sha256": sha256_file(snapshot_path),
-        "byte_identical_to_snapshot": sha256_file(live_path) == sha256_file(snapshot_path),
+        "live_sha256": sha256_file(live_path) if live_path.is_file() else None,
     }
+    if save_copy is not None:
+        destination = Path(save_copy).expanduser()
+        run_root = run_dir.resolve()
+        resolved = destination.resolve()
+        if resolved == run_root or run_root in resolved.parents:
+            raise ValueError("refusing to write inside the run directory; choose a path outside it")
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(snapshot_path, destination)
+        result["saved_copy"] = str(destination)
+        result["saved_copy_sha256"] = sha256_file(destination)
+    return result
 
 
 REQUIRED_RECORDS = tuple(

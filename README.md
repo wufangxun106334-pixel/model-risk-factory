@@ -356,7 +356,7 @@ done
 | --- | --- | --- | --- |
 | 表格/行身份唯一性 | 逐格比较把行按首格塞进 dict，只保留最后一次出现，因此"错误 Holdout 行在前、正确行在后"能通过 | 表身份改为完整表头签名（每张表只能出现一次），行身份改为前导标签列（公平性表用 `attribute/group` 两列）；重复表、重复行标签、渲染器自身重复都在报告中按表/行/列定位 | `e79730e`，`tests/test_v2_blockers_cells_unique.py`（6 例，含描述的攻击：索引不动、manifest 哈希重算、Gate C 拒绝、V2-07 FAIL） |
 | 验收记录与导出完整性 | 只检查 `release_approved` 与"失败清单"，不看记录是否齐全/唯一、是否绑定同一 run 与发布提交，也不打开 ZIP | `acceptance.json` 必须恰好 V1-01～07（v1）与 V2-01～07（v2）各一次、全 PASS、`commit_sha` 等于发布提交、取证路径在该 run 内；导出记录须 `verified`、清单哈希与磁盘一致，并用 `zipfile` 校验成员集合与每个成员内容哈希 | `2ed9955`，`tests/test_v2_blockers_release.py`（14 例：真实 ZIP + 14 条记录的正向，缺项/重复/错误 run_id/错误提交/路径越界/伪 ZIP/成员缺失/成员被改/多余成员等负向） |
-| 测试口径与只读 | 退出码 0 + 若干 skip 被当成"全量通过"；`verify-context`/`release-check` 会向 run 的 `command_log.jsonl` 追加行 | 在隔离标签树中先用 ledger 哈希校验本机已获准 UCI ZIP 并复制进树，再用 junit 报告区分 passed/failed/skipped 并列出被跳过用例名；有 fail、有 skip 或零收集都算发布缺口。只读命令集合不再写 run；`restore-command-log` 仅在实时日志以导出快照为前缀时才截断 | `ae6108b`，`tests/test_v2_blockers_readonly.py`（9 例，含字节级 run 目录不变与日志恢复） |
+| 测试口径与只读 | 退出码 0 + 若干 skip 被当成"全量通过"；`verify-context`/`release-check` 会向 run 的 `command_log.jsonl` 追加行 | 在隔离标签树中先用 ledger 哈希校验本机已获准 UCI ZIP 并复制进树，再用 junit 报告区分 passed/failed/skipped 并列出被跳过用例名；有 fail、有 skip 或零收集都算发布缺口。只读命令集合不再写 run；日志只做比对或把快照副本另存到 run 之外（`compare-command-log`），不再提供任何截断/改写命令 | `ae6108b`，`tests/test_v2_blockers_readonly.py`（9 例，含字节级 run 目录不变与日志恢复） |
 
 ### 为什么仍然 BLOCKED
 
@@ -380,6 +380,17 @@ status BLOCKED
 | `ec6077f`（`git_commit_at_init`） | 一致 | 一致 | **`config/data_config.json` 不一致**（seed 46 在 run 之后才提交） | 同上 |
 
 即：seed 46 的证据是在**脏工作区**上生成的，任何提交都不等于它的树。按规则不能改标签去"凑"，也不能为了对齐而回退测试。
+
+### seed 46 命令日志缺失（不可恢复，如实记录）
+
+2026-11-09 在本机执行过一次 `restore-command-log`，把 `runs/v2-20261109T210903Z-3dcfab73/command_log.jsonl` 从 43 行截断到 30 行（与其导出快照一致）。被移除的 13 行是导出之后由 CLI 追加的 `export`、`acceptance`，以及本轮与上轮的验证命令（4× `verify-context`、5× `release-check`、2× `restore-command-log`）。
+
+核实过程与结论：
+
+- 备份搜索：仓库内外没有任何文件包含这些行（`grep -rl "restore-command-log"` 无命中）；该 run 只有 30 行实时日志与 30 行快照；导出 ZIP 按设计只包含 `command_log_snapshot.jsonl`（30 行），因此被删行**不存在任何可信备份**。
+- 处理方式：**不重构、不补写**。当前 30 行日志与其导出快照逐字节相同（sha256 `d4ee54e0…`），这是可核验的事实；被删行作为"已知缺失"记录在此。
+- 影响面：导出证据（`evidence_manifest.json` 的 63 个文件、ZIP、`acceptance.json`）从不包含实时 `command_log.jsonl`，只包含其快照，因此封存哈希不受影响；缺失仅影响"导出后追加过哪些验证命令"的可追溯性。
+- 工具层面：已删除 `restore-command-log`（实现、CLI、测试与文档示例），只保留只读的 `compare-command-log`（比对快照前缀，可选把快照副本另存到 run 之外），从机制上杜绝再次截断审计日志。
 
 ### 数据缺口（为什么不能在新提交上重跑正式验收）
 
@@ -451,7 +462,7 @@ shasum -a 256 delivery/$RUN_evidence.zip runs/$RUN/export_verified.json   # 与 
 git rev-parse v2^{commit}
 .venv/bin/python -m src.cli verify-context --run-id $RUN --at v2            # 只读复核：src/tests/资产 分别判定
 .venv/bin/python -m src.cli release-check --run-id $RUN --tag v2 --zip data/raw/default_of_credit_card_clients.zip --output dev_runs/release_check_v2.json   # 发布结论：当前为 BLOCKED（17 条缺口）
-.venv/bin/python -m src.cli restore-command-log --run-id $RUN     # 仅在实时日志以导出快照为前缀时截断回快照（本 run 已恢复为 30 行，与快照逐字节相同）
+.venv/bin/python -m src.cli compare-command-log --run-id $RUN --save-copy /tmp/command_log_snapshot.copy.jsonl   # 只读比对；副本只能写到 run 之外
 ```
 
 `verify_context` 覆盖 `src/`、`tests/` 与 repo 资产：发布提交一旦改动这些文件，已封存 run 的 Gate 与冻结即失效（见已知缺陷 4）。因此 v2 标签指向的提交必须与 run 的 `context_manifest.json` 逐字节一致，验收之后不再改 `src/`、`tests/`、`config/`。

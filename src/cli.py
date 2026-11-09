@@ -35,14 +35,14 @@ from src.fixtures import write_fixtures
 from src.local_checks import run_mutation_check, run_reference_parity
 from src.inventory import expected_model_ids, inventory_path
 from src.migration import candidate_dir, freeze_candidate, load_candidate
-from src.release import release_check, restore_command_log
+from src.release import compare_command_log, release_check
 from src.report import render_report, report_content_problems, report_status, write_approval
 from src.review import artifact_digest, current_decision, record_review
 from src.validation import compute_validation_metrics
 from src.workflow import run_candidate_fixtures, run_development, run_holdout
 
 # Commands that only read a run must never mutate it, so they skip the command log.
-READ_ONLY_COMMANDS = frozenset({"verify-context", "release-check", "verify-holdout-ledger", "report-status", "restore-command-log"})
+READ_ONLY_COMMANDS = frozenset({"verify-context", "release-check", "verify-holdout-ledger", "report-status", "compare-command-log"})
 
 REPOSITORY = Path(__file__).resolve().parents[1]
 # Dev dry runs can point at a sibling directory so the sealed runs/ artifacts and
@@ -76,8 +76,9 @@ def _parser() -> argparse.ArgumentParser:
     prepare.add_argument("--expected-sha256")
     prepare.add_argument("--approve-uci-use", action="store_true")
 
-    restore = subparsers.add_parser("restore-command-log")
-    restore.add_argument("--run-id", required=True)
+    compare = subparsers.add_parser("compare-command-log")
+    compare.add_argument("--run-id", required=True)
+    compare.add_argument("--save-copy", type=Path, help="optional destination for a copy of the sealed snapshot, outside the run")
 
     release = subparsers.add_parser("release-check")
     release.add_argument("--run-id", required=True)
@@ -176,8 +177,8 @@ def _dispatch(arguments: argparse.Namespace) -> dict[str, Any]:
         return {"status": "PASS" if result["verified"] else "FAIL", **result}
     run_dir, manifest = load_run(RUNS_ROOT, arguments.run_id)
     run_id = arguments.run_id
-    if command == "restore-command-log":
-        return {"status": "RESTORED", **restore_command_log(run_dir)}
+    if command == "compare-command-log":
+        return compare_command_log(run_dir, arguments.save_copy)
     if command == "release-check":
         result = release_check(REPOSITORY, arguments.tag, run_dir, run_id, zip_path=arguments.zip)
         if arguments.output:
