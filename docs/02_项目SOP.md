@@ -1,13 +1,13 @@
 ---
 title: Challenge 04 银行模型风险管理项目 SOP
 created: 2026-11-05
-updated: 2026-11-08
+updated: 2026-11-09
 tags:
   - 黑客松
   - EXL-UCD
   - Model-Risk
   - Agentic-AI
-status: design-confirmed
+status: v1-accepted / v2-in-progress
 release_plan: v1-prototype / v2-formal / v3-final
 ---
 
@@ -85,7 +85,7 @@ Docker Desktop、R 和 Python 需在开发机实际验证。依赖版本在接�
 
 | 版本 | 日期目标 | 必须完成 | 放行条件 |
 | --- | --- | --- | --- |
-| **v1 Prototype** | 11-10 结束前 | API 最小验证；UCI 数据加工与划分；一个 R 基准；人工参考 Python 实现与独立等价性工具；故意错误案例；待迁移模型的 Agent 档案通过 Gate A；**一次真实 Agent 迁移**（CLI + 最小 Docker + Gate B 审批） | V1-01 至 V1-07 全满足；从数据到 Holdout 等价性结论的迁移证据链可按 README 复现；已实现与占位功能清楚区分 |
+| ~~**v1 Prototype**~~ ✅ 11-09 完成 | ~~11-10 结束前~~ | API 最小验证；UCI 数据加工与划分；一个 R 基准；人工参考 Python 实现与独立等价性工具；故意错误案例；待迁移模型的 Agent 档案通过 Gate A；**一次真实 Agent 迁移**（CLI + 最小 Docker + Gate B 审批） | V1-01 至 V1-07 全满足；从数据到 Holdout 等价性结论的迁移证据链可按 README 复现；已实现与占位功能清楚区分 |
 | **v2 正式版** | 11-11 结束前 | 三份 Agent 档案；三审核关卡；Docker 边界加固；四类验证（含校准表）与报告；完整运行证据与导出 | V2-01 至 V2-07 全满足；无阻断缺陷；所有 v1 验收继续通过。Streamlit 四页界面是演示目标，不是发布门槛 |
 | **v3 最终版** | 11-12 结束前 | 集成复测、新环境复现、交付五件套（含 AI 工具声明）、三分钟视频、最终 Git 版本；不再新增功能 | V3-01 至 V3-06 全满足；全部必交文件可访问；冻结范围和已知限制写入 README |
 
@@ -95,15 +95,17 @@ Docker Desktop、R 和 Python 需在开发机实际验证。依赖版本在接�
 
 | ID | Test（验收动作） | Pass（通过条件） | Evidence（证据） |
 | --- | --- | --- | --- |
-| V1-01 | API smoke test（最小调用） | 指定网关真实请求成功；确认协议、模型 ID、工具往返及输出解析；不能确认时当天按 16.2 决策 | 脱敏的 capability_check.json、请求 ID、脱敏请求日志 |
-| V1-02 | 数据加工与划分 | 原始 UCI 文件 SHA-256 与记录一致；30,000 行按 15,000/6,000/6,000/3,000 分层划分，ID 唯一且互不交叉；各子集违约率与总体相差 ≤1 个百分点；未文档化编码按数据字典处理；固定种子；配置与产物哈希记录 | data_manifest.json、数据字典、划分测试 |
-| V1-03 | R 基准 | V1 模型可重跑，系数/预处理/开发预测输出有效；未把 ID、标签或人口属性当特征 | R sessionInfo、产物清单 |
-| V1-04 | Python 参考实现等价性 | 主键一一对齐、概率与分类、缺失与拒绝行为满足第 8 节；不得只比较 Accuracy | parity_summary.json、parity_diff.csv |
-| V1-05 | 故意错误案例 | 改变一个系数的隔离副本被固定测试发现；原始基准及测试哈希不变 | 预期失败测试与差异 |
-| V1-06 | 真实 Agent 迁移 | Agent 为 MDL_CREDIT_V1 提取档案，经 Gate A 审核通过后，才由实际 API 生成 credit_v1 候选；执行前经 Gate B 批准代码哈希（两道关卡均可通过 CLI 审核）；只在最小 Docker（`--network none`、只读挂载、非 root、超时）中运行；最多初始生成 + 两次修复；测试代码与基准不可写；候选冻结后才评估 Holdout，结果符合第 8 节，失败则状态为 FAILED | model_inventory.json、review_log.json、agent_audit_log.jsonl、代码及测试哈希、Holdout parity_summary.json |
-| V1-07 | 迁移证据链复现 | 按 README 用 CLI 从预置数据跑到 Holdout 等价性结论；结果为真实运行而非硬编码 | 命令、退出码、运行日志 |
+| ~~V1-01~~ | ~~API smoke test（最小调用）~~ | 指定网关真实请求成功；确认协议、模型 ID、工具往返及输出解析；不能确认时当天按 16.2 决策 | ✅ PASS · 脱敏的 capability_check.json、请求 ID、脱敏请求日志 |
+| ~~V1-02~~ | ~~数据加工与划分~~ | 原始 UCI 文件 SHA-256 与记录一致；30,000 行按 15,000/6,000/6,000/3,000 分层划分，ID 唯一且互不交叉；各子集违约率与总体相差 ≤1 个百分点；未文档化编码按数据字典处理；固定种子；配置与产物哈希记录 | ✅ PASS · data_manifest.json、数据字典、划分测试 |
+| ~~V1-03~~ | ~~R 基准~~ | V1 模型可重跑，系数/预处理/开发预测输出有效；未把 ID、标签或人口属性当特征 | ✅ PASS · R sessionInfo、产物清单 |
+| ~~V1-04~~ | ~~Python 参考实现等价性~~ | 主键一一对齐、概率与分类、缺失与拒绝行为满足第 8 节；不得只比较 Accuracy | ✅ PASS · parity_summary.json、parity_diff.csv |
+| ~~V1-05~~ | ~~故意错误案例~~ | 改变一个系数的隔离副本被固定测试发现；原始基准及测试哈希不变 | ✅ PASS · 预期失败测试与差异 |
+| ~~V1-06~~ | ~~真实 Agent 迁移~~ | Agent 为 MDL_CREDIT_V1 提取档案，经 Gate A 审核通过后，才由实际 API 生成 credit_v1 候选；执行前经 Gate B 批准代码哈希（两道关卡均可通过 CLI 审核）；只在最小 Docker（`--network none`、只读挂载、非 root、超时）中运行；最多初始生成 + 两次修复；测试代码与基准不可写；候选冻结后才评估 Holdout，结果符合第 8 节，失败则状态为 FAILED | ✅ PASS · model_inventory.json、review_log.json、agent_audit_log.jsonl、代码及测试哈希、Holdout parity_summary.json |
+| ~~V1-07~~ | ~~迁移证据链复现~~ | 按 README 用 CLI 从预置数据跑到 Holdout 等价性结论；结果为真实运行而非硬编码 | ✅ PASS · 命令、退出码、运行日志 |
 
 人工 Python 实现是等价性工具的开发基线，不能标为 Agent 自动迁移；V1-06 的候选必须由真实 API 生成。
+
+> **v1 验收记录（2026-11-09）**：正式 run `v1-20261109T181929Z-3fe1c7b5`（campaign 2，seed 43）V1-01～07 全部 PASS，Gate A/B 为代理审核，证据包 `delivery/v1-20261109T181929Z-3fe1c7b5_evidence.zip`，对应提交 `70858cd`；`v1` Git tag 尚未创建。另有本机复现 run `v1-20261109T195940Z-3fa02654`：按 §12.1 从新环境跑通 check-provider → candidate-fixtures 共 12 条命令（全部 exit 0），Gate A/B 由人工（alex）审核，Agent 候选 dev parity PASS（6,000 行，max_abs_diff 2.2e-16）；依 §7.5 未重复消费 campaign 2 Holdout，`final_status=NOT_RUN`。
 
 ### 4.2 v2 验收标准
 
@@ -384,7 +386,7 @@ $$
 
 API 超时、解析失败、达到请求上限、容器失败或修复耗尽：停止对应阶段、保存失败原因、提供明确重试入口。重试计入请求次数；新候选需重新审核。历史结果显示原 run_id、时间和 REPLAY（回放）标识。
 
-## 12. 目录和计划 CLI
+## 12. 目录与运行手册
 
 ```text
 model-risk-factory/
@@ -416,33 +418,130 @@ model-risk-factory/
   app.py
 ```
 
-以下为**待实现命令契约**，不是已存在脚本。实现后 README 必须按实测修订：
+### 12.1 运行手册（v1 已实现，按 README 实测命令整理）
+
+以下命令均在仓库根目录执行，入口为 `python -m src.cli`。CLI **只从当前 shell 的环境变量**读取网关配置，不会自动加载 `.env`，所以所有步骤必须在**同一个终端**中完成。V1-07 只接受首轮全部 exit 0 的命令链，任何一步失败都应新建 run 从第 1 步重来。
+
+**第 0 步：前置条件。** 需要 Python 3（实测 3.15.2）、Docker（实测 29.9.2，需先启动 Docker Desktop），已获得主办方对 UCI 数据使用的确认，以及网关 API key。
+
+**第 1 步：导入环境变量。** 复制模板，填入真实值。`.env` 已被 gitignore，不得提交。
+
+```bash
+cp .env.example .env
+# 编辑 .env，推荐取值（与 v1 正式 run 一致）：
+# LLM_BASE_URL=https://sa.kaiwen.dev/v1
+# LLM_CHAT_COMPLETIONS_URL=https://sa.kaiwen.dev/v1/chat/completions
+# LLM_PROTOCOL=openai_chat_completions
+# LLM_MODEL=deepseek-v4.1-flash:1017
+# LLM_API_KEY=            # 留空，下面交互式输入，避免写入磁盘
+# LLM_TIMEOUT_SECONDS=300
+# LLM_MAX_OUTPUT_TOKENS=32768   # 过小（如 8192）会截断候选
+
+set -a; source .env; set +a        # 把 .env 全部 export 到当前 shell
+printf 'LLM API key: ' >&2; read -rs LLM_API_KEY; export LLM_API_KEY; echo
+env | grep '^LLM_' | sed 's/\(LLM_API_KEY=\).*/\1***/'   # 自查，不回显密钥
+```
+
+注意：`.env.example` 中的 `LLM_BASE_URL` 不带 `/v1`，以上述实测值为准。`LLM_MODEL` 留空时使用 `config/provider_config.json` 的 `default_model`。
+
+**第 2 步：Python 环境与受信测试。**
 
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
-pip install -r requirements.txt
-
-# API capability check：接入验证
-python -m src.cli check-provider --run-id <run_id>
-
-# Prepare：下载并校验 UCI 原始文件、加工划分、训练 R 模型和基准
-python -m src.cli prepare --seed 42
-
-# Run：本地工作流与人工审核在界面进行
-streamlit run app.py
-
-# Test：受信测试，不把保留集答案交给 Agent
-pytest
-
-# Acceptance：对已冻结、已批准的候选执行最终验收
-python -m src.cli accept --run-id <run_id>
-
-# Export：导出同一运行的证据包
-python -m src.cli export --run-id <run_id>
+python -m pip install -r requirements.txt
+python -m pytest -q                 # 预期：103 passed, 7 subtests passed
 ```
 
-配置示例只含 `LLM_BASE_URL`、`LLM_MODEL`、`LLM_API_KEY` 等变量名与占位符。接口路径和模型参数以接入验证为准。运行日志脱敏后再决定是否入 Git。
+**第 3 步：Docker 镜像。**
+
+```bash
+docker pull rocker/r-ver:4.4.2                          # R 基准
+docker build -t model-risk-factory-runner:v1 docker     # 候选执行镜像
+```
+
+**第 4 步（可选）：合成数据冒烟测试。** 不需要 API key，只用来验证本地环境，不计入正式验收。
+
+```bash
+SEED=$(python -c 'import json; from pathlib import Path; print(json.loads(Path("config/data_config.json").read_text())["seed"])')
+RUN_ID=$(python -m src.cli init-run --mode synthetic | python -c 'import json, sys; print(json.load(sys.stdin)["run_id"])')
+python -m src.cli prepare --run-id "$RUN_ID" --synthetic --seed "$SEED"
+for c in baseline reference-parity fixture-parity mutation-check; do python -m src.cli $c --run-id "$RUN_ID" || break; done
+```
+
+**第 5 步：创建正式 run 并检查网关（V1-01）。**
+
+```bash
+export PYTHONDONTWRITEBYTECODE=1
+SEED=$(python -c 'import json; from pathlib import Path; print(json.loads(Path("config/data_config.json").read_text())["seed"])')   # 当前 campaign 为 43
+RUN_ID=$(python -m src.cli init-run --mode uci | python -c 'import json, sys; print(json.load(sys.stdin)["run_id"])')
+echo "$RUN_ID"
+python -m src.cli check-provider --run-id "$RUN_ID"
+```
+
+网关偶尔返回 504，或工具往返内容不合规。此时不要在同一 run 中重试，而是重新执行第 5 步。
+
+**第 6 步：UCI 数据、R 基准与参考验证（V1-02～05）。**
+
+```bash
+UCI_SHA=56c885f84457f6680f8438f02bfcdac9579323d8a94465ee5f26e32baa727602
+python -m src.cli download-uci --run-id "$RUN_ID" --expected-sha256 "$UCI_SHA" --approve-uci-use
+python -m src.cli prepare --run-id "$RUN_ID" --uci data/raw/default_of_credit_card_clients.zip \
+  --expected-sha256 "$UCI_SHA" --approve-uci-use --seed "$SEED"
+python -m src.cli baseline --run-id "$RUN_ID"
+python -m src.cli reference-parity --run-id "$RUN_ID"
+python -m src.cli fixture-parity --run-id "$RUN_ID"
+python -m src.cli mutation-check --run-id "$RUN_ID"
+```
+
+`--approve-uci-use` 表示操作者声明已获主办方确认，程序不会自动取得许可。`--seed` 必须等于配置中的 seed，否则会被拒绝。
+
+**第 7 步：Agent 建档与 Gate A。**
+
+```bash
+python -m src.cli extract-inventory --run-id "$RUN_ID"
+python -m src.cli status --run-id "$RUN_ID"      # 输出档案哈希与完整审批命令
+python -m src.cli approve --run-id "$RUN_ID" --gate Gate_A \
+  --sha256 '<status 显示的档案哈希>' --reviewer '<姓名 或 agent-delegated>' --comment '<实际核对内容>'
+```
+
+审核者需核对以下内容：来源行号与摘录、四项 Unknown、特征顺序 `delay_1,log_limit,util_1,log_pay_1`，以及代码阈值 0.35 与文档阈值 0.50 的冲突。该冲突必须保留，不得自动归一。
+
+**第 8 步：真实候选、Gate B 与开发测试。**
+
+```bash
+python -m src.cli generate-candidate --run-id "$RUN_ID" --attempt 0
+python -m src.cli show-candidate --run-id "$RUN_ID" --attempt 0     # 审阅 diff、源码、64 位哈希
+python -m src.cli approve --run-id "$RUN_ID" --gate Gate_B --attempt 0 \
+  --sha256 '<candidate_sha256>' --reviewer '<姓名 或 agent-delegated>' --comment '<实际核对内容>'
+python -m src.cli run-dev --run-id "$RUN_ID" --attempt 0
+python -m src.cli candidate-fixtures --run-id "$RUN_ID" --attempt 0
+```
+
+开发测试失败时，用 `--attempt 1`、`--attempt 2` 重复第 8 步，每个新哈希都要重新通过 Gate B，最多修复两次。（已知缺陷：修复后 V1-07 仍会因链上有失败记录而 FAIL，见 README「已知工具缺陷」，留待 v2 处理。）
+
+**第 9 步：冻结、一次性 Holdout、验收与导出（V1-06、V1-07）。**
+
+```bash
+python -m src.cli freeze --run-id "$RUN_ID" --attempt 0     # 换成实际通过的 attempt
+python -m src.cli accept --run-id "$RUN_ID"                 # Holdout 每个 campaign 只能消费一次
+python -m src.cli acceptance --run-id "$RUN_ID"             # 逐项输出 V1-01～07
+python -m src.cli export --run-id "$RUN_ID"                 # 最后一步，之后不再写入该 run
+```
+
+产物位置：`runs/$RUN_ID/` 为全部运行证据；`delivery/${RUN_ID}_acceptance.json` 与 `delivery/${RUN_ID}_evidence.zip` 为可分享的白名单证据包。退出码约定为：0 表示通过，1 表示验收失败，2 表示输入、配置或执行错误。
+
+**常见错误。**
+
+| 现象 | 原因 | 处理 |
+| --- | --- | --- |
+| `check-provider` 报 `LLM_*` 配置缺失（BLOCKED） | 新开了终端，或没有执行 `set -a; source .env` | 回到第 1 步 |
+| `prepare` 拒绝 seed | 手写了 `--seed 42` | 从 `config/data_config.json` 读取 seed |
+| 候选 `finish_reason=length` | `LLM_MAX_OUTPUT_TOKENS` 过小 | 设为 32768，并新建 run |
+| `accept` 拒绝重跑 | 该 campaign 的 Holdout 已被消费 | 保留结果；只有新 campaign（改 seed）才能重新验收，见 7.5 |
+| Gate 审批失效 | 修改了 `src/`、`tests/`、`config/` 或候选 | 对新哈希重新审批，必要时新建 run |
+
+Streamlit 界面（`streamlit run app.py`）属于 v2，目前尚未实现。
 
 ## 13. 分工与里程碑
 
@@ -462,9 +561,9 @@ A=用户本人（AI 工程主线），B=队友（建模验证主线）。两人�
 
 | 日期 | 版本任务 | 分工 | 当天退出条件 |
 | --- | --- | --- | --- |
-| 11-08 | v1：接入关卡与基准资产 | A 负责 API、契约与调度。B 负责 UCI 下载、数据字典、划分和 R 模型 | API 能力查清；数据划分及一个 R 模型可跑 |
-| 11-09 | v1：单模型建档、等价性工具与 Agent 生成 | A 负责档案提取、最小 Docker、CLI 与 Agent 生成/修复循环。B 先准备待迁移模型的旧文档，再负责参考实现、等价性工具与故意错误测试 | V1-01～05 通过；待迁移模型的档案先通过 Gate A，Agent 再生成候选并经 Gate B 后在容器中跑开发测试 |
-| 11-10 | v1：真实迁移验收 | A 负责候选冻结与 Holdout 验收流程。B 负责指标程序与其余两个模型的旧文档资产 | V1-01～07 通过，创建 v1 验收记录 |
+| ~~11-08~~ ✅ | ~~v1：接入关卡与基准资产~~ | A 负责 API、契约与调度。B 负责 UCI 下载、数据字典、划分和 R 模型 | API 能力查清；数据划分及一个 R 模型可跑 |
+| ~~11-09~~ ✅ | ~~v1：单模型建档、等价性工具与 Agent 生成~~ | A 负责档案提取、最小 Docker、CLI 与 Agent 生成/修复循环。B 先准备待迁移模型的旧文档，再负责参考实现、等价性工具与故意错误测试 | V1-01～05 通过；待迁移模型的档案先通过 Gate A，Agent 再生成候选并经 Gate B 后在容器中跑开发测试 |
+| ~~11-10~~ ✅ | ~~v1：真实迁移验收~~ | A 负责候选冻结与 Holdout 验收流程。B 负责指标程序与其余两个模型的旧文档资产 | V1-01～07 通过，创建 v1 验收记录 |
 | 11-11 | v2：档案、验证报告与审核 | A 负责档案提取、审核关卡、导出与界面。B 负责四类验证、故障测试与材料 | V2-01～07 通过；材料初稿 |
 | 11-12 | v3：新环境复现与冻结 | A、B 共同完成复现测试、缺陷修复、材料和录屏 | V3-01～06 通过；功能冻结、最终标签 |
 | 11-13 | 提交检查 | 处理提交事项及必要阻断缺陷 | 主办方最终时间确认、访问检查、提交回执 |
@@ -480,12 +579,12 @@ A=用户本人（AI 工程主线），B=队友（建模验证主线）。两人�
 
 ## 14. 执行 SOP：从开工到最终版
 
-1. **Prepare（准备）**：核对报名/题目/日期；检查 Python、R、Docker；确认 API 能力；冻结配置与契约。
-2. **Acquire data（取数）**：下载 UCI 原始文件，记录 SHA-256 与许可；按数据字典处理编码；固定种子分层划分；只在 train 学习参数；构造漂移批次与 fixtures；建立三个 R 模型和预设文档缺口。
-3. **Establish baseline（建立基准）**：B 保存基准与哈希；A 无权通过 Agent 修改基准；先完成参考预测及故意错误检测。
-4. **Document & migrate（单模型建档与迁移）**：开放允许列表工具；Agent 根据 R 代码和旧文档提取 MDL_CREDIT_V1 档案；Gate A 通过后才生成 credit_v1 候选；Gate B 批准代码哈希后，在最小 Docker 中执行开发测试与受限修复。
-5. **Freeze candidate（冻结候选）**：保存代码哈希；独立运行 Holdout；失败不泄露答案后反复修复；记录失败和后续处理。
-6. **Accept v1（验收原型）**：逐项执行 V1 检查；记录实际结果、环境和差异；通过后创建 v1 标签。
+1. ~~**Prepare（准备）**：核对报名/题目/日期；检查 Python、R、Docker；确认 API 能力；冻结配置与契约。~~ ✅
+2. ~~**Acquire data（取数）**：下载 UCI 原始文件，记录 SHA-256 与许可；按数据字典处理编码；固定种子分层划分；只在 train 学习参数；构造漂移批次与 fixtures；建立三个 R 模型和预设文档缺口。~~ ✅
+3. ~~**Establish baseline（建立基准）**：B 保存基准与哈希；A 无权通过 Agent 修改基准；先完成参考预测及故意错误检测。~~ ✅
+4. ~~**Document & migrate（单模型建档与迁移）**：开放允许列表工具；Agent 根据 R 代码和旧文档提取 MDL_CREDIT_V1 档案；Gate A 通过后才生成 credit_v1 候选；Gate B 批准代码哈希后，在最小 Docker 中执行开发测试与受限修复。~~ ✅
+5. ~~**Freeze candidate（冻结候选）**：保存代码哈希；独立运行 Holdout；失败不泄露答案后反复修复；记录失败和后续处理。~~ ✅
+6. ~~**Accept v1（验收原型）**：逐项执行 V1 检查；记录实际结果、环境和差异；通过后创建 v1 标签。~~ ✅
 7. **Complete inventory, validate & review（补齐档案、验证与审阅）**：补齐其余两个模型的档案并经 Gate A，确认三份档案均已通过审核；计算四类指标、生成来源可追溯报告并经 Gate C；加固容器边界；测试超时、请求上限与无效输出。
 8. **Accept v2（验收正式版）**：端到端流程与导出完整，V2 全通过；创建 v2 标签。
 9. **Finalize（最终交付）**：新环境复现、实测业务价值、完善五件套、录屏、两人互审。
@@ -592,7 +691,7 @@ README 与 Deck 中列出：
 | # | 事项 | 建议 | 状态 / 负责人 |
 | --- | --- | --- | --- |
 | 16.1 | V1 是否改为 **WoE 评分卡** | 逻辑回归迁移本质是一次点积，等价性显得过于容易，Agent 价值不明显。银行信用模型常用 WoE 评分卡（分箱 → WoE → 逻辑回归 → 分数换算），迁移时有真实易错点：R `cut()` 默认右闭区间、缺失值单独成箱、分数取整。工作量增加有限，演示说服力更强 | 待 A/B 商定；若采纳，需改 6.6、第 8 节公式与 V1-04、V1-06 |
-| 16.2 | API 网关风险 | sa.kaiwen.dev 的工具调用待验证，而真实 Agent 迁移属于 v1（11-10 截止）。11-08 当天完成 V1-01；不通过则由团队确认备选 API（如 Claude API），变更写入决策记录 | 待 A 当天验证 |
+| 16.2 | API 网关风险 | sa.kaiwen.dev 的工具调用待验证，而真实 Agent 迁移属于 v1（11-10 截止）。11-08 当天完成 V1-01；不通过则由团队确认备选 API（如 Claude API），变更写入决策记录 | ✅ 已关闭：11-09 V1-01 PASS（deepseek-v4.1-flash:1017，openai_chat_completions，工具往返正常） |
 | 16.3 | EXL 示例模型代码 | 向主办方确认是否发放；若发放，评估替换或追加为第 4 个模型，评委认可度更高 | 待询问 |
 | 16.4 | MLflow / Azure ML | 官方偏好但非强制；时间允许时用本地 MLflow 记录运行，否则列入 Roadmap | 可选 |
 
