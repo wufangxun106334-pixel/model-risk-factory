@@ -30,6 +30,12 @@ def _manifest_hash(run_dir: Path, name: str) -> str:
     return expected
 
 
+def verified_split_hash(run_dir: Path, name: str) -> str:
+    """Public wrapper: the split hash must match the prepared data manifest."""
+
+    return _manifest_hash(run_dir, name)
+
+
 def runner_image(run_dir: Path) -> str:
     config = run_dir.parent.parent / "config" / "runtime_config.json"
     image = read_json(config).get("runner_image") if config.is_file() else None

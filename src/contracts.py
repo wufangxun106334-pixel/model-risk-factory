@@ -4,6 +4,9 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+ModelId = Literal["MDL_CREDIT_V1", "MDL_CREDIT_V2", "MDL_CREDIT_TREE"]
+MigrationModelId = Literal["MDL_CREDIT_V1"]
+
 
 class StrictModel(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True)
@@ -24,7 +27,7 @@ class InventorySource(StrictModel):
 class ModelInventory(StrictModel):
     schema_version: Literal["1"]
     run_id: str
-    model_id: Literal["MDL_CREDIT_V1"]
+    model_id: ModelId
     model_type: str
     owner: str
     training_date: str
@@ -38,7 +41,7 @@ class ModelInventory(StrictModel):
 
 
 class InventoryPayload(StrictModel):
-    model_id: Literal["MDL_CREDIT_V1"]
+    model_id: ModelId
     model_type: str
     owner: str
     training_date: str
@@ -53,7 +56,7 @@ class InventoryPayload(StrictModel):
 class ReviewEntry(StrictModel):
     schema_version: Literal["1"] = "1"
     run_id: str
-    gate: Literal["Gate_A", "Gate_B"]
+    gate: Literal["Gate_A", "Gate_B", "Gate_C"]
     decision: Literal["APPROVED", "REJECTED"]
     reviewer: str = Field(min_length=1)
     timestamp: str
@@ -63,7 +66,7 @@ class ReviewEntry(StrictModel):
 
 
 class CandidatePayload(StrictModel):
-    model_id: Literal["MDL_CREDIT_V1"]
+    model_id: MigrationModelId
     code: str = Field(min_length=1)
 
     @field_validator("code")
@@ -77,7 +80,7 @@ class CandidatePayload(StrictModel):
 class MigrationResult(StrictModel):
     schema_version: Literal["1"] = "1"
     run_id: str
-    model_id: Literal["MDL_CREDIT_V1"]
+    model_id: MigrationModelId
     candidate_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
     attempt: int = Field(ge=0, le=2)
     dev_status: Literal["NOT_RUN", "PASS", "FAIL", "BLOCKED"]

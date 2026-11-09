@@ -237,7 +237,49 @@ def _stratified_counts(available: dict[int, int], size: int) -> dict[int, int]:
     return counts
 
 
-def _split_frame(frame: pd.DataFrame, rng: np.random.Generator) -> dict[str, pd.DataFrame]:
+def _excluded_holdout_ids(config: dict) -> tuple[set[str], list[dict]]:
+    """Load previously consumed Holdout ids so the next Holdout cannot reuse them."""
+
+    specification = config.get("holdout_exclusion")
+    if not isinstance(specification, dict) or specification.get("enabled") is not True:
+        return set(), []
+    sources = specification.get("sources")
+    if not isinstance(sources, list) or not sources:
+        raise ValueError("holdout_exclusion.sources must list the consumed Holdout files")
+    repository = _config_path().parents[1]
+    identifiers: set[str] = set()
+    records: list[dict] = []
+    for relative in sources:
+        path = (repository / str(relative)).resolve()
+        if not path.is_file():
+            raise ValueError(f"Consumed Holdout source is missing: {relative}")
+        values = pd.read_csv(path, usecols=["client_id"])["client_id"].astype(str)
+        identifiers.update(values.tolist())
+        records.append({"path": str(relative), "sha256": _sha256_file(path), "rows": int(len(values)), "ids": set(values.tolist())})
+    return identifiers, records
+
+
+def _holdout_exclusion_block(config: dict, frames: dict[str, pd.DataFrame], records: list[dict]) -> dict:
+    specification = config.get("holdout_exclusion") or {}
+    holdout_ids = set(frames["holdout"]["client_id"].astype(str).tolist())
+    return {
+        "enabled": bool(specification.get("enabled")),
+        "rule": specification.get("rule"),
+        "sources": [{key: value for key, value in record.items() if key != "ids"} for record in records],
+        "holdout_rows": int(len(holdout_ids)),
+        "overlap": {record["path"]: int(len(holdout_ids & record["ids"])) for record in records},
+        "overlap_total": int(sum(len(holdout_ids & record["ids"]) for record in records)),
+    }
+
+
+def _split_frame(frame: pd.DataFrame, rng: np.random.Generator, excluded_client_ids=frozenset()) -> dict[str, pd.DataFrame]:
+    """Stratified split with an optional exclusion set for previously consumed Holdouts.
+
+    The Holdout is drawn first, and only from rows that no earlier campaign has
+    already consumed as a Holdout. The remaining split sizes are unchanged, so
+    the exclusion changes which rows form the Holdout, not the split contract.
+    """
+
     if len(frame) != TOTAL_ROWS:
         raise ValueError(f"Expected exactly {TOTAL_ROWS} rows, got {len(frame)}")
     if frame["client_id"].duplicated().any():
@@ -245,27 +287,48 @@ def _split_frame(frame: pd.DataFrame, rng: np.random.Generator) -> dict[str, pd.
     if set(frame["default_flag"].unique()) != {0, 1}:
         raise ValueError("Both default classes are required")
 
-    remaining = {
-        label: rng.permutation(np.flatnonzero(frame["default_flag"].to_numpy() == label))
-        for label in [0, 1]
+    labels = frame["default_flag"].to_numpy()
+    excluded_mask = frame["client_id"].astype(str).isin(excluded_client_ids).to_numpy()
+    allowed_positions = np.flatnonzero(~excluded_mask)
+    if len(allowed_positions) < SPLIT_SIZES["holdout"]:
+        raise ValueError("Too few rows remain once consumed Holdout rows are excluded")
+
+    holdout_pools = {
+        label: rng.permutation(allowed_positions[labels[allowed_positions] == label])
+        for label in (0, 1)
     }
-    splits = {}
-    split_names = list(SPLIT_SIZES)
-    for split_name in split_names:
-        if split_name == split_names[-1]:
-            selected = remaining
-        else:
-            available = {label: len(indices) for label, indices in remaining.items()}
-            counts = _stratified_counts(available, SPLIT_SIZES[split_name])
-            selected = {label: remaining[label][:counts[label]] for label in remaining}
-            remaining = {label: remaining[label][counts[label]:] for label in remaining}
+    holdout_counts = _stratified_counts(
+        {label: len(pool) for label, pool in holdout_pools.items()}, SPLIT_SIZES["holdout"]
+    )
+    holdout_positions = np.concatenate(
+        [holdout_pools[label][: holdout_counts[label]] for label in sorted(holdout_pools)]
+    )
+    holdout_mask = np.zeros(len(frame), dtype=bool)
+    holdout_mask[holdout_positions] = True
+
+    rest_positions = np.flatnonzero(~holdout_mask)
+    rest_labels = labels[rest_positions]
+    remaining = {
+        label: rng.permutation(np.flatnonzero(rest_labels == label))
+        for label in (0, 1)
+    }
+    splits = {
+        "holdout": frame.iloc[np.sort(holdout_positions)]
+        .sort_values("client_id", kind="mergesort")
+        .reset_index(drop=True)
+    }
+    for split_name in ("train", "dev", "shift_pool"):
+        available = {label: len(indices) for label, indices in remaining.items()}
+        counts = _stratified_counts(available, SPLIT_SIZES[split_name])
+        selected = {label: remaining[label][: counts[label]] for label in remaining}
+        remaining = {label: remaining[label][counts[label]:] for label in remaining}
         positions = np.concatenate([selected[label] for label in sorted(selected)])
         splits[split_name] = (
-            frame.iloc[positions]
+            frame.iloc[rest_positions[positions]]
             .sort_values("client_id", kind="mergesort")
             .reset_index(drop=True)
         )
-    return splits
+    return {name: splits[name] for name in SPLIT_SIZES}
 
 
 def validate_splits(frames: dict[str, pd.DataFrame]) -> dict:
@@ -520,7 +583,7 @@ def prepare_synthetic(output_dir: Path, seed: int = DEFAULT_SEED) -> dict:
     rng = np.random.default_rng(seed)
     raw = _generate_synthetic_raw(rng)
     frame = _transform_raw(raw)
-    frames = _split_frame(frame, rng)
+    frames = _split_frame(frame, rng, frozenset())
     return _write_outputs(
         frames,
         raw,
@@ -598,7 +661,8 @@ def prepare_uci(
     config, config_sha256 = _load_config()
     seed = int(config["seed"])
     rng = np.random.default_rng(seed)
-    frames = _split_frame(frame, rng)
+    excluded_ids, exclusion_records = _excluded_holdout_ids(config)
+    frames = _split_frame(frame, rng, excluded_ids)
     provenance = Path(source_path) if source_path is not None else input_path
     manifest = _write_outputs(
         frames,
@@ -627,6 +691,7 @@ def prepare_uci(
     }
     _write_json(Path(output_dir) / "uci_approval.json", approval)
     manifest["uci_approval_sha256"] = _sha256_file(Path(output_dir) / "uci_approval.json")
+    manifest["holdout_exclusion"] = _holdout_exclusion_block(config, frames, exclusion_records)
     _write_json(Path(output_dir) / "data_manifest.json", manifest)
     return manifest
 

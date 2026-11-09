@@ -1,11 +1,11 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "MDL_CREDIT_V1 inventory extraction payload",
+  "title": "Legacy model inventory extraction payload",
   "type": "object",
   "additionalProperties": false,
   "required": ["model_id", "model_type", "owner", "training_date", "feature_order", "code_threshold", "documented_threshold", "unknowns", "conflicts", "sources"],
   "properties": {
-    "model_id": {"const": "MDL_CREDIT_V1"},
+    "model_id": {"enum": ["MDL_CREDIT_V1", "MDL_CREDIT_V2", "MDL_CREDIT_TREE"]},
     "model_type": {"type": "string"},
     "owner": {"type": "string"},
     "training_date": {"type": "string"},

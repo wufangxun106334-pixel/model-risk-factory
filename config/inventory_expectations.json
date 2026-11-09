@@ -1,0 +1,30 @@
+{
+  "schema_version": "1",
+  "migration_scope": ["MDL_CREDIT_V1"],
+  "models": {
+    "MDL_CREDIT_V1": {
+      "sources": ["legacy/credit_v1.R", "legacy/notes/credit_v1.md"],
+      "feature_order": ["delay_1", "log_limit", "util_1", "log_pay_1"],
+      "code_threshold": 0.35,
+      "documented_threshold": 0.5,
+      "unknown_fields": ["owner", "training_date"],
+      "min_conflicts": 1
+    },
+    "MDL_CREDIT_V2": {
+      "sources": ["legacy/credit_v2.R", "legacy/notes/credit_v2.md"],
+      "feature_order": ["delay_1", "delay_2", "delay_3", "log_limit", "util_1", "util_mean_6", "log_pay_1"],
+      "code_threshold": 0.3,
+      "documented_threshold": 0.3,
+      "unknown_fields": ["owner", "training_date"],
+      "min_conflicts": 1
+    },
+    "MDL_CREDIT_TREE": {
+      "sources": ["legacy/credit_tree.R", "legacy/notes/credit_tree.md"],
+      "feature_order": ["delay_1", "delay_2", "delay_3", "delay_4", "delay_5", "delay_6", "limit_bal", "util_1"],
+      "code_threshold": 0.5,
+      "documented_threshold": 0.5,
+      "unknown_fields": ["owner", "training_date"],
+      "min_conflicts": 1
+    }
+  }
+}

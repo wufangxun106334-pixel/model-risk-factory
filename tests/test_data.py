@@ -28,7 +28,7 @@ def _file_sha256(path: Path) -> str:
 def test_frozen_config():
     config = json.loads((Path(__file__).parents[1] / "config" / "data_config.json").read_text())
     assert config["model_id"] == "MDL_CREDIT_V1"
-    assert config["seed"] == 43
+    assert config["seed"] == 44
     assert config["total_rows"] == 30000
     assert config["split_sizes"] == {
         "train": 15000,

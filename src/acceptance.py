@@ -622,7 +622,20 @@ def evaluate_acceptance(repository: Path, run_dir: Path, run_id: str) -> list[di
 
 
 def write_acceptance(repository: Path, run_dir: Path, run_id: str) -> dict:
+    from src.acceptance_v2 import evaluate_v2_acceptance
+
     records = evaluate_acceptance(repository, run_dir, run_id)
-    payload = {"schema_version": "1", "run_id": run_id, "version": "v1", "release_approved": all(item["status"] == "PASS" for item in records), "records": records}
+    v2_records = evaluate_v2_acceptance(repository, run_dir, run_id)
+    v1_approved = all(item["status"] == "PASS" for item in records)
+    v2_approved = all(item["status"] == "PASS" for item in v2_records)
+    payload = {
+        "schema_version": "1",
+        "run_id": run_id,
+        "version": "v2",
+        "v1_release_approved": v1_approved,
+        "v2_release_approved": v2_approved,
+        "release_approved": v1_approved and v2_approved,
+        "records": [*records, *v2_records],
+    }
     write_json(run_dir / "acceptance.json", payload)
     return payload
