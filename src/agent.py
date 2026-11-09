@@ -218,6 +218,9 @@ def extract_inventory(repository: Path, run_dir: Path, run_id: str, model_id: st
         f"Report the code threshold and the documented threshold separately, even when they agree, and record every disagreement with the documentation in conflicts: code {expectation['code_threshold']} / documented {expectation['documented_threshold']}. "
         "A feature or hyperparameter that the code uses but the note omits is a conflict; a feature or limit the note states but the code does not implement is also a conflict. "
         "Every key fact needs a source path, actual SHA-256, valid line range and verbatim excerpt. Do not infer missing facts. "
+        "Call validate_inventory at most twice: an excerpt must be copied exactly from the cited line range, "
+        "every configured source must appear in sources, and each unknown field must also appear in unknowns. "
+        "As soon as validate_inventory returns VALID, return that same JSON object as your final answer with no further tool calls. "
         f"JSON Schema: {json.dumps(schema, ensure_ascii=False)}"
     )
     messages = [{"role": "system", "content": "You are a constrained model inventory extraction Agent. Only use supplied tools and evidence."}, {"role": "user", "content": prompt}]
