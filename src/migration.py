@@ -68,9 +68,9 @@ def load_candidate(run_dir: Path, attempt: int | None = None) -> tuple[Path, dic
     return directory, metadata
 
 
-def update_dev_result(run_dir: Path, run_id: str, attempt: int, status: str, diagnostics_ref: str | None) -> dict:
+def update_dev_result(run_dir: Path, run_id: str, attempt: int, status: str, diagnostics_ref: str | None, fixture_status: str = "NOT_RUN") -> dict:
     directory, metadata = load_candidate(run_dir, attempt)
-    result = MigrationResult(run_id=run_id, model_id="MDL_CREDIT_V1", candidate_sha256=metadata["candidate_sha256"], attempt=attempt, dev_status=status, final_status="NOT_RUN", diagnostics_ref=diagnostics_ref, context_sha256=metadata["context_sha256"])
+    result = MigrationResult(run_id=run_id, model_id="MDL_CREDIT_V1", candidate_sha256=metadata["candidate_sha256"], attempt=attempt, dev_status=status, fixture_status=fixture_status, final_status="NOT_RUN", diagnostics_ref=diagnostics_ref, context_sha256=metadata["context_sha256"])
     write_json(run_dir / "migration_result.json", result.model_dump())
     return result.model_dump()
 

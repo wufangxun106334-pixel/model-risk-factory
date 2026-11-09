@@ -19,6 +19,7 @@ from src.common import (
     load_run,
     read_json,
     redact_arguments,
+    sha256_file,
     source_snapshot,
     update_run_state,
     utc_now,
@@ -53,7 +54,11 @@ def _parser() -> argparse.ArgumentParser:
     source = prepare.add_mutually_exclusive_group(required=True)
     source.add_argument("--synthetic", action="store_true")
     source.add_argument("--uci", type=Path)
-    prepare.add_argument("--seed", type=int, default=42)
+    # The campaign seed is owned by config/data_config.json. Leaving --seed unset must
+    # therefore resolve to that value, never to a hard-coded literal that can drift
+    # from the configuration (v2 defect: the CLI default was frozen at 42 while the
+    # campaign config moved to 43).
+    prepare.add_argument("--seed", type=int, default=None)
     prepare.add_argument("--expected-sha256")
     prepare.add_argument("--approve-uci-use", action="store_true")
 
@@ -78,6 +83,23 @@ def _parser() -> argparse.ArgumentParser:
     show.add_argument("--run-id", required=True)
     show.add_argument("--attempt", type=int, required=True)
     return parser
+
+
+def resolve_campaign_seed(requested: int | None, repository: Path) -> int:
+    """Resolve ``prepare --seed`` against the frozen campaign configuration.
+
+    ``None`` means "use the configured campaign seed"; an explicit value that
+    disagrees with the configuration is rejected instead of silently reseeding.
+    """
+
+    campaign_seed = int(read_json(repository / "config" / "data_config.json")["seed"])
+    if requested is None:
+        return campaign_seed
+    if requested != campaign_seed:
+        raise ContractError(
+            f"Seed {requested} does not match the configured campaign seed {campaign_seed}"
+        )
+    return campaign_seed
 
 
 def _status(repository: Path, run_dir: Path, run_id: str) -> dict:
@@ -123,13 +145,9 @@ def _dispatch(arguments: argparse.Namespace) -> dict[str, Any]:
     if command in {"prepare", "baseline"} and any((run_dir / name).exists() for name in ("model_inventory.json", "candidates", "frozen")):
         raise ContractError("Inputs and baseline are immutable after migration starts; create a new run")
     if command == "prepare":
-        campaign_seed = int(read_json(REPOSITORY / "config" / "data_config.json")["seed"])
-        if arguments.seed != campaign_seed:
-            raise ContractError(
-                f"v1 seed is frozen at the configured campaign seed {campaign_seed}"
-            )
+        resolved_seed = resolve_campaign_seed(arguments.seed, REPOSITORY)
         if arguments.synthetic:
-            result = prepare_synthetic(run_dir / "data", seed=arguments.seed)
+            result = prepare_synthetic(run_dir / "data", seed=resolved_seed)
         else:
             result = prepare_uci(arguments.uci, run_dir / "data", arguments.approve_uci_use, arguments.expected_sha256 or "", run_id=run_id)
         result["run_id"] = run_id
@@ -233,10 +251,12 @@ def main(argv: list[str] | None = None) -> int:
     if run_id:
         try:
             run_dir, _ = load_run(RUNS_ROOT, run_id)
+            context_path = run_dir / "context_manifest.json"
             append_jsonl(run_dir / "command_log.jsonl", {
                 "schema_version": "1",
                 "run_id": run_id,
                 "argv": redact_arguments(["python", "-m", "src.cli", *raw_arguments]),
+                "context_sha256": sha256_file(context_path) if context_path.is_file() else None,
                 "started_at": started,
                 "finished_at": utc_now(),
                 "exit_code": exit_code,

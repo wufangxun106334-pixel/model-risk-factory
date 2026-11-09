@@ -390,6 +390,70 @@ def _trusted_migration_chain(run_dir: Path, run_id: str, candidate: dict) -> boo
         return False
 
 
+def _argv_option(argv: list[str], name: str) -> str | None:
+    for index, token in enumerate(argv):
+        if token == name and index + 1 < len(argv):
+            return argv[index + 1]
+    return None
+
+
+def _expected_attempt(run_dir: Path) -> int | None:
+    for relative in ("frozen/frozen.json", "migration_result.json"):
+        path = run_dir / relative
+        if path.is_file():
+            attempt = read_json(path).get("attempt")
+            if isinstance(attempt, int) and not isinstance(attempt, bool):
+                return attempt
+    return None
+
+
+def _frozen_candidate_sha256(run_dir: Path) -> str | None:
+    path = run_dir / "frozen" / "frozen.json"
+    if not path.is_file():
+        return None
+    value = read_json(path).get("candidate_sha256")
+    return value if isinstance(value, str) else None
+
+
+ATTEMPT_SCOPED = {"generate-candidate", "run-dev", "candidate-fixtures", "freeze"}
+
+
+def _chain_binding_problems(
+    event: dict,
+    label: str,
+    command: str,
+    run_id: str,
+    expected_attempt: int | None,
+    context_sha256: str | None,
+    frozen_sha256: str | None,
+) -> list[str]:
+    """Check that a successful chain step belongs to this run, attempt and context."""
+
+    problems: list[str] = []
+    argv = event.get("argv") or []
+    recorded_run_id = _argv_option(argv, "--run-id")
+    if recorded_run_id is not None and recorded_run_id != run_id:
+        problems.append(f"{label} argv --run-id={recorded_run_id} does not match {run_id}")
+    attempt_scoped = command in ATTEMPT_SCOPED or (command == "approve" and _argv_option(argv, "--gate") == "Gate_B")
+    if expected_attempt is not None and attempt_scoped:
+        recorded_attempt = _argv_option(argv, "--attempt")
+        if recorded_attempt is None:
+            problems.append(f"{label} has no --attempt but the run froze attempt {expected_attempt}")
+        elif not recorded_attempt.isdigit() or int(recorded_attempt) != expected_attempt:
+            problems.append(
+                f"{label} ran on attempt {recorded_attempt}, expected the frozen attempt {expected_attempt}"
+            )
+    if command == "approve" and _argv_option(argv, "--gate") == "Gate_B":
+        recorded_sha256 = _argv_option(argv, "--sha256")
+        if frozen_sha256 is not None and recorded_sha256 != frozen_sha256:
+            problems.append(f"{label} approved {recorded_sha256}, expected the frozen candidate {frozen_sha256}")
+    if context_sha256 is not None:
+        recorded_context = event.get("context_sha256")
+        if recorded_context is not None and recorded_context != context_sha256:
+            problems.append(f"{label} ran under a stale context")
+    return problems
+
+
 def _command_chain(run_dir: Path, run_id: str) -> list[str]:
     path = run_dir / "command_log.jsonl"
     if not path.is_file():
@@ -397,9 +461,20 @@ def _command_chain(run_dir: Path, run_id: str) -> list[str]:
     events = [event for event in read_jsonl(path) if event.get("run_id") == run_id]
     if not events:
         return ["command_log has no record for this run"]
+    expected_attempt = _expected_attempt(run_dir)
+    context_path = run_dir / "context_manifest.json"
+    context_sha256 = sha256_file(context_path) if context_path.is_file() else None
+    frozen_sha256 = _frozen_candidate_sha256(run_dir)
+    if expected_attempt is not None and context_sha256 is None:
+        return ["context_manifest missing for a run that produced a candidate"]
+    problems: list[str] = []
     position = 0
     for command, gate in COMMAND_CHAIN:
-        found = False
+        label = f"{command} {gate}" if gate else command
+        # Failures inside a run are legal retries as long as a later success of the
+        # same step follows: the failed records stay in the log as evidence.
+        failures: list[object] = []
+        success: dict | None = None
         while position < len(events):
             event = events[position]
             position += 1
@@ -407,20 +482,23 @@ def _command_chain(run_dir: Path, run_id: str) -> list[str]:
             name = argv[3] if len(argv) > 3 and argv[:3] == ["python", "-m", "src.cli"] else None
             if name != command:
                 continue
-            if command == "approve":
-                gate_value = None
-                for index, token in enumerate(argv):
-                    if token == "--gate" and index + 1 < len(argv):
-                        gate_value = argv[index + 1]
-                if gate_value != gate:
-                    continue
+            if command == "approve" and _argv_option(argv, "--gate") != gate:
+                continue
             if event.get("exit_code") != 0:
-                return [f"{command}{' ' + gate if gate else ''} exit_code={event.get('exit_code')}"]
-            found = True
+                failures.append(event.get("exit_code"))
+                continue
+            success = event
             break
-        if not found:
-            return [f"{command}{' ' + gate if gate else ''} record missing or out of order"]
-    return []
+        if success is None:
+            if failures:
+                problems.append(f"{label} has no successful attempt (failed exit codes: {failures})")
+            else:
+                problems.append(f"{label} record missing or out of order")
+            continue
+        problems.extend(
+            _chain_binding_problems(success, label, command, run_id, expected_attempt, context_sha256, frozen_sha256)
+        )
+    return problems
 
 
 def _export_evidence(run_dir: Path, run_id: str) -> list[str]:

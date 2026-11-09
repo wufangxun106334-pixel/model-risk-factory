@@ -4,5 +4,6 @@
   "max_requests_per_agent_round": 8,
   "timeout_seconds": 300,
   "max_retries": 2,
-  "retry_backoff_seconds": 0.25
+  "retry_backoff_seconds": 0.25,
+  "min_candidate_output_tokens": 16384
 }

@@ -137,6 +137,13 @@ def _run_stage(provider: Provider, run_dir: Path, run_id: str, stage: str, messa
             content_sha256=sha256_bytes(response.content.encode("utf-8")) if response.content else None,
             tool_names=[call.name for call in response.tool_calls],
         )
+        if response.finish_reason == "length":
+            _audit(run_dir, run_id, stage, "OUTPUT_TRUNCATED", request_id=response.request_id, request_event_id=response.request_event_id)
+            raise ContractError(
+                f"{stage}: model output hit the token ceiling (finish_reason=length); "
+                "a truncated submit_candidate can never be accepted. Raise LLM_MAX_OUTPUT_TOKENS, "
+                "then retry this attempt or generate the next one"
+            )
         if not response.tool_calls:
             return response, submissions
         messages.append(_assistant_message(response))
@@ -179,6 +186,7 @@ def extract_inventory(repository: Path, run_dir: Path, run_id: str) -> dict:
     if output.exists():
         raise ContractError("Inventory already exists for this run")
     provider = _provider(repository, run_dir, run_id, "inventory")
+    _require_output_budget(repository, provider, "Inventory extraction")
     schema_path = "config/inventory_schema.json"
     schema = read_json(repository / schema_path)
     allowed = {"legacy/credit_v1.R", "legacy/notes/credit_v1.md", schema_path}
@@ -222,6 +230,57 @@ def extract_inventory(repository: Path, run_dir: Path, run_id: str) -> dict:
     raise ContractError(f"Inventory extraction failed after one format retry: {last_error}")
 
 
+def repair_diagnostics(run_dir: Path, attempt: int) -> dict | None:
+    """Authorise a repair attempt from the immediately preceding candidate.
+
+    Attempt 0 needs no authorisation. A later attempt is legal only when the
+    preceding candidate recorded a FAIL that the Agent may inspect: either
+    development parity failed, or development parity passed while the fixed
+    behaviour fixtures failed (the case that used to abort the whole run).
+    """
+
+    if attempt == 0:
+        return None
+    result_path = run_dir / "migration_result.json"
+    previous = read_json(result_path) if result_path.is_file() else {}
+    if previous.get("attempt") != attempt - 1:
+        raise GateError(
+            "Candidate attempts must be sequential and the preceding attempt must be recorded; no API request was sent"
+        )
+    dev_failed = previous.get("dev_status") == "FAIL"
+    fixtures_failed = previous.get("dev_status") == "PASS" and previous.get("fixture_status") == "FAIL"
+    if not (dev_failed or fixtures_failed):
+        raise GateError(
+            "A repair requires a recorded FAIL (development parity or behaviour fixtures) "
+            "from the immediately preceding candidate"
+        )
+    reference = previous.get("diagnostics_ref")
+    if not reference:
+        raise GateError("The preceding FAIL has no recorded aggregate diagnostics")
+    diagnostics = read_json(run_dir / reference)
+    if diagnostics.get("contains_raw_rows") or diagnostics.get("contains_baseline_answers"):
+        raise ContractError("Unsafe development diagnostics cannot be sent to Agent")
+    return diagnostics
+
+
+def _require_output_budget(repository: Path, provider: Provider, stage: str) -> None:
+    """Refuse to send a large generation request with a ceiling that truncates it."""
+
+    config = getattr(provider, "config", None)
+    if config is None:
+        return
+    settings_path = repository / "config" / "provider_config.json"
+    settings = read_json(settings_path) if settings_path.is_file() else {}
+    minimum = settings.get("min_candidate_output_tokens")
+    if not isinstance(minimum, int) or isinstance(minimum, bool) or minimum <= 0:
+        raise ContractError("config/provider_config.json must declare min_candidate_output_tokens")
+    if config.max_output_tokens < minimum:
+        raise ContractError(
+            f"{stage} requires LLM_MAX_OUTPUT_TOKENS >= {minimum}, but the configured ceiling is "
+            f"{config.max_output_tokens}; a smaller ceiling truncates the tool payload mid-JSON"
+        )
+
+
 def generate_candidate(repository: Path, run_dir: Path, run_id: str, attempt: int) -> dict:
     capability = _require_capability(run_dir)
     inventory_path = run_dir / "model_inventory.json"
@@ -231,6 +290,7 @@ def generate_candidate(repository: Path, run_dir: Path, run_id: str, attempt: in
     if attempt > 0 and not candidate_dir(run_dir, attempt - 1).is_dir():
         raise ContractError("Candidate attempts must be sequential; no API request was sent")
     provider = _provider(repository, run_dir, run_id, f"candidate-{attempt}")
+    _require_output_budget(repository, provider, f"Candidate stage {attempt}")
     contract_path = "config/candidate_contract.json"
     model = read_json(run_dir / "reference" / "model.json")
     inventory = read_json(inventory_path)
@@ -247,15 +307,7 @@ def generate_candidate(repository: Path, run_dir: Path, run_id: str, attempt: in
             return {"status": "VALID", "execution": "REQUIRES_GATE_B"}
         raise ContractError(f"Tool is not available in candidate stage: {name}")
 
-    diagnostics = None
-    if attempt:
-        previous = read_json(run_dir / "migration_result.json")
-        if previous.get("attempt") != attempt - 1 or previous.get("dev_status") != "FAIL":
-            raise GateError("A repair requires a recorded FAIL from the immediately preceding candidate")
-        diagnostics_path = run_dir / previous["diagnostics_ref"]
-        diagnostics = read_json(diagnostics_path)
-        if diagnostics.get("contains_raw_rows") or diagnostics.get("contains_baseline_answers"):
-            raise ContractError("Unsafe development diagnostics cannot be sent to Agent")
+    diagnostics = repair_diagnostics(run_dir, attempt)
     prompt = (
         "Migrate MDL_CREDIT_V1 from R to standalone Python without retraining. Read the R code and candidate contract using tools. "
         "The only paths accepted by read_asset are, exactly, with no prefix or suffix added: "

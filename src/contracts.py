@@ -81,6 +81,7 @@ class MigrationResult(StrictModel):
     candidate_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
     attempt: int = Field(ge=0, le=2)
     dev_status: Literal["NOT_RUN", "PASS", "FAIL", "BLOCKED"]
+    fixture_status: Literal["NOT_RUN", "PASS", "FAIL", "BLOCKED"] = "NOT_RUN"
     final_status: Literal["NOT_RUN", "PASS", "FAIL", "BLOCKED"]
     diagnostics_ref: str | None
     context_sha256: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
