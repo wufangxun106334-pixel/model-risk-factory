@@ -343,6 +343,15 @@ def test_evidence_path_outside_the_sealed_set_blocks(tmp_path):
     assert any("not part of the sealed evidence" in gap for gap in result["gaps"]), result["gaps"]
 
 
+def test_evidence_pointing_at_the_manifest_is_sealed(tmp_path):
+    repo, run, commit = build(tmp_path)
+    records = records_for(commit)
+    records[0]["evidence_path"] = "evidence_manifest.json"
+    set_records(run, records)
+    result = release_check(repo, "v2", run, RUN_ID)
+    assert result["status"] == "APPROVED", result["gaps"]
+
+
 def test_evidence_hash_mismatch_blocks(tmp_path):
     repo, run, _commit = build(tmp_path)
     (run / EVIDENCE_MEMBER).write_text("# changed after sealing\n", encoding="utf-8")

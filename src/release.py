@@ -194,6 +194,9 @@ def _acceptance_gaps(run_dir: Path, run_id: str, commit: str) -> list[str]:
                 for record in files
                 if isinstance(record.get("path"), str) and isinstance(record.get("sha256"), str)
             }
+            # The manifest itself is sealed too: it is a ZIP member and its hash is
+            # recorded by the export, even though it does not list itself in files.
+            sealed.setdefault("evidence_manifest.json", sha256_file(manifest_path))
 
     records = acceptance.get("records")
     if not isinstance(records, list):
