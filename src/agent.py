@@ -186,7 +186,11 @@ def extract_inventory(repository: Path, run_dir: Path, run_id: str, model_id: st
     if output.exists():
         raise ContractError(f"Inventory already exists for {model_id} in this run")
     expectation = model_expectation(repository, model_id)
-    provider = _provider(repository, run_dir, run_id, "inventory")
+    # Each model is a separate agent round: the eight-request ceiling applies per
+    # round, so three inventories must not share one budget. MDL_CREDIT_V1 keeps
+    # the historical round name that the v1 evidence chain pins.
+    round_name = "inventory" if model_id == "MDL_CREDIT_V1" else f"inventory-{model_id.lower()}"
+    provider = _provider(repository, run_dir, run_id, round_name)
     _require_output_budget(repository, provider, f"Inventory extraction ({model_id})")
     schema_path = "config/inventory_schema.json"
     schema = read_json(repository / schema_path)
