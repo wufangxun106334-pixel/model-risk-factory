@@ -99,23 +99,41 @@ with open("/output/probe.json", "w") as handle:
 """
 
 CPU_PROBE = r"""
-import json, threading, time
-deadline = time.monotonic() + 3.0
+import json, os, time
+
+WORKERS = 4
+SECONDS = 3.0
 started = time.monotonic()
-
-def burn():
-    value = 0
-    while time.monotonic() < deadline:
-        value += 1
-
-threads = [threading.Thread(target=burn) for _ in range(2)]
-for thread in threads:
-    thread.start()
-for thread in threads:
-    thread.join()
+children = []
+for _ in range(WORKERS):
+    pid = os.fork()
+    if pid == 0:
+        value = 0
+        while time.monotonic() < started + SECONDS:
+            value += 1
+        os._exit(0)
+    children.append(pid)
+cpu = 0.0
+for pid in children:
+    _, status, usage = os.wait4(pid, 0)
+    cpu += usage.ru_utime + usage.ru_stime
 wall = time.monotonic() - started
-cpu = time.process_time()
-payload = {"threads": 2, "wall_seconds": round(wall, 3), "cpu_seconds": round(cpu, 3), "cpu_ratio": round(cpu / wall, 3)}
+cpu_max = None
+for candidate in ("/sys/fs/cgroup/cpu.max", "/sys/fs/cgroup/cpu/cpu.cfs_quota_us"):
+    try:
+        with open(candidate) as handle:
+            cpu_max = handle.read().strip()
+        break
+    except OSError:
+        continue
+payload = {
+    "workers": WORKERS,
+    "wall_seconds": round(wall, 3),
+    "cpu_seconds": round(cpu, 3),
+    "cpu_ratio": round(cpu / wall, 3),
+    "host_cpu_count": os.cpu_count(),
+    "cgroup_cpu_limit": cpu_max,
+}
 with open("/output/probe.json", "w") as handle:
     json.dump(payload, handle)
 """
@@ -148,9 +166,13 @@ time.sleep(120)
 """
 
 
-def _probe_command(*, name: str, probe_path: Path, output_dir: Path, image: str, extra: list[str] | None = None) -> list[str]:
+def _probe_command(*, name: str, probe_path: Path, output_dir: Path, image: str, extra: list[str] | None = None, drop: tuple[str, ...] = ()) -> list[str]:
     container_name = f"mrf-boundary-{name}-{uuid.uuid4().hex[:8]}"
     flags, _ = hardening_flags()
+    for option in drop:
+        if option in flags:
+            index = flags.index(option)
+            del flags[index:index + 2]
     return [
         "docker",
         "run",
@@ -168,7 +190,7 @@ def _probe_command(*, name: str, probe_path: Path, output_dir: Path, image: str,
     ]
 
 
-def _run_probe(name: str, source: str, work_dir: Path, image: str, *, env: dict | None = None) -> dict:
+def _run_probe(name: str, source: str, work_dir: Path, image: str, *, env: dict | None = None, drop: tuple[str, ...] = ()) -> dict:
     probe_dir = work_dir / name
     probe_dir.mkdir(parents=True, exist_ok=True)
     output_dir = probe_dir / "output"
@@ -176,7 +198,7 @@ def _run_probe(name: str, source: str, work_dir: Path, image: str, *, env: dict 
     output_dir.chmod(0o777)
     probe_path = probe_dir / "probe.py"
     probe_path.write_text(source, encoding="utf-8")
-    command = _probe_command(name=name, probe_path=probe_path, output_dir=output_dir, image=image)
+    command = _probe_command(name=name, probe_path=probe_path, output_dir=output_dir, image=image, drop=drop)
     started = time.monotonic()
     completed = subprocess.run(
         command,
@@ -199,6 +221,14 @@ def _run_probe(name: str, source: str, work_dir: Path, image: str, *, env: dict 
         "payload": payload,
         "payload_sha256": sha256_file(payload_path) if payload_path.is_file() else None,
     }
+
+
+def distinguishes_quota(capped_ratio, control_ratio) -> bool:
+    """The capped run must look different from the uncapped run by a clear margin."""
+
+    if capped_ratio is None or control_ratio is None:
+        return False
+    return control_ratio >= 1.6 and control_ratio >= capped_ratio + 0.6
 
 
 def _check(name: str, ok: bool, detail: str, **evidence) -> dict:
@@ -276,15 +306,34 @@ def run_boundary_suite(run_dir: Path, runtime_config_path: Path) -> dict:
     cpu = _run_probe("cpu", CPU_PROBE, work_dir, image)
     payload = cpu["payload"] or {}
     ratio = payload.get("cpu_ratio")
-    # Two spinning threads on a one-CPU container finish in wall time with about
-    # one CPU-second per wall-second. Without the limit the ratio would approach two.
     checks.append(_check(
         "cpu_limit_triggered",
         ratio is not None and 0.75 <= ratio <= 1.4 and (payload.get("cpu_seconds") or 0) >= 2.0,
-        "two spinning threads consume about one core, not two",
+        "four spinning processes on a one-CPU container consume about one core-second per second",
         cpu_seconds=payload.get("cpu_seconds"),
         wall_seconds=payload.get("wall_seconds"),
         cpu_ratio=ratio,
+        cgroup_cpu_limit=payload.get("cgroup_cpu_limit"),
+    ))
+
+    # Control run: the same load without --cpus. Without a distinguishable control
+    # the capped measurement proves nothing, so a missing or indistinguishable
+    # control fails the check instead of passing it silently.
+    control = _run_probe("cpu_control", CPU_PROBE, work_dir, image, drop=("--cpus",))
+    control_payload = control["payload"] or {}
+    control_ratio = control_payload.get("cpu_ratio")
+    distinguishable = distinguishes_quota(ratio, control_ratio) and control["exit_code"] == 0
+    checks.append(_check(
+        "cpu_quota_control_distinguishes",
+        distinguishable,
+        "the same four-process load reaches at least 1.6 cores without --cpus and stays near one core with it",
+        capped_cpu_ratio=ratio,
+        uncapped_cpu_ratio=control_ratio,
+        uncapped_cpu_seconds=control_payload.get("cpu_seconds"),
+        capped_cgroup_limit=payload.get("cgroup_cpu_limit"),
+        uncapped_cgroup_limit=control_payload.get("cgroup_cpu_limit"),
+        host_cpu_count=control_payload.get("host_cpu_count"),
+        exit_code=control["exit_code"],
     ))
 
     pid = _run_probe("pid", PID_PROBE, work_dir, image)
@@ -331,7 +380,7 @@ def run_boundary_suite(run_dir: Path, runtime_config_path: Path) -> dict:
         "hardening": summary,
         "status": "PASS" if all(check["status"] == "PASS" for check in checks) else "FAIL",
         "checks": checks,
-        "probes": [read_only, host_probe, secret_probe, memory, cpu, pid],
+        "probes": [read_only, host_probe, secret_probe, memory, cpu, control, pid],
         "timeout_probe": {
             key: timeout_execution.get(key)
             for key in ("status", "exit_code", "duration_seconds", "timeout", "docker", "error", "cleanup_error")

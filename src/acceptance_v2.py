@@ -54,6 +54,7 @@ BOUNDARY_CHECKS = (
     "api_key_not_visible",
     "memory_limit_triggered",
     "cpu_limit_triggered",
+    "cpu_quota_control_distinguishes",
     "pid_limit_triggered",
     "timeout_triggered",
 )
