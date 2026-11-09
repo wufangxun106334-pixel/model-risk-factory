@@ -220,3 +220,40 @@ def test_rejected_review_is_not_approval(tmp_path):
     assert read_json(inventory)["review_status"] == "REJECTED"
     with pytest.raises(GateError):
         require_approval(run, "test-run", "Gate_A", inventory)
+
+
+def test_candidate_fixtures_summary_is_where_freeze_reads_it(tmp_path, monkeypatch):
+    from src import workflow
+
+    repo, run = make_repo_run(tmp_path)
+    inventory = make_inventory(run)
+    approve(run, "Gate_A", inventory)
+    candidate = save_candidate(run, "test-run", "print('candidate')\n", 0, {"test": True})
+    approve(run, "Gate_B", run / "candidates" / "attempt_000" / "credit_v1.py")
+    update_dev_result(run, "test-run", 0, "PASS", "dev/parity_summary.json")
+    for name in workflow.ROW_FIXTURES:
+        reference = run / "fixtures" / name / "r" / "dev_predictions.csv"
+        reference.parent.mkdir(parents=True, exist_ok=True)
+        reference.write_text("client_id,probability,classification\nx,0.5,1\n", encoding="utf-8")
+
+    def fake_candidate(source, model, input_path, work_dir, **kwargs):
+        work_dir.mkdir(parents=True, exist_ok=True)
+        if input_path.stem in workflow.REJECTION_FIXTURES:
+            return {"status": "EXECUTION_ERROR", "exit_code": 2, "image": kwargs.get("image")}
+        return {"status": "PASS", "exit_code": 0, "image": kwargs.get("image")}
+
+    def fake_compare(baseline_path, candidate_path, summary_path, diff_path, **kwargs):
+        write_json(summary_path, {"run_id": "test-run", "status": "PASS"})
+        return {"status": "PASS", "max_abs_diff": 0.0, "mean_abs_diff": 0.0,
+                "classification_mismatch_count": 0, "behaviour_mismatch_count": 0}
+
+    monkeypatch.setattr(workflow, "run_candidate", fake_candidate)
+    monkeypatch.setattr(workflow, "compare_files", fake_compare)
+
+    summary = workflow.run_candidate_fixtures(run, "test-run", 0)
+    assert summary["status"] == "PASS"
+    assert workflow.fixture_summary_path(run, 0) == run / "dev" / "attempt_000" / "fixture_summary.json"
+    assert read_json(workflow.fixture_summary_path(run, 0))["candidate_sha256"] == candidate["candidate_sha256"]
+
+    frozen = freeze_candidate(run, "test-run", 0)
+    assert frozen["candidate_sha256"] == candidate["candidate_sha256"]

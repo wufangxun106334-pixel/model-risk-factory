@@ -38,8 +38,12 @@ def runner_image(run_dir: Path) -> str:
     return str(image)
 
 
+def fixture_summary_path(run_dir: Path, attempt: int) -> Path:
+    return run_dir / "dev" / f"attempt_{attempt:03d}" / "fixture_summary.json"
+
+
 def _fixture_summary(run_dir: Path, attempt: int) -> dict:
-    path = run_dir / "dev" / f"attempt_{attempt:03d}" / "fixture_summary.json"
+    path = fixture_summary_path(run_dir, attempt)
     return read_json(path) if path.is_file() else {}
 
 
@@ -174,7 +178,7 @@ def run_candidate_fixtures(run_dir: Path, run_id: str, attempt: int) -> dict:
         "records": records,
         "created_at": utc_now(),
     }
-    write_json(work_dir / "fixture_summary.json", summary)
+    write_json(fixture_summary_path(run_dir, attempt), summary)
     return summary
 
 
