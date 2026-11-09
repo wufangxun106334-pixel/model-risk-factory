@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 from pathlib import Path
 from typing import Any
@@ -39,7 +40,9 @@ from src.validation import compute_validation_metrics
 from src.workflow import run_candidate_fixtures, run_development, run_holdout
 
 REPOSITORY = Path(__file__).resolve().parents[1]
-RUNS_ROOT = REPOSITORY / "runs"
+# Dev dry runs can point at a sibling directory so the sealed runs/ artifacts and
+# the Holdout consumption ledger of released campaigns are never touched.
+RUNS_ROOT = Path(os.environ.get("MRF_RUNS_ROOT") or (REPOSITORY / "runs")).resolve()
 
 
 def _parser() -> argparse.ArgumentParser:
