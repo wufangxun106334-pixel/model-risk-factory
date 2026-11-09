@@ -195,7 +195,9 @@ def _dispatch(arguments: argparse.Namespace) -> dict[str, Any]:
         if arguments.gate == "Gate_A":
             artifact = inventory_path(run_dir, arguments.model)
         elif arguments.gate == "Gate_C":
-            artifact = run_dir / "report" / "report_review.json"
+            # One artifact path for generation, approval and status: the review
+            # manifest that binds the report, metrics, index, tables and summary.
+            artifact = run_dir / "report" / "review_manifest.json"
         else:
             if arguments.attempt is None:
                 raise ContractError("Gate B requires --attempt")

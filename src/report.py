@@ -439,19 +439,39 @@ def verify_provenance(report_text: str, index: list[dict]) -> list[str]:
     return sorted({token for token in NUMBER.findall(report_text) if token not in known})
 
 
+BOUND_REPORT_FILES = (
+    ("report", "report/validation_report.md", "report_sha256"),
+    ("metrics", "validation_metrics.json", "metrics_sha256"),
+    ("values index", "report/values_index.csv", "values_index_sha256"),
+    ("tables", "report/validation_tables.md", "tables_sha256"),
+)
+
+
 def _pre_approval(run_dir: Path, run_id: str) -> tuple[list[str], str, dict | None]:
     manifest_path = run_dir / "report" / "review_manifest.json"
     report_path = run_dir / "report" / "validation_report.md"
     if not manifest_path.is_file() or not report_path.is_file():
         return ["report not generated"], "NOT_REVIEWED", None
     manifest = read_json(manifest_path)
-    reasons = []
+    reasons: list[str] = []
     if manifest.get("run_id") != run_id:
         reasons.append("review manifest run_id mismatch")
-    if manifest.get("report_sha256") != sha256_file(report_path):
-        reasons.append("report was modified after generation")
-    if (run_dir / "validation_metrics.json").is_file() and manifest.get("metrics_sha256") != sha256_file(run_dir / "validation_metrics.json"):
-        reasons.append("metrics changed after the report was rendered")
+    if not manifest.get("value_count"):
+        reasons.append("review manifest records no rendered values")
+    bound = list(BOUND_REPORT_FILES)
+    if manifest.get("agent_summary"):
+        bound.append(("agent summary", manifest["agent_summary"], "agent_summary_sha256"))
+    for label, relative, key in bound:
+        path = run_dir / relative
+        recorded = manifest.get(key)
+        if not path.is_file():
+            reasons.append(f"{label} missing")
+            continue
+        if not isinstance(recorded, str) or not recorded:
+            reasons.append(f"{label} is not bound in the manifest")
+            continue
+        if sha256_file(path) != recorded:
+            reasons.append(f"{label} changed after the report was rendered")
     if manifest.get("unresolved_numbers"):
         reasons.append("report contains numbers without a metrics path")
     decision = current_decision(run_dir, run_id, "Gate_C", manifest_path)

@@ -128,12 +128,18 @@ def test_gate_c_is_required_before_a_report_can_be_approved(tmp_path):
 
     run = make_run(tmp_path)
     write_json(run / "validation_metrics.json", {"run_id": RUN_ID})
-    write_json(run / "report" / "validation_report.md", "report body\n")
+    (run / "report").mkdir(parents=True, exist_ok=True)
+    (run / "report" / "validation_report.md").write_text("report body\n", encoding="utf-8")
+    (run / "report" / "values_index.csv").write_text("section,label,json_path,text\n", encoding="utf-8")
+    (run / "report" / "validation_tables.md").write_text("# tables\n", encoding="utf-8")
     write_json(run / "report" / "review_manifest.json", {
         "schema_version": "1",
         "run_id": RUN_ID,
         "report_sha256": sha256_file(run / "report" / "validation_report.md"),
         "metrics_sha256": sha256_file(run / "validation_metrics.json"),
+        "values_index_sha256": sha256_file(run / "report" / "values_index.csv"),
+        "tables_sha256": sha256_file(run / "report" / "validation_tables.md"),
+        "value_count": 1,
         "unresolved_numbers": [],
     })
     assert report_status(run, RUN_ID)["gate_c"] == "NOT_REVIEWED"
@@ -149,3 +155,6 @@ def test_gate_c_is_required_before_a_report_can_be_approved(tmp_path):
     # Tampering with the reviewed report invalidates the approval immediately.
     (run / "report" / "validation_report.md").write_text("edited body\n", encoding="utf-8")
     assert report_status(run, RUN_ID)["status"] == "DRAFT"
+    # A bound file that disappears also drops the report back to DRAFT.
+    (run / "report" / "values_index.csv").unlink()
+    assert any("values index" in reason for reason in report_status(run, RUN_ID)["reasons"])
