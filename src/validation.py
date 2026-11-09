@@ -66,7 +66,9 @@ def _labels(frame: pd.DataFrame) -> pd.Series:
 
 
 def _joined(dataset: Path, predictions: Path) -> pd.DataFrame:
-    data = pd.read_csv(dataset)
+    # client_id is written as an integer by the data pipeline and as text in the
+    # prediction files; both sides must be strings before the join.
+    data = pd.read_csv(dataset, dtype={"client_id": str})
     predicted = _read_predictions(predictions)
     merged = data.merge(predicted[["client_id", "probability", "classification", "status"]], on="client_id", how="left", validate="one_to_one")
     return merged
@@ -441,7 +443,7 @@ def compute_validation_metrics(
             run_id,
         ),
     }
-    parity["status"] = OK if all(parity[name]["status"] == "PASS" for name in ("dev", "holdout")) else FAIL
+    parity["status"] = "PASS" if all(parity[name]["status"] == "PASS" for name in ("dev", "holdout")) else FAIL
 
     config = read_json(run_dir.parent.parent / "config" / "data_config.json")
     shift_settings = config.get("shift_scenario_a")

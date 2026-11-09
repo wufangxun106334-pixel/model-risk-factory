@@ -92,7 +92,7 @@ class MigrationResult(StrictModel):
 
 class AcceptanceRecord(StrictModel):
     acceptance_id: str
-    version: Literal["v1"] = "v1"
+    version: Literal["v1", "v2"] = "v1"
     expected: str
     actual: str
     status: Literal["PASS", "FAIL", "NOT_RUN", "BLOCKED"]

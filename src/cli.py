@@ -243,7 +243,7 @@ def _dispatch(arguments: argparse.Namespace) -> dict[str, Any]:
             tolerances=read_json(REPOSITORY / "config" / "model_config.json"),
         )
         return {
-            "status": "PASS" if metrics["parity"]["status"] == "PASS" else "FAIL",
+            "status": "PASS" if metrics["parity"]["status"] in {"PASS", "OK"} else "FAIL",
             "validation_metrics": str(run_dir / "validation_metrics.json"),
             "parity": metrics["parity"]["status"],
             "holdout_roc_auc": metrics["performance"]["holdout"]["roc_auc"]["value"],

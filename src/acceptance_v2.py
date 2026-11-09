@@ -199,6 +199,12 @@ def _v2_03(repository: Path, run_dir: Path, run_id: str) -> tuple[str, str]:
 
 
 def _v2_chain(run_dir: Path, run_id: str) -> list[str]:
+    """Order-flexible checks for the v2 steps.
+
+    Per-model inventory approval may be interleaved with the next extraction, so
+    the v2 tail is checked as a partial order instead of one fixed sequence.
+    """
+
     path = run_dir / "command_log.jsonl"
     if not path.is_file():
         return ["command_log missing"]
@@ -207,39 +213,60 @@ def _v2_chain(run_dir: Path, run_id: str) -> list[str]:
     context_path = run_dir / "context_manifest.json"
     context_sha256 = sha256_file(context_path) if context_path.is_file() else None
     frozen_sha256 = _frozen_candidate_sha256(run_dir)
-    problems: list[str] = []
-    position = 0
-    for command, argument in V2_CHAIN:
-        label = f"{command} {argument}" if argument else command
-        if command == "approve" and argument == "Gate_A":
-            wanted = ["MDL_CREDIT_V2", "MDL_CREDIT_TREE"]
-        else:
-            wanted = [argument] if argument else [None]
-        for value in wanted:
-            failures: list[object] = []
-            success = None
-            while position < len(events):
-                event = events[position]
-                position += 1
-                argv = event.get("argv") or []
-                if len(argv) < 4 or argv[:3] != ["python", "-m", "src.cli"] or argv[3] != command:
-                    continue
-                if command == "approve" and _argv_option(argv, "--gate") != value:
-                    continue
-                if command == "extract-inventory" and _argv_option(argv, "--model") != value:
-                    continue
-                if command == "approve" and value in {"MDL_CREDIT_V2", "MDL_CREDIT_TREE"} and _argv_option(argv, "--model") != value:
-                    continue
-                if event.get("exit_code") != 0:
-                    failures.append(event.get("exit_code"))
-                    continue
-                success = event
-                break
-            step = f"{label} --model {value}" if value and command in {"extract-inventory", "approve"} else label
-            if success is None:
-                problems.append(f"{step} has no successful attempt" if failures else f"{step} record missing or out of order")
+
+    def successful(command: str, **options) -> list[tuple[int, dict]]:
+        found = []
+        for index, event in enumerate(events):
+            argv = event.get("argv") or []
+            if len(argv) < 4 or argv[:3] != ["python", "-m", "src.cli"] or argv[3] != command:
                 continue
-            problems.extend(_chain_binding_problems(success, step, command, run_id, expected_attempt, context_sha256, frozen_sha256))
+            if event.get("exit_code") != 0:
+                continue
+            if any(_argv_option(argv, name) != value for name, value in options.items()):
+                continue
+            found.append((index, event))
+        return found
+
+    problems: list[str] = []
+    first: dict[str, int] = {}
+    for model in ("MDL_CREDIT_V2", "MDL_CREDIT_TREE"):
+        extractions = successful("extract-inventory", **{"--model": model})
+        approvals = successful("approve", **{"--gate": "Gate_A", "--model": model})
+        if not extractions:
+            problems.append(f"extract-inventory --model {model} has no successful attempt")
+        if not approvals:
+            problems.append(f"approve Gate_A --model {model} has no successful attempt")
+        if extractions and approvals and approvals[0][0] < extractions[0][0]:
+            problems.append(f"approve Gate_A --model {model} ran before its extraction")
+        if extractions:
+            first[f"extract {model}"] = extractions[0][0]
+        for index, event in approvals:
+            problems.extend(_chain_binding_problems(event, f"approve Gate_A {model}", "approve", run_id, expected_attempt, context_sha256, frozen_sha256))
+    for index, event in successful("docker-boundary"):
+        problems.extend(_chain_binding_problems(event, "docker-boundary", "docker-boundary", run_id, expected_attempt, context_sha256, frozen_sha256))
+    if not successful("docker-boundary"):
+        problems.append("docker-boundary has no successful attempt")
+
+    sequence = [
+        ("validation-metrics", {}),
+        ("agent-summary", {}),
+        ("report", {}),
+        ("approve", {"--gate": "Gate_C"}),
+        ("approve-report", {}),
+    ]
+    position = -1
+    accepts = successful("accept")
+    if accepts:
+        position = accepts[0][0]
+    for command, options in sequence:
+        matches = [item for item in successful(command, **options) if item[0] > position]
+        label = f"{command} {options.get('--gate', '')}".strip()
+        if not matches:
+            problems.append(f"{label} record missing or out of order")
+            continue
+        index, event = matches[0]
+        position = index
+        problems.extend(_chain_binding_problems(event, label, command, run_id, expected_attempt, context_sha256, frozen_sha256))
     return problems
 
 

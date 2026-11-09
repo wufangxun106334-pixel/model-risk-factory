@@ -360,7 +360,7 @@ def summarize_validation(repository: Path, run_dir: Path, run_id: str) -> dict:
     anything is written.
     """
 
-    from src.report import AgentSummary, agent_summary_schema, check_wording, desensitized_summary
+    from src.report import NUMBER, AgentSummary, agent_summary_schema, check_wording, desensitized_summary
 
     metrics_path = run_dir / "validation_metrics.json"
     if not metrics_path.is_file():
@@ -379,6 +379,9 @@ def summarize_validation(repository: Path, run_dir: Path, run_id: str) -> dict:
         "that the model is fair; fairness numbers are audit signals only. "
         "Distinguish a same-period hold-out from a weighted drift sensitivity analysis, and "
         "state that a cross-time back-test is unavailable. "
+        "Do not write any numeric value in your answer: describe direction and status in words "
+        "(for example 'parity passes with no classification differences'), because every number in "
+        "the report must be rendered from a metrics path. "
         "Return one JSON object matching this Schema, with no Markdown: "
         + json.dumps(agent_summary_schema(), ensure_ascii=False)
         + ". Aggregates: "
@@ -398,7 +401,11 @@ def summarize_validation(repository: Path, run_dir: Path, run_id: str) -> dict:
             if not response.content:
                 raise ContractError("summary response has no content")
             summary = AgentSummary.model_validate_json(response.content)
-            check_wording(" ".join([summary.headline, *summary.results, *summary.limitations, *summary.evidence_gaps]))
+            text = " ".join([summary.headline, *summary.results, *summary.limitations, *summary.evidence_gaps])
+            check_wording(text)
+            digits = NUMBER.findall(text)
+            if digits:
+                raise ContractError(f"Summary must not restate numbers ({digits[:5]}); every figure is rendered from a metrics path")
             payload = {
                 "schema_version": "1",
                 "run_id": run_id,

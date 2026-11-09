@@ -346,7 +346,11 @@ def render_report(run_dir: Path, run_id: str, *, agent_summary: dict | None, inv
     if agent_summary is None:
         lines.append("No agent summary has been recorded for this run.")
     else:
-        check_wording(" ".join([agent_summary.get("headline", "")] + agent_summary.get("results", []) + agent_summary.get("limitations", []) + agent_summary.get("evidence_gaps", [])))
+        summary_text = " ".join([agent_summary.get("headline", "")] + agent_summary.get("results", []) + agent_summary.get("limitations", []) + agent_summary.get("evidence_gaps", []))
+        check_wording(summary_text)
+        restated = NUMBER.findall(summary_text)
+        if restated:
+            raise ContractError(f"Agent summary restates numbers without a metrics path: {restated[:5]}; regenerate it")
         lines.append("The Agent received aggregate metrics only: no data rows, no client identifiers and no Holdout inputs.")
         lines.append("")
         lines.append(agent_summary["headline"])
