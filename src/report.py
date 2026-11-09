@@ -440,23 +440,55 @@ TABLE_HEADERS = (
 )
 
 
-def parse_markdown_tables(text: str) -> list[dict]:
-    """Return every pipe table in ``text`` as header plus rows of raw cells."""
+DELIMITER_CELL = re.compile(r"^:?-+:?$")
 
+
+def _split_table_row(line: str) -> list[str] | None:
+    """Split a Markdown table row; the leading and trailing pipes are optional."""
+
+    stripped = line.strip()
+    if "|" not in stripped:
+        return None
+    if stripped.startswith("|"):
+        stripped = stripped[1:]
+    if stripped.endswith("|"):
+        stripped = stripped[:-1]
+    return [cell.strip() for cell in stripped.split("|")]
+
+
+def parse_markdown_tables(text: str) -> list[dict]:
+    """Return every GFM table: pipes separate cells and outer pipes are optional.
+
+    A table is a header row whose next line is a delimiter row with the same
+    number of cells, so a table rendered without outer pipes is still a table and
+    cannot be appended as if it were prose.
+    """
+
+    lines = text.splitlines()
     tables: list[dict] = []
-    current: list[list[str]] = []
-    for line in text.splitlines() + [""]:
-        stripped = line.strip()
-        if stripped.startswith("|") and stripped.endswith("|"):
-            cells = [cell.strip() for cell in stripped.strip("|").split("|")]
-            current.append(cells)
+    index = 0
+    while index < len(lines) - 1:
+        header = _split_table_row(lines[index])
+        delimiter = _split_table_row(lines[index + 1])
+        if not (
+            header is not None
+            and delimiter is not None
+            and delimiter
+            and len(header) == len(delimiter)
+            and all(DELIMITER_CELL.match(cell) for cell in delimiter)
+        ):
+            index += 1
             continue
-        if current:
-            if len(current) >= 2:
-                header = current[0]
-                body = [row for row in current[1:] if not all(set(cell) <= {"-"} for cell in row)]
-                tables.append({"header": header, "rows": body})
-            current = []
+        rows: list[list[str]] = []
+        cursor = index + 2
+        while cursor < len(lines):
+            row = _split_table_row(lines[cursor])
+            if row is None or len(row) != len(header) or all(DELIMITER_CELL.match(cell) for cell in row):
+                break
+            rows.append(row)
+            cursor += 1
+        tables.append({"header": header, "rows": rows})
+        index = cursor
     return tables
 
 
