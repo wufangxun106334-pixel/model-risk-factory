@@ -12,9 +12,10 @@ silently invalidate the answer.
 
 from __future__ import annotations
 
-import json
+import hashlib
 import subprocess
 import sys
+import zipfile
 from pathlib import Path
 
 from src.common import read_json, sha256_file
@@ -44,37 +45,127 @@ def _run_tree_tests(tree: Path, timeout_seconds: int) -> dict:
     }
 
 
-def _acceptance_gaps(run_dir: Path, run_id: str) -> list[str]:
-    gaps: list[str] = []
+REQUIRED_RECORDS = tuple(
+    [("v1", f"V1-{index:02d}") for index in range(1, 8)] + [("v2", f"V2-{index:02d}") for index in range(1, 8)]
+)
+
+
+def label(record_key: tuple[str, str]) -> str:
+    return f"{record_key[1]} ({record_key[0]})"
+
+
+def _acceptance_gaps(run_dir: Path, run_id: str, commit: str) -> list[str]:
     acceptance_path = run_dir / "acceptance.json"
     if not acceptance_path.is_file():
         return ["acceptance.json missing"]
     acceptance = read_json(acceptance_path)
+    gaps: list[str] = []
     if acceptance.get("run_id") != run_id:
-        gaps.append("acceptance run_id mismatch")
+        gaps.append(f"acceptance run_id {acceptance.get('run_id')!r} does not match the target run {run_id!r}")
     if acceptance.get("release_approved") is not True:
-        failing = [record["acceptance_id"] for record in acceptance.get("records", []) if record.get("status") != "PASS"]
-        gaps.append("acceptance not approved: " + ",".join(failing[:6]))
+        gaps.append("acceptance.release_approved is not true")
+
+    records = acceptance.get("records")
+    if not isinstance(records, list):
+        return gaps + ["acceptance.records is missing"]
+    expected = set(REQUIRED_RECORDS)
+    seen: dict[tuple[str, str], list[dict]] = {}
+    for record in records:
+        key = (str(record.get("version")), str(record.get("acceptance_id")))
+        if key not in expected:
+            gaps.append(f"unexpected acceptance record {label(key)}")
+            continue
+        seen.setdefault(key, []).append(record)
+
+    for key in REQUIRED_RECORDS:
+        found = seen.get(key, [])
+        if not found:
+            gaps.append(f"missing acceptance record {label(key)}")
+            continue
+        if len(found) > 1:
+            gaps.append(f"duplicate acceptance record {label(key)} ({len(found)} occurrences)")
+            continue
+        record = found[0]
+        if record.get("status") != "PASS":
+            gaps.append(f"{label(key)} status is {record.get('status')!r}, not PASS")
+        recorded_commit = record.get("commit_sha")
+        if recorded_commit != commit:
+            gaps.append(
+                f"{label(key)} recorded commit {str(recorded_commit)[:8]} does not match the released commit {commit[:8]}"
+            )
+        evidence = record.get("evidence_path")
+        if not evidence:
+            gaps.append(f"{label(key)} has no evidence path")
+            continue
+        target = (run_dir / evidence).resolve()
+        run_root = run_dir.resolve()
+        if run_root not in target.parents and target != run_root:
+            gaps.append(f"{label(key)} evidence path escapes the run: {evidence}")
+        elif not target.is_file():
+            gaps.append(f"{label(key)} evidence file is missing: {evidence}")
+
     export_path = run_dir / "export_verified.json"
+    manifest_path = run_dir / "evidence_manifest.json"
     if not export_path.is_file():
-        gaps.append("export_verified.json missing")
-        return gaps
+        return gaps + ["export_verified.json missing"]
     export = read_json(export_path)
+    if export.get("verified") is not True:
+        gaps.append("export_verified.verified is not true")
+    if not manifest_path.is_file():
+        return gaps + ["evidence_manifest.json missing"]
+    manifest = read_json(manifest_path)
+    if manifest.get("run_id") != run_id:
+        gaps.append("evidence_manifest run_id mismatch")
+    if export.get("manifest_sha256") != sha256_file(manifest_path):
+        gaps.append("export record manifest hash does not match the manifest on disk")
+    if export.get("file_count") != manifest.get("file_count"):
+        gaps.append("export record file count does not match the manifest")
     archive = Path(export.get("archive", ""))
     if not archive.is_absolute():
         archive = run_dir / archive
     if not archive.is_file():
-        gaps.append(f"evidence archive missing: {archive}")
-    elif sha256_file(archive) != export.get("archive_sha256"):
+        return gaps + [f"evidence archive missing: {archive}"]
+    if sha256_file(archive) != export.get("archive_sha256"):
         gaps.append("evidence archive hash does not match the export record")
-    manifest_path = run_dir / "evidence_manifest.json"
-    if not manifest_path.is_file():
-        gaps.append("evidence_manifest.json missing")
-        return gaps
-    manifest = read_json(manifest_path)
-    broken = [record["path"] for record in manifest.get("files", []) if not (run_dir / record["path"]).is_file() or sha256_file(run_dir / record["path"]) != record.get("sha256")]
+    broken = [
+        record["path"]
+        for record in manifest.get("files", [])
+        if not (run_dir / record["path"]).is_file() or sha256_file(run_dir / record["path"]) != record.get("sha256")
+    ]
     if broken:
         gaps.append("evidence files changed: " + ",".join(broken[:5]))
+    gaps.extend(_zip_gaps(archive, run_id, manifest, manifest_path))
+    return gaps
+
+
+def _zip_gaps(archive: Path, run_id: str, manifest: dict, manifest_path: Path) -> list[str]:
+    """Verify the exported ZIP member by member, not just its own hash."""
+
+    gaps: list[str] = []
+    files = manifest.get("files")
+    if not isinstance(files, list) or not files:
+        return ["evidence manifest lists no files"]
+    intended = {f"{run_id}/{record['path']}" for record in files}
+    intended.add(f"{run_id}/evidence_manifest.json")
+    recorded = {record["path"]: record["sha256"] for record in files}
+    manifest_digest = sha256_file(manifest_path)
+    try:
+        with zipfile.ZipFile(archive) as bundle:
+            names = set(bundle.namelist())
+            missing = sorted(intended - names)
+            extra = sorted(names - intended)
+            if missing:
+                gaps.append("evidence archive is missing members: " + ",".join(missing[:5]))
+            if extra:
+                gaps.append("evidence archive has unexpected members: " + ",".join(extra[:5]))
+            for name in sorted(intended & names):
+                relative = name.split("/", 1)[1]
+                expected = manifest_digest if relative == "evidence_manifest.json" else recorded.get(relative)
+                payload = bundle.read(name)
+                if expected is None or hashlib.sha256(payload).hexdigest() != expected:
+                    gaps.append(f"evidence archive member content changed: {relative}")
+    except (zipfile.BadZipFile, OSError):
+        gaps.append("evidence archive is not a readable ZIP")
     return gaps
 
 
@@ -109,7 +200,7 @@ def release_check(repository: Path, ref: str, run_dir: Path, run_id: str, *, tim
         gaps.append("the worktree was dirty when the run was initialised, so the evidence does not belong to any commit")
     if not tests["passed"]:
         gaps.append(f"full test suite fails on the published tree: {tests['summary']}")
-    gaps.extend(_acceptance_gaps(run_dir, run_id))
+    gaps.extend(_acceptance_gaps(run_dir, run_id, commit))
 
     return {
         "schema_version": "1",
