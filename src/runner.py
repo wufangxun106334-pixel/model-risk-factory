@@ -53,6 +53,49 @@ def _mount(source: Path, target: str, read_only: bool) -> str:
     return value
 
 
+def hardening_flags() -> tuple[list[str], dict]:
+    """Single source of truth for the container boundary (SOP 7.3 / V2-02).
+
+    Both the candidate runner and the boundary probes use these flags so that a
+    probe result describes the exact sandbox a candidate runs in.
+    """
+
+    flags = [
+        "--network",
+        "none",
+        "--read-only",
+        "--user",
+        "65532:65532",
+        "--cap-drop",
+        "ALL",
+        "--security-opt",
+        "no-new-privileges",
+        "--memory",
+        "512m",
+        "--memory-swap",
+        "512m",
+        "--cpus",
+        "1",
+        "--pids-limit",
+        "64",
+        "--tmpfs",
+        "/tmp:rw,noexec,nosuid,size=16m",
+    ]
+    summary = {
+        "network": "none",
+        "read_only": True,
+        "user": "65532:65532",
+        "cap_drop": ["ALL"],
+        "security_opt": ["no-new-privileges"],
+        "memory": "512m",
+        "memory_swap": "512m",
+        "cpus": "1",
+        "pids_limit": 64,
+        "tmpfs": {"/tmp": "rw,noexec,nosuid,size=16m"},
+    }
+    return flags, summary
+
+
 def run_candidate(
     candidate_path: Path,
     model_path: Path,
@@ -84,6 +127,7 @@ def run_candidate(
     selected_image = str(image or os.environ.get("MRF_RUNNER_IMAGE") or DEFAULT_IMAGE)
     docker_binary = str(docker_binary)
     container_name = f"mrf-credit-v1-{uuid.uuid4().hex}"
+    flags, hardening = hardening_flags()
     candidate_mount = _mount(candidate_path, "/candidate/credit_v1.py", True)
     model_mount = _mount(model_path, "/input/model.json", True)
     input_mount = _mount(input_path, "/input/input.csv", True)
@@ -103,23 +147,7 @@ def run_candidate(
         "run",
         "--name",
         container_name,
-        "--network",
-        "none",
-        "--read-only",
-        "--user",
-        "65532:65532",
-        "--cap-drop",
-        "ALL",
-        "--security-opt",
-        "no-new-privileges",
-        "--memory",
-        "512m",
-        "--cpus",
-        "1",
-        "--pids-limit",
-        "64",
-        "--tmpfs",
-        "/tmp:rw,noexec,nosuid,size=16m",
+        *flags,
         "--mount",
         candidate_mount,
         "--mount",
@@ -134,15 +162,7 @@ def run_candidate(
     docker_summary = {
         "docker_binary": docker_binary,
         "container_name": container_name,
-        "network": "none",
-        "read_only": True,
-        "user": "65532:65532",
-        "cap_drop": ["ALL"],
-        "security_opt": ["no-new-privileges"],
-        "memory": "512m",
-        "cpus": "1",
-        "pids_limit": 64,
-        "tmpfs": {"/tmp": "rw,noexec,nosuid,size=16m"},
+        **hardening,
         "mounts": [
             {
                 "source": str(candidate_path),

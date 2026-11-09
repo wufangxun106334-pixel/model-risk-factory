@@ -30,6 +30,12 @@ def _manifest_hash(run_dir: Path, name: str) -> str:
     return expected
 
 
+def verified_split_hash(run_dir: Path, name: str) -> str:
+    """Public wrapper: the split hash must match the prepared data manifest."""
+
+    return _manifest_hash(run_dir, name)
+
+
 def runner_image(run_dir: Path) -> str:
     config = run_dir.parent.parent / "config" / "runtime_config.json"
     image = read_json(config).get("runner_image") if config.is_file() else None
@@ -179,6 +185,40 @@ def run_candidate_fixtures(run_dir: Path, run_id: str, attempt: int) -> dict:
         "created_at": utc_now(),
     }
     write_json(fixture_summary_path(run_dir, attempt), summary)
+    # A fixture FAIL is a first-class repair trigger: record an aggregate-only
+    # diagnostics payload (never raw rows or baseline answers) so the next attempt
+    # can be generated without invalidating the run.
+    fixture_diagnostics = {
+        "schema_version": "1",
+        "run_id": run_id,
+        "attempt": attempt,
+        "candidate_sha256": metadata["candidate_sha256"],
+        "fixture_status": status,
+        "failing_cases": [
+            {
+                "name": record["name"],
+                "kind": record["kind"],
+                "parity_status": record.get("parity_status"),
+                "execution_status": record.get("execution_status"),
+                "exit_code": record.get("exit_code"),
+                "max_abs_diff": record.get("max_abs_diff"),
+                "classification_mismatch_count": record.get("classification_mismatch_count"),
+                "behaviour_mismatch_count": record.get("behaviour_mismatch_count"),
+            }
+            for record in records
+            if record.get("parity_status") != "PASS"
+        ],
+        "contains_raw_rows": False,
+        "contains_baseline_answers": False,
+        "created_at": utc_now(),
+    }
+    fixture_diagnostics_path = run_dir / "dev" / f"attempt_{attempt:03d}" / "fixture_diagnostics.json"
+    write_json(fixture_diagnostics_path, fixture_diagnostics)
+    existing_result_path = run_dir / "migration_result.json"
+    existing = read_json(existing_result_path) if existing_result_path.is_file() else {}
+    dev_status = existing.get("dev_status") or "NOT_RUN"
+    diagnostics_ref = existing.get("diagnostics_ref") if dev_status == "FAIL" else str(fixture_diagnostics_path.relative_to(run_dir))
+    update_dev_result(run_dir, run_id, attempt, dev_status, diagnostics_ref, fixture_status=status)
     return summary
 
 

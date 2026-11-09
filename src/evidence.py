@@ -33,6 +33,7 @@ _ROOT_ALLOWED = {
     "run_manifest.json",
     "source_snapshot.json",
     "test_summary.json",
+    "validation_metrics.json",
 }
 _DIRECT_ALLOWED = {
     "candidates": {"candidate.json"},
@@ -41,6 +42,27 @@ _DIRECT_ALLOWED = {
     "mutation": {"mutant_parity_summary.json", "mutation_summary.json"},
     "provider": {"capability_check.json", "request_log.jsonl"},
     "reference": {"baseline_manifest.json", "model.json", "r_execution.json", "sessionInfo.txt"},
+}
+# v2 artifacts: aggregates, inventories and review records only. Row-level
+# predictions, parity diffs and drift-batch rows stay on this machine.
+_ALLOWED_BY_DIRECTORY = {
+    "report": {
+        "validation_report.md",
+        "values_index.csv",
+        "validation_tables.md",
+        "review_manifest.json",
+        "agent_summary.json",
+        "approval.json",
+        "report_audit.jsonl",
+    },
+    "validation": {"parity_summary.json", "shifted_manifest.json", "metrics_tables.md"},
+    "boundary": {"boundary_report.json", "probe.json"},
+    "failures": {"failure_drills.json"},
+}
+_NESTED_ALLOWED = {
+    "inventories": {"MDL_CREDIT_V1.json", "MDL_CREDIT_V2.json", "MDL_CREDIT_TREE.json"},
+    "failures": {"api_error.json", "parse_failure.json", "timeout.json", "request_limit.json", "repair_exhausted.json"},
+    "boundary": {"probe.json"},
 }
 _SUMMARY_ALLOWED = {"execution.json", "fixture_summary.json", "parity_summary.json"}
 _RUNNER_ALLOWED = {"execution.json", "integration_summary.json", "parity_summary.json"}
@@ -65,6 +87,12 @@ def is_allowed(relative: PurePosixPath) -> bool:
         return len(parts) == 2 and name in _DIRECT_ALLOWED[top]
     if top in {"parity", "dev", "holdout"}:
         return name in _SUMMARY_ALLOWED
+    if top in _ALLOWED_BY_DIRECTORY or top in _NESTED_ALLOWED:
+        if top in _ALLOWED_BY_DIRECTORY and name in _ALLOWED_BY_DIRECTORY[top] and len(parts) <= 3:
+            return True
+        if top in _NESTED_ALLOWED and name in _NESTED_ALLOWED[top] and len(parts) <= 4:
+            return True
+        return False
     if top == "runner_integration":
         return name in _RUNNER_ALLOWED
     if top == "cli_output":

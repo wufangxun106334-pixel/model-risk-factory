@@ -117,6 +117,7 @@ def _runtime_settings() -> dict[str, Any]:
         backoff = _finite_number(settings["retry_backoff_seconds"])
         max_requests = settings["max_requests_per_agent_round"]
         max_retries = settings["max_retries"]
+        min_candidate_tokens = settings["min_candidate_output_tokens"]
         if (
             not isinstance(default_model, str)
             or not default_model.strip()
@@ -130,6 +131,9 @@ def _runtime_settings() -> dict[str, Any]:
             or isinstance(max_retries, bool)
             or not isinstance(max_retries, int)
             or max_retries < 0
+            or isinstance(min_candidate_tokens, bool)
+            or not isinstance(min_candidate_tokens, int)
+            or min_candidate_tokens <= 0
         ):
             raise ValueError
     except (OSError, KeyError, TypeError, ValueError, json.JSONDecodeError):

@@ -5,14 +5,48 @@ from pathlib import Path
 from src.common import ContractError, read_json, sha256_file, write_json
 from src.contracts import InventoryPayload, ModelInventory
 
-ALLOWED_INVENTORY_SOURCES = {"legacy/credit_v1.R", "legacy/notes/credit_v1.md"}
-EXPECTED_FEATURES = ["delay_1", "log_limit", "util_1", "log_pay_1"]
+EXPECTATIONS_PATH = Path("config") / "inventory_expectations.json"
+SCHEMA_PATH = "config/inventory_schema.json"
 
 
-def validate_sources(sources, repository: Path) -> None:
+def load_expectations(repository: Path) -> dict:
+    path = repository / EXPECTATIONS_PATH
+    if not path.is_file():
+        raise ContractError("config/inventory_expectations.json is missing")
+    expectations = read_json(path)
+    models = expectations.get("models")
+    if not isinstance(models, dict) or not models:
+        raise ContractError("inventory expectations declare no models")
+    return expectations
+
+
+def expected_model_ids(repository: Path) -> list[str]:
+    return sorted(load_expectations(repository)["models"])
+
+
+def model_expectation(repository: Path, model_id: str) -> dict:
+    models = load_expectations(repository)["models"]
+    if model_id not in models:
+        raise ContractError(f"No inventory expectation is configured for {model_id}")
+    return models[model_id]
+
+
+def inventory_path(run_dir: Path, model_id: str) -> Path:
+    """Keep the v1 path stable and give the new models their own artifacts."""
+
+    if model_id == "MDL_CREDIT_V1":
+        return run_dir / "model_inventory.json"
+    return run_dir / "inventories" / f"{model_id}.json"
+
+
+def allowed_inventory_sources(repository: Path, model_id: str) -> set[str]:
+    return set(model_expectation(repository, model_id)["sources"])
+
+
+def validate_sources(sources, repository: Path, allowed: set[str]) -> None:
     for source in sources:
         source.validate_range()
-        if source.path not in ALLOWED_INVENTORY_SOURCES:
+        if source.path not in allowed:
             raise ContractError(f"Inventory source is not allowlisted: {source.path}")
         path = repository / source.path
         if not path.is_file() or sha256_file(path) != source.sha256:
@@ -27,15 +61,30 @@ def validate_sources(sources, repository: Path) -> None:
 
 def build_inventory(run_id: str, payload: dict, repository: Path, output_path: Path) -> dict:
     parsed = InventoryPayload.model_validate(payload)
-    validate_sources(parsed.sources, repository)
-    if parsed.feature_order != EXPECTED_FEATURES:
-        raise ContractError("Inventory feature order does not match the frozen MDL_CREDIT_V1 contract")
-    if parsed.code_threshold != 0.35 or parsed.documented_threshold != 0.50:
-        raise ContractError("Inventory must preserve the 0.35 code / 0.50 documentation conflict")
-    if parsed.owner != "Unknown" or parsed.training_date != "Unknown":
-        raise ContractError("Unknown owner and training date must not be invented")
-    if not parsed.conflicts:
-        raise ContractError("Inventory threshold conflict is missing")
+    expectation = model_expectation(repository, parsed.model_id)
+    validate_sources(parsed.sources, repository, set(expectation["sources"]))
+    if parsed.feature_order != expectation["feature_order"]:
+        raise ContractError(
+            f"Inventory feature order does not match the frozen {parsed.model_id} contract"
+        )
+    if (
+        abs(parsed.code_threshold - float(expectation["code_threshold"])) > 1e-12
+        or abs(parsed.documented_threshold - float(expectation["documented_threshold"])) > 1e-12
+    ):
+        raise ContractError(
+            f"Inventory must preserve the {parsed.model_id} code/documentation threshold pair "
+            f"({expectation['code_threshold']} / {expectation['documented_threshold']})"
+        )
+    for field in expectation["unknown_fields"]:
+        if getattr(parsed, field) != "Unknown":
+            raise ContractError(f"Unknown {field} must not be invented")
+        if field not in parsed.unknowns:
+            raise ContractError(f"Unknown field {field} must be listed in unknowns")
+    if len(parsed.conflicts) < int(expectation["min_conflicts"]):
+        raise ContractError(f"Inventory for {parsed.model_id} is missing its documented conflict")
+    covered = {source.path for source in parsed.sources}
+    if not set(expectation["sources"]) <= covered:
+        raise ContractError("Every model source must appear at least once in sources")
     inventory = ModelInventory(
         schema_version="1",
         run_id=run_id,

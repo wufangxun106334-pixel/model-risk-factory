@@ -1,7 +1,7 @@
 {
   "schema_version": "1",
   "model_id": "MDL_CREDIT_V1",
-  "seed": 43,
+  "seed": 44,
   "total_rows": 30000,
   "split_sizes": {
     "train": 15000,
@@ -13,5 +13,19 @@
   "uci_landing_url": "https://archive.ics.uci.edu/dataset/350/default+of+credit+card+clients",
   "uci_zip_url": "https://archive.ics.uci.edu/static/public/350/default+of+credit+card+clients.zip",
   "uci_competition_use_approved": false,
-  "uci_expected_sha256": null
+  "uci_expected_sha256": null,
+  "holdout_exclusion": {
+    "enabled": true,
+    "rule": "The v2 Holdout is drawn first and only from rows that no previously consumed Holdout contains, so no acceptance row is reused across campaigns.",
+    "sources": [
+      "runs/v1-20261109T172051Z-a9bd4ef4/data/holdout.csv",
+      "runs/v1-20261109T181929Z-3fe1c7b5/data/holdout.csv"
+    ]
+  },
+  "shift_scenario_a": {
+    "rows": 2000,
+    "seed": 44,
+    "util_weight": 2.0,
+    "limit_weight": 1.5
+  }
 }

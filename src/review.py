@@ -7,12 +7,16 @@ from src.common import GateError, canonical_json_bytes, read_json, sha256_bytes,
 from src.context import verify_context
 from src.contracts import ReviewEntry
 
-Gate = Literal["Gate_A", "Gate_B"]
+Gate = Literal["Gate_A", "Gate_B", "Gate_C"]
 
 
 def artifact_digest(path: str | Path, gate: Gate) -> str:
     artifact = Path(path)
     if gate == "Gate_B":
+        return sha256_file(artifact)
+    if gate == "Gate_C":
+        # The Gate C artifact is the review manifest that binds the rendered report
+        # to the exact metrics JSON it was rendered from.
         return sha256_file(artifact)
     inventory = read_json(artifact)
     if not isinstance(inventory, dict):

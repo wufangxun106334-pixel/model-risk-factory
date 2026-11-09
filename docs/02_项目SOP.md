@@ -117,6 +117,14 @@ Docker Desktop、R 和 Python 需在开发机实际验证。依赖版本在接�
 | V2-06 | 故障处理 | API 请求失败、解析失败、超时、请求上限和修复耗尽均保留失败记录 | 故障测试和请求日志 |
 | V2-07 | 报告来源与限制 | 每个数值引用指标 JSON 路径；引用存在不等于语义真实，关键事实需人工复核；无合规认证措辞 | 报告、审核意见 |
 
+### 4.2.1 v2 实现状态（2026-11-09）
+
+V2-01～V2-07 已在本机正式 run `v2-20261109T203556Z-02f3834e` 上全部通过（同一 run 内 V1-01～V1-07 亦全部通过），实际命令、证据路径与残留缺陷见 [README](../README.md) 的「v2 正式验收」与「已知工具缺陷」两节。两点实现口径在此固定：
+
+- 三份档案的 Gate A 产物：`MDL_CREDIT_V1` 仍为 `model_inventory.json`，另外两个模型为 `inventories/<model_id>.json`；每个模型的内容期望（特征顺序、代码/文档阈值、必须保留的 Unknown、最少冲突数）由 `config/inventory_expectations.json` 冻结。
+- Gate C 的被审产物为 `report/review_manifest.json`：它绑定报告、`validation_metrics.json` 与数值索引的哈希；`report/approval.json` 只在 Gate C 通过后生成，任一被绑定文件变化即退回 DRAFT。
+- 数据划分：v2 campaign 使用 seed 44，Holdout 只从历史已消费 Holdout 未覆盖的行中抽取（`config/data_config.json` 的 `holdout_exclusion`），两次 v1 正式 Holdout 与其重叠均为 0 行。
+
 ### 4.3 v3 验收标准
 
 | ID | 验收动作 | 通过条件 | 证据 |

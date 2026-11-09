@@ -8,7 +8,7 @@ from typing import Any
 from src.common import ContractError, GateError, append_jsonl, read_json, sha256_bytes, sha256_file, utc_now, write_json
 from src.context import verify_context
 from src.contracts import CandidatePayload
-from src.inventory import build_inventory
+from src.inventory import build_inventory, inventory_path, model_expectation
 from src.migration import candidate_dir, save_candidate, sha256_code
 from src.provider import CapabilityError, Provider, ProviderConfig, ProviderConfigurationError, ProviderResponse, UrllibTransport, write_capability_check
 from src.review import artifact_digest, require_approval
@@ -137,6 +137,13 @@ def _run_stage(provider: Provider, run_dir: Path, run_id: str, stage: str, messa
             content_sha256=sha256_bytes(response.content.encode("utf-8")) if response.content else None,
             tool_names=[call.name for call in response.tool_calls],
         )
+        if response.finish_reason == "length":
+            _audit(run_dir, run_id, stage, "OUTPUT_TRUNCATED", request_id=response.request_id, request_event_id=response.request_event_id)
+            raise ContractError(
+                f"{stage}: model output hit the token ceiling (finish_reason=length); "
+                "a truncated submit_candidate can never be accepted. Raise LLM_MAX_OUTPUT_TOKENS, "
+                "then retry this attempt or generate the next one"
+            )
         if not response.tool_calls:
             return response, submissions
         messages.append(_assistant_message(response))
@@ -171,22 +178,29 @@ def _read_repository_asset(repository: Path, relative: str, allowed: set[str]) -
     return {"status": "PASS", "path": relative, "sha256": sha256_file(path), "content": content}
 
 
-def extract_inventory(repository: Path, run_dir: Path, run_id: str) -> dict:
+def extract_inventory(repository: Path, run_dir: Path, run_id: str, model_id: str = "MDL_CREDIT_V1") -> dict:
     _require_capability(run_dir)
     if not verify_context(repository, run_dir, run_id):
         raise ContractError("Inventory extraction requires a valid frozen baseline context; no API request was sent")
-    output = run_dir / "model_inventory.json"
+    output = inventory_path(run_dir, model_id)
     if output.exists():
-        raise ContractError("Inventory already exists for this run")
-    provider = _provider(repository, run_dir, run_id, "inventory")
+        raise ContractError(f"Inventory already exists for {model_id} in this run")
+    expectation = model_expectation(repository, model_id)
+    # Each model is a separate agent round: the eight-request ceiling applies per
+    # round, so three inventories must not share one budget. MDL_CREDIT_V1 keeps
+    # the historical round name that the v1 evidence chain pins.
+    round_name = "inventory" if model_id == "MDL_CREDIT_V1" else f"inventory-{model_id.lower()}"
+    provider = _provider(repository, run_dir, run_id, round_name)
+    _require_output_budget(repository, provider, f"Inventory extraction ({model_id})")
     schema_path = "config/inventory_schema.json"
     schema = read_json(repository / schema_path)
-    allowed = {"legacy/credit_v1.R", "legacy/notes/credit_v1.md", schema_path}
+    sources = expectation["sources"]
+    allowed = {*sources, schema_path}
 
     def dispatch(name, arguments):
         if name == "read_asset":
             result = _read_repository_asset(repository, arguments["path"], allowed)
-            _audit(run_dir, run_id, "inventory", "ASSET_READ", path=arguments["path"], sha256=result["sha256"])
+            _audit(run_dir, run_id, "inventory", "ASSET_READ", model_id=model_id, path=arguments["path"], sha256=result["sha256"])
             return result
         if name == "validate_inventory":
             build_inventory(run_id, arguments["payload"], repository, run_dir / "inventory_validation.json")
@@ -194,12 +208,15 @@ def extract_inventory(repository: Path, run_dir: Path, run_id: str) -> dict:
         raise ContractError(f"Tool is not available in inventory stage: {name}")
 
     prompt = (
-        "Extract only MDL_CREDIT_V1 from the allowlisted R code and simulated legacy note. "
+        f"Extract only {model_id} from the allowlisted R code and simulated legacy note. "
         "The only paths accepted by read_asset are, exactly, with no prefix or suffix added: "
         + ", ".join(sorted(allowed))
         + ". Use read_asset on the R code and on the note; do not guess other paths. "
         "Return one JSON object matching the supplied Schema, with no Markdown. "
-        "Preserve owner and training_date as exactly Unknown when absent. Preserve code threshold 0.35 and documented threshold 0.50 as a conflict. "
+        f"Use model_id exactly {model_id}. "
+        "Preserve owner and training_date as exactly Unknown when the sources do not state them, and list each unknown token in unknowns. "
+        f"Report the code threshold and the documented threshold separately, even when they agree, and record every disagreement with the documentation in conflicts: code {expectation['code_threshold']} / documented {expectation['documented_threshold']}. "
+        "A feature or hyperparameter that the code uses but the note omits is a conflict; a feature or limit the note states but the code does not implement is also a conflict. "
         "Every key fact needs a source path, actual SHA-256, valid line range and verbatim excerpt. Do not infer missing facts. "
         f"JSON Schema: {json.dumps(schema, ensure_ascii=False)}"
     )
@@ -212,14 +229,65 @@ def extract_inventory(repository: Path, run_dir: Path, run_id: str) -> dict:
                 raise ContractError("Inventory response has no JSON content")
             payload = json.loads(response.content)
             inventory = build_inventory(run_id, payload, repository, output)
-            _audit(run_dir, run_id, "inventory", "INVENTORY_VALIDATED", request_id=response.request_id, request_event_id=response.request_event_id, inventory_sha256=artifact_digest(output, "Gate_A"), context_sha256=sha256_file(run_dir / "context_manifest.json"), format_attempt=format_attempt)
+            _audit(run_dir, run_id, "inventory", "INVENTORY_VALIDATED", model_id=model_id, request_id=response.request_id, request_event_id=response.request_event_id, inventory_sha256=artifact_digest(output, "Gate_A"), context_sha256=sha256_file(run_dir / "context_manifest.json"), format_attempt=format_attempt)
             return inventory
         except Exception as error:
             last_error = error
-            _audit(run_dir, run_id, "inventory", "OUTPUT_REJECTED", format_attempt=format_attempt, reason=str(error)[:300])
+            _audit(run_dir, run_id, "inventory", "OUTPUT_REJECTED", model_id=model_id, format_attempt=format_attempt, reason=str(error)[:300])
             if format_attempt == 0:
                 messages = [*messages, {"role": "user", "content": f"Local validation rejected the response: {str(error)[:300]}. Return the complete corrected JSON only; do not change source facts."}]
     raise ContractError(f"Inventory extraction failed after one format retry: {last_error}")
+
+
+def repair_diagnostics(run_dir: Path, attempt: int) -> dict | None:
+    """Authorise a repair attempt from the immediately preceding candidate.
+
+    Attempt 0 needs no authorisation. A later attempt is legal only when the
+    preceding candidate recorded a FAIL that the Agent may inspect: either
+    development parity failed, or development parity passed while the fixed
+    behaviour fixtures failed (the case that used to abort the whole run).
+    """
+
+    if attempt == 0:
+        return None
+    result_path = run_dir / "migration_result.json"
+    previous = read_json(result_path) if result_path.is_file() else {}
+    if previous.get("attempt") != attempt - 1:
+        raise GateError(
+            "Candidate attempts must be sequential and the preceding attempt must be recorded; no API request was sent"
+        )
+    dev_failed = previous.get("dev_status") == "FAIL"
+    fixtures_failed = previous.get("dev_status") == "PASS" and previous.get("fixture_status") == "FAIL"
+    if not (dev_failed or fixtures_failed):
+        raise GateError(
+            "A repair requires a recorded FAIL (development parity or behaviour fixtures) "
+            "from the immediately preceding candidate"
+        )
+    reference = previous.get("diagnostics_ref")
+    if not reference:
+        raise GateError("The preceding FAIL has no recorded aggregate diagnostics")
+    diagnostics = read_json(run_dir / reference)
+    if diagnostics.get("contains_raw_rows") or diagnostics.get("contains_baseline_answers"):
+        raise ContractError("Unsafe development diagnostics cannot be sent to Agent")
+    return diagnostics
+
+
+def _require_output_budget(repository: Path, provider: Provider, stage: str) -> None:
+    """Refuse to send a large generation request with a ceiling that truncates it."""
+
+    config = getattr(provider, "config", None)
+    if config is None:
+        return
+    settings_path = repository / "config" / "provider_config.json"
+    settings = read_json(settings_path) if settings_path.is_file() else {}
+    minimum = settings.get("min_candidate_output_tokens")
+    if not isinstance(minimum, int) or isinstance(minimum, bool) or minimum <= 0:
+        raise ContractError("config/provider_config.json must declare min_candidate_output_tokens")
+    if config.max_output_tokens < minimum:
+        raise ContractError(
+            f"{stage} requires LLM_MAX_OUTPUT_TOKENS >= {minimum}, but the configured ceiling is "
+            f"{config.max_output_tokens}; a smaller ceiling truncates the tool payload mid-JSON"
+        )
 
 
 def generate_candidate(repository: Path, run_dir: Path, run_id: str, attempt: int) -> dict:
@@ -231,6 +299,7 @@ def generate_candidate(repository: Path, run_dir: Path, run_id: str, attempt: in
     if attempt > 0 and not candidate_dir(run_dir, attempt - 1).is_dir():
         raise ContractError("Candidate attempts must be sequential; no API request was sent")
     provider = _provider(repository, run_dir, run_id, f"candidate-{attempt}")
+    _require_output_budget(repository, provider, f"Candidate stage {attempt}")
     contract_path = "config/candidate_contract.json"
     model = read_json(run_dir / "reference" / "model.json")
     inventory = read_json(inventory_path)
@@ -247,15 +316,7 @@ def generate_candidate(repository: Path, run_dir: Path, run_id: str, attempt: in
             return {"status": "VALID", "execution": "REQUIRES_GATE_B"}
         raise ContractError(f"Tool is not available in candidate stage: {name}")
 
-    diagnostics = None
-    if attempt:
-        previous = read_json(run_dir / "migration_result.json")
-        if previous.get("attempt") != attempt - 1 or previous.get("dev_status") != "FAIL":
-            raise GateError("A repair requires a recorded FAIL from the immediately preceding candidate")
-        diagnostics_path = run_dir / previous["diagnostics_ref"]
-        diagnostics = read_json(diagnostics_path)
-        if diagnostics.get("contains_raw_rows") or diagnostics.get("contains_baseline_answers"):
-            raise ContractError("Unsafe development diagnostics cannot be sent to Agent")
+    diagnostics = repair_diagnostics(run_dir, attempt)
     prompt = (
         "Migrate MDL_CREDIT_V1 from R to standalone Python without retraining. Read the R code and candidate contract using tools. "
         "The only paths accepted by read_asset are, exactly, with no prefix or suffix added: "
@@ -289,3 +350,81 @@ def generate_candidate(repository: Path, run_dir: Path, run_id: str, attempt: in
     metadata = save_candidate(run_dir, run_id, candidate.code, attempt, evidence, generation_mode=generation_mode)
     _audit(run_dir, run_id, f"candidate-{attempt}", "CANDIDATE_SAVED", candidate_sha256=metadata["candidate_sha256"], request_id=submission["request_id"], request_event_id=submission["request_event_id"])
     return metadata
+
+
+def summarize_validation(repository: Path, run_dir: Path, run_id: str) -> dict:
+    """Ask the real gateway to interpret the desensitised aggregate metrics.
+
+    Only aggregate numbers are sent: no rows, no client identifiers and no
+    Holdout inputs. The wording check rejects compliance-style overclaims before
+    anything is written.
+    """
+
+    from src.report import NUMBER, AgentSummary, agent_summary_schema, check_wording, desensitized_summary
+
+    metrics_path = run_dir / "validation_metrics.json"
+    if not metrics_path.is_file():
+        raise ContractError("validation_metrics.json is required before the Agent summary")
+    metrics = read_json(metrics_path)
+    if metrics.get("run_id") != run_id:
+        raise ContractError("validation_metrics.json belongs to another run")
+    aggregates = desensitized_summary(metrics)
+    provider = _provider(repository, run_dir, run_id, "report-summary")
+    _require_output_budget(repository, provider, "Report summary")
+    prompt = (
+        "You are explaining a migrated credit-default scorecard to a model reviewer. "
+        "You receive desensitised aggregate metrics only. Explain what the numbers show, "
+        "state limitations, and list evidence that is missing. "
+        "Never claim regulatory approval, independent validation, production readiness or "
+        "that the model is fair; fairness numbers are audit signals only. "
+        "Distinguish a same-period hold-out from a weighted drift sensitivity analysis, and "
+        "state that a cross-time back-test is unavailable. "
+        "Do not write any numeric value in your answer: describe direction and status in words "
+        "(for example 'parity passes with no classification differences'), because every number in "
+        "the report must be rendered from a metrics path. "
+        "Return one JSON object matching this Schema, with no Markdown: "
+        + json.dumps(agent_summary_schema(), ensure_ascii=False)
+        + ". Aggregates: "
+        + json.dumps(aggregates, ensure_ascii=False, sort_keys=True)
+    )
+    messages = [
+        {"role": "system", "content": "You are a constrained validation-report writing assistant. Use only the supplied aggregates."},
+        {"role": "user", "content": prompt},
+    ]
+    last_error: Exception | None = None
+    for attempt in range(2):
+        response = provider.generate(messages)
+        _audit(run_dir, run_id, "report-summary", "MODEL_RESPONSE", request_id=response.request_id,
+               request_event_id=response.request_event_id, finish_reason=response.finish_reason,
+               content_sha256=sha256_bytes(response.content.encode("utf-8")) if response.content else None)
+        try:
+            if not response.content:
+                raise ContractError("summary response has no content")
+            summary = AgentSummary.model_validate_json(response.content)
+            text = " ".join([summary.headline, *summary.results, *summary.limitations, *summary.evidence_gaps])
+            check_wording(text)
+            digits = NUMBER.findall(text)
+            if digits:
+                raise ContractError(f"Summary must not restate numbers ({digits[:5]}); every figure is rendered from a metrics path")
+            payload = {
+                "schema_version": "1",
+                "run_id": run_id,
+                "generated_at": utc_now(),
+                "model": provider.config.model,
+                "request_id": response.request_id,
+                "request_event_id": response.request_event_id,
+                "audit_log": "agent_audit_log.jsonl",
+                "aggregate_input_sha256": sha256_bytes(json.dumps(aggregates, ensure_ascii=False, sort_keys=True).encode("utf-8")),
+                **summary.model_dump(),
+            }
+            write_json(run_dir / "report" / "agent_summary.json", payload)
+            _audit(run_dir, run_id, "report-summary", "SUMMARY_ACCEPTED", request_id=response.request_id,
+                   request_event_id=response.request_event_id,
+                   summary_sha256=sha256_file(run_dir / "report" / "agent_summary.json"), attempt=attempt)
+            return payload
+        except Exception as error:
+            last_error = error
+            _audit(run_dir, run_id, "report-summary", "OUTPUT_REJECTED", attempt=attempt, reason=str(error)[:300])
+            if attempt == 0:
+                messages = [*messages, {"role": "user", "content": f"Local validation rejected the response: {str(error)[:300]}. Return the complete corrected JSON only."}]
+    raise ContractError(f"Agent summary failed after one format retry: {last_error}")
