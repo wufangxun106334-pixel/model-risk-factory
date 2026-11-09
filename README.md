@@ -350,18 +350,27 @@ done
 | v2 上下文补齐 | context 只绑定 v1 资产，两个新 R 模型、三份旧文档、inventory expectations、Holdout 账本都不在 context 里 | `REPOSITORY_ASSETS` 扩到 16 项；新增 `verify-context --run-id --at <ref>` 用 `git archive` 物化标签树做只读复核，并分别报告 src/tests/资产失配 | `83e7ca6`，`tests/test_v2_blockers_context.py`（6 例，含"改受审来源→上下文失效"与"旧上下文按已发布树仍可核验"） |
 | 发布与证据绑定 | 证据可以在脏工作区上生成，提交在证据之后，导致 run 与标签无法对应 | `create_run` 记录 `worktree_clean_at_init`；新增 `release-check --tag <ref> --run-id <id>`：物化标签树、在树内跑全量 pytest、复算 `verify_context`、核对 `git_commit_at_init`、acceptance 与 evidence/export 哈希，输出 APPROVED/BLOCKED + 缺口 | `src/release.py`，`tests/test_v2_blockers_release.py`（6 例） |
 
+### 第二轮修复（发布校验收紧）
+
+| 阻断 | 问题 | 修复 | 提交 / 测试 |
+| --- | --- | --- | --- |
+| 表格/行身份唯一性 | 逐格比较把行按首格塞进 dict，只保留最后一次出现，因此"错误 Holdout 行在前、正确行在后"能通过 | 表身份改为完整表头签名（每张表只能出现一次），行身份改为前导标签列（公平性表用 `attribute/group` 两列）；重复表、重复行标签、渲染器自身重复都在报告中按表/行/列定位 | `e79730e`，`tests/test_v2_blockers_cells_unique.py`（6 例，含描述的攻击：索引不动、manifest 哈希重算、Gate C 拒绝、V2-07 FAIL） |
+| 验收记录与导出完整性 | 只检查 `release_approved` 与"失败清单"，不看记录是否齐全/唯一、是否绑定同一 run 与发布提交，也不打开 ZIP | `acceptance.json` 必须恰好 V1-01～07（v1）与 V2-01～07（v2）各一次、全 PASS、`commit_sha` 等于发布提交、取证路径在该 run 内；导出记录须 `verified`、清单哈希与磁盘一致，并用 `zipfile` 校验成员集合与每个成员内容哈希 | `2ed9955`，`tests/test_v2_blockers_release.py`（14 例：真实 ZIP + 14 条记录的正向，缺项/重复/错误 run_id/错误提交/路径越界/伪 ZIP/成员缺失/成员被改/多余成员等负向） |
+| 测试口径与只读 | 退出码 0 + 若干 skip 被当成"全量通过"；`verify-context`/`release-check` 会向 run 的 `command_log.jsonl` 追加行 | 在隔离标签树中先用 ledger 哈希校验本机已获准 UCI ZIP 并复制进树，再用 junit 报告区分 passed/failed/skipped 并列出被跳过用例名；有 fail、有 skip 或零收集都算发布缺口。只读命令集合不再写 run；`restore-command-log` 仅在实时日志以导出快照为前缀时才截断 | `ae6108b`，`tests/test_v2_blockers_readonly.py`（9 例，含字节级 run 目录不变与日志恢复） |
+
 ### 为什么仍然 BLOCKED
 
-`release-check --tag v2` 对 seed 46 run 的输出（`dev_runs/release_check_v2.json`）：
+`release-check --tag v2 --run-id v2-20261109T210903Z-3dcfab73 --zip data/raw/default_of_credit_card_clients.zip` 的输出（`dev_runs/release_check_v2.json`，共 17 条缺口）：
 
 ```text
 status BLOCKED
 - published tests/ does not match the run's trusted_tests_sha256
 - run was initialised at ec6077f…, not at the released commit 9884e3a…
 - the worktree was dirty when the run was initialised, so the evidence does not belong to any commit
+- V1-01 (v1) … V2-07 (v2): recorded commit ec6077f… does not match the released commit 9884e3a…   (14 条)
 ```
 
-同一输出还显示标签树上的测试结果为 `175 passed, 7 skipped`：被跳过的 7 项正是需要本机已获准 UCI ZIP 的数据准备/台账测试（ZIP 不进 Git），所以 `release-check` 在标签树上的"全量测试"覆盖的是不含本地数据的部分；这两类结果在最终汇报中分开列出。
+标签树上的测试结果：**182 passed, 0 skipped, 0 failed** —— 因为 `release-check` 已把哈希匹配的本机 UCI ZIP 复制进隔离树，原先的 7 个跳过项现在真的执行了；这也是"全量通过"与"必需测试被跳过"分开统计的目的（若仍有跳过，会逐条列出用例名并计入缺口）。
 
 只读复核分别定位到两处不可同时满足的失配（`dev_runs/seed46_readonly_check.json`）：
 
@@ -441,7 +450,8 @@ shasum -a 256 delivery/$RUN_evidence.zip runs/$RUN/export_verified.json   # 与 
 .venv/bin/python -m src.cli report-status --run-id $RUN                     # status: APPROVED
 git rev-parse v2^{commit}
 .venv/bin/python -m src.cli verify-context --run-id $RUN --at v2            # 只读复核：src/tests/资产 分别判定
-.venv/bin/python -m src.cli release-check --run-id $RUN --tag v2 --output dev_runs/release_check_v2.json   # 发布结论：当前为 BLOCKED
+.venv/bin/python -m src.cli release-check --run-id $RUN --tag v2 --zip data/raw/default_of_credit_card_clients.zip --output dev_runs/release_check_v2.json   # 发布结论：当前为 BLOCKED（17 条缺口）
+.venv/bin/python -m src.cli restore-command-log --run-id $RUN     # 仅在实时日志以导出快照为前缀时截断回快照（本 run 已恢复为 30 行，与快照逐字节相同）
 ```
 
 `verify_context` 覆盖 `src/`、`tests/` 与 repo 资产：发布提交一旦改动这些文件，已封存 run 的 Gate 与冻结即失效（见已知缺陷 4）。因此 v2 标签指向的提交必须与 run 的 `context_manifest.json` 逐字节一致，验收之后不再改 `src/`、`tests/`、`config/`。
