@@ -66,7 +66,9 @@ def _run_tree_tests(tree: Path, timeout_seconds: int) -> dict:
     return {
         # Full pass means nothing failed and nothing was skipped: a skipped required
         # test is a release gap, not a pass.
-        "passed": totals["failed"] == 0 and totals["skipped"] == 0 and bool(passed or failed or skipped),
+        # A non-zero exit (collection error, internal error, plugin failure) blocks
+        # the release even when every reported test case passed.
+        "passed": completed.returncode == 0 and totals["failed"] == 0 and totals["skipped"] == 0 and bool(passed or failed or skipped),
         "exit_code": completed.returncode,
         "totals": totals,
         "failed_tests": failed[:10],
@@ -140,6 +142,24 @@ def _acceptance_gaps(run_dir: Path, run_id: str, commit: str) -> list[str]:
     if acceptance.get("release_approved") is not True:
         gaps.append("acceptance.release_approved is not true")
 
+    manifest_path = run_dir / "evidence_manifest.json"
+    export_path = run_dir / "export_verified.json"
+    manifest = read_json(manifest_path) if manifest_path.is_file() else None
+    export = read_json(export_path) if export_path.is_file() else None
+    sealed: dict[str, str] = {}
+    if manifest is not None:
+        files = manifest.get("files")
+        if isinstance(files, list):
+            paths = [record.get("path") for record in files]
+            duplicates = sorted({path for path in paths if path is not None and paths.count(path) > 1})
+            if duplicates:
+                gaps.append("evidence manifest lists duplicate paths: " + ",".join(str(path) for path in duplicates[:5]))
+            sealed = {
+                record["path"]: record["sha256"]
+                for record in files
+                if isinstance(record.get("path"), str) and isinstance(record.get("sha256"), str)
+            }
+
     records = acceptance.get("records")
     if not isinstance(records, list):
         return gaps + ["acceptance.records is missing"]
@@ -178,17 +198,19 @@ def _acceptance_gaps(run_dir: Path, run_id: str, commit: str) -> list[str]:
             gaps.append(f"{label(key)} evidence path escapes the run: {evidence}")
         elif not target.is_file():
             gaps.append(f"{label(key)} evidence file is missing: {evidence}")
+        elif evidence not in sealed:
+            gaps.append(f"{label(key)} evidence is not part of the sealed evidence: {evidence}")
+        elif sha256_file(target) != sealed[evidence]:
+            gaps.append(f"{label(key)} evidence hash does not match the sealed manifest: {evidence}")
 
-    export_path = run_dir / "export_verified.json"
-    manifest_path = run_dir / "evidence_manifest.json"
-    if not export_path.is_file():
+    if export is None:
         return gaps + ["export_verified.json missing"]
-    export = read_json(export_path)
+    if manifest is None:
+        return gaps + ["evidence_manifest.json missing"]
+    if export.get("run_id") != run_id:
+        gaps.append(f"export_verified run_id {export.get('run_id')!r} does not match the target run {run_id!r}")
     if export.get("verified") is not True:
         gaps.append("export_verified.verified is not true")
-    if not manifest_path.is_file():
-        return gaps + ["evidence_manifest.json missing"]
-    manifest = read_json(manifest_path)
     if manifest.get("run_id") != run_id:
         gaps.append("evidence_manifest run_id mismatch")
     if export.get("manifest_sha256") != sha256_file(manifest_path):
@@ -226,14 +248,18 @@ def _zip_gaps(archive: Path, run_id: str, manifest: dict, manifest_path: Path) -
     manifest_digest = sha256_file(manifest_path)
     try:
         with zipfile.ZipFile(archive) as bundle:
-            names = set(bundle.namelist())
-            missing = sorted(intended - names)
-            extra = sorted(names - intended)
+            names = bundle.namelist()
+            duplicates = sorted({name for name in names if names.count(name) > 1})
+            if duplicates:
+                gaps.append("evidence archive has duplicate members: " + ",".join(duplicates[:5]))
+            present = set(names)
+            missing = sorted(intended - present)
+            extra = sorted(present - intended)
             if missing:
                 gaps.append("evidence archive is missing members: " + ",".join(missing[:5]))
             if extra:
                 gaps.append("evidence archive has unexpected members: " + ",".join(extra[:5]))
-            for name in sorted(intended & names):
+            for name in sorted(intended & present):
                 relative = name.split("/", 1)[1]
                 expected = manifest_digest if relative == "evidence_manifest.json" else recorded.get(relative)
                 payload = bundle.read(name)
@@ -277,6 +303,11 @@ def release_check(repository: Path, ref: str, run_dir: Path, run_id: str, *, tim
     gaps.extend(dataset_gaps)
     if tests["totals"]["failed"]:
         gaps.append(f"test suite fails on the published tree: {tests['totals']['failed']} failing ({', '.join(tests['failed_tests'][:5])})")
+    if tests["exit_code"] != 0 and not tests["totals"]["failed"]:
+        gaps.append(
+            f"pytest exited with {tests['exit_code']} on the published tree even though JUnit reports "
+            f"{tests['totals']['passed']} passed; a non-zero exit blocks the release"
+        )
     if tests["totals"]["skipped"]:
         gaps.append(
             f"required tests were skipped on the published tree: {tests['totals']['skipped']} skipped "

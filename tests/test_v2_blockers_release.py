@@ -290,3 +290,97 @@ def test_release_check_blocks_an_unknown_ref(tmp_path):
     result = release_check(repo, "no-such-tag", run, RUN_ID)
     assert result["status"] == "BLOCKED"
     assert any("cannot resolve" in gap for gap in result["gaps"])
+
+def test_nonzero_pytest_exit_blocks_even_when_junit_is_green(tmp_path, monkeypatch):
+    repo, run, _commit = build(tmp_path)
+    import src.release as release_module
+
+    real_run = subprocess.run
+
+    class FakeCompleted:
+        returncode = 1
+        stdout = "1 passed in 0.10s"
+        stderr = "collection warning turned into an error"
+
+    def fake_run(command, **kwargs):
+        if isinstance(command, list) and "-m" in command and "pytest" in command:
+            for argument in command:
+                if isinstance(argument, str) and argument.startswith("--junit-xml="):
+                    target = Path(argument.split("=", 1)[1])
+                    target.parent.mkdir(parents=True, exist_ok=True)
+                    target.write_text(
+                        '<testsuites><testsuite><testcase classname="tests.test_smoke" name="test_ok"/></testsuite></testsuites>',
+                        encoding="utf-8",
+                    )
+            return FakeCompleted()
+        return real_run(command, **kwargs)
+
+    monkeypatch.setattr(release_module.subprocess, "run", fake_run)
+    result = release_check(repo, "v2", run, RUN_ID)
+    assert result["status"] == "BLOCKED"
+    assert result["new_commit_checks"]["tests_on_published_tree"]["totals"]["failed"] == 0
+    assert any("non-zero exit" in gap for gap in result["gaps"]), result["gaps"]
+
+
+def test_export_run_id_mismatch_blocks(tmp_path):
+    repo, run, _commit = build(tmp_path)
+    export = json.loads((run / "export_verified.json").read_text())
+    export["run_id"] = "some-other-run"
+    write_json(run / "export_verified.json", export)
+    refresh_export(run)
+    result = release_check(repo, "v2", run, RUN_ID)
+    assert result["status"] == "BLOCKED"
+    assert any("export_verified run_id" in gap for gap in result["gaps"]), result["gaps"]
+
+
+def test_evidence_path_outside_the_sealed_set_blocks(tmp_path):
+    repo, run, commit = build(tmp_path)
+    records = records_for(commit)
+    records[0]["evidence_path"] = "run_manifest.json"  # exists in the run, not sealed
+    set_records(run, records)
+    result = release_check(repo, "v2", run, RUN_ID)
+    assert result["status"] == "BLOCKED"
+    assert any("not part of the sealed evidence" in gap for gap in result["gaps"]), result["gaps"]
+
+
+def test_evidence_hash_mismatch_blocks(tmp_path):
+    repo, run, _commit = build(tmp_path)
+    (run / EVIDENCE_MEMBER).write_text("# changed after sealing\n", encoding="utf-8")
+    result = release_check(repo, "v2", run, RUN_ID)
+    assert result["status"] == "BLOCKED"
+    assert any("does not match the sealed manifest" in gap for gap in result["gaps"]), result["gaps"]
+
+
+def test_duplicate_manifest_path_blocks(tmp_path):
+    repo, run, _commit = build(tmp_path)
+    manifest = json.loads((run / "evidence_manifest.json").read_text())
+    manifest["files"].append(dict(manifest["files"][0]))
+    manifest["file_count"] = len(manifest["files"])
+    write_json(run / "evidence_manifest.json", manifest)
+    archive = build_zip(run, RUN_ID)
+    export = json.loads((run / "export_verified.json").read_text())
+    export["archive"] = str(archive)
+    export["file_count"] = manifest["file_count"]
+    write_json(run / "export_verified.json", export)
+    refresh_export(run)
+    result = release_check(repo, "v2", run, RUN_ID)
+    assert result["status"] == "BLOCKED"
+    assert any("duplicate paths" in gap for gap in result["gaps"]), result["gaps"]
+
+
+def test_duplicate_zip_member_blocks(tmp_path):
+    repo, run, _commit = build(tmp_path)
+    manifest_bytes = (run / "evidence_manifest.json").read_bytes()
+    archive = run / "delivery" / f"{RUN_ID}_duplicate.zip"
+    archive.parent.mkdir(parents=True, exist_ok=True)
+    with zipfile.ZipFile(archive, "w") as bundle:
+        bundle.writestr(f"{RUN_ID}/{EVIDENCE_MEMBER}", (run / EVIDENCE_MEMBER).read_bytes())
+        bundle.writestr(f"{RUN_ID}/{EVIDENCE_MEMBER}", (run / EVIDENCE_MEMBER).read_bytes())
+        bundle.writestr(f"{RUN_ID}/evidence_manifest.json", manifest_bytes)
+    export = json.loads((run / "export_verified.json").read_text())
+    export["archive"] = str(archive)
+    write_json(run / "export_verified.json", export)
+    refresh_export(run)
+    result = release_check(repo, "v2", run, RUN_ID)
+    assert result["status"] == "BLOCKED"
+    assert any("duplicate members" in gap for gap in result["gaps"]), result["gaps"]
