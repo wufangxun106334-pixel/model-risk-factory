@@ -361,6 +361,8 @@ status BLOCKED
 - the worktree was dirty when the run was initialised, so the evidence does not belong to any commit
 ```
 
+同一输出还显示标签树上的测试结果为 `175 passed, 7 skipped`：被跳过的 7 项正是需要本机已获准 UCI ZIP 的数据准备/台账测试（ZIP 不进 Git），所以 `release-check` 在标签树上的"全量测试"覆盖的是不含本地数据的部分；这两类结果在最终汇报中分开列出。
+
 只读复核分别定位到两处不可同时满足的失配（`dev_runs/seed46_readonly_check.json`）：
 
 | 参考提交 | src/ | tests/ | 仓库资产 | 结论 |
