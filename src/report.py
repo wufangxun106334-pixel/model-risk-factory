@@ -431,6 +431,105 @@ def render_report(run_dir: Path, run_id: str, *, agent_summary: dict | None, inv
     return {"report": str(report_path), "manifest": str(report_dir / "review_manifest.json"), "unresolved_numbers": unresolved, "value_count": len(renderer.index)}
 
 
+TABLE_HEADERS = (
+    ("dataset", "rows", "positives", "negatives", "ROC-AUC", "Brier", "AUC status"),
+    ("decile", "rows", "mean predicted", "observed default rate", "absolute gap"),
+    ("", "actual default", "actual no default"),
+    ("signal", "PSI", "state"),
+    ("attribute", "group", "rows", "positives", "TPR", "TPR status", "FPR", "FPR status"),
+)
+
+
+def parse_markdown_tables(text: str) -> list[dict]:
+    """Return every pipe table in ``text`` as header plus rows of raw cells."""
+
+    tables: list[dict] = []
+    current: list[list[str]] = []
+    for line in text.splitlines() + [""]:
+        stripped = line.strip()
+        if stripped.startswith("|") and stripped.endswith("|"):
+            cells = [cell.strip() for cell in stripped.strip("|").split("|")]
+            current.append(cells)
+            continue
+        if current:
+            if len(current) >= 2:
+                header = current[0]
+                body = [row for row in current[1:] if not all(set(cell) <= {"-"} for cell in row)]
+                tables.append({"header": header, "rows": body})
+            current = []
+    return tables
+
+
+def expected_tables(metrics: dict) -> list[dict]:
+    """Rebuild every report table from the metrics JSON with the trusted renderer."""
+
+    renderer = Renderer(metrics)
+    rendered = [
+        performance_table(renderer),
+        calibration_table(renderer),
+        confusion_table(renderer),
+        stability_table(renderer),
+        fairness_table(renderer),
+    ]
+    return parse_markdown_tables("\n\n".join(rendered))
+
+
+def verify_report_cells(run_dir: Path, metrics: dict | None = None) -> list[str]:
+    """Compare each table cell in the report with a fresh render of the metrics.
+
+    This is the check that a swapped or edited cell cannot pass: the report is
+    re-derived from ``validation_metrics.json`` and compared cell by cell, so the
+    index and the manifest hash are irrelevant to it.
+    """
+
+    report_path = run_dir / "report" / "validation_report.md"
+    if not report_path.is_file():
+        return ["report missing"]
+    metrics = metrics if metrics is not None else (read_json(run_dir / "validation_metrics.json") if (run_dir / "validation_metrics.json").is_file() else None)
+    if metrics is None:
+        return ["validation_metrics.json missing"]
+    try:
+        expected = {table["header"][0] if table["header"] else "": table for table in expected_tables(metrics)}
+    except (ContractError, KeyError, IndexError, TypeError, ValueError) as error:
+        return [f"report tables cannot be re-rendered from the metrics: {error}"]
+    actual_tables = parse_markdown_tables(report_path.read_text(encoding="utf-8"))
+    problems: list[str] = []
+    seen: set[tuple] = set()
+    for table in actual_tables:
+        key = tuple(table["header"])
+        if key not in {tuple(item["header"]) for item in expected.values()}:
+            continue
+        expected_table = next(item for item in expected.values() if tuple(item["header"]) == key)
+        seen.add(key)
+        expected_rows = {row[0]: row for row in expected_table["rows"]}
+        actual_rows = {row[0]: row for row in table["rows"]}
+        for label, row in expected_rows.items():
+            found = actual_rows.get(label)
+            if found is None:
+                problems.append(f"table {key[0]!r}: row {label!r} missing")
+                continue
+            if len(found) != len(row):
+                problems.append(f"table {key[0]!r} row {label!r}: {len(found)} cells, expected {len(row)}")
+                continue
+            for index, (want, got) in enumerate(zip(row, found)):
+                if want != got:
+                    column = expected_table["header"][index] if index < len(expected_table["header"]) else str(index)
+                    problems.append(f"table {key[0]!r} row {label!r} column {column!r}: report has {got!r}, metrics render {want!r}")
+        for label in actual_rows:
+            if label not in expected_rows:
+                problems.append(f"table {key[0]!r}: unexpected row {label!r}")
+    for key, table in {tuple(item["header"]): item for item in expected.values()}.items():
+        if key not in seen:
+            problems.append(f"table {key[0]!r}: not found in the report")
+    return problems
+
+
+def require_report_cells(run_dir: Path) -> None:
+    problems = verify_report_cells(run_dir)
+    if problems:
+        raise ContractError("Report cells do not match validation_metrics.json: " + "; ".join(problems[:5]))
+
+
 def text_matches_value(value, text: str) -> bool:
     """True when ``text`` is one of the renderer's faithful renderings of ``value``.
 
@@ -530,11 +629,17 @@ BOUND_REPORT_FILES = (
 )
 
 
-def _pre_approval(run_dir: Path, run_id: str) -> tuple[list[str], str, dict | None]:
+def report_content_problems(run_dir: Path, run_id: str) -> tuple[list[str], dict | None]:
+    """Every check that must hold before a report may be reviewed or published.
+
+    Deliberately excludes the Gate C decision itself so the approval path can use
+    it without being circular.
+    """
+
     manifest_path = run_dir / "report" / "review_manifest.json"
     report_path = run_dir / "report" / "validation_report.md"
     if not manifest_path.is_file() or not report_path.is_file():
-        return ["report not generated"], "NOT_REVIEWED", None
+        return ["report not generated"], None
     manifest = read_json(manifest_path)
     reasons: list[str] = []
     if manifest.get("run_id") != run_id:
@@ -557,7 +662,18 @@ def _pre_approval(run_dir: Path, run_id: str) -> tuple[list[str], str, dict | No
             reasons.append(f"{label} changed after the report was rendered")
     if manifest.get("unresolved_numbers"):
         reasons.append("report contains numbers without a metrics path")
-    decision = current_decision(run_dir, run_id, "Gate_C", manifest_path)
+    reasons.extend(f"report cell mismatch: {problem}" for problem in verify_report_cells(run_dir))
+    if (run_dir / "report" / "values_index.csv").is_file() and (run_dir / "validation_metrics.json").is_file():
+        reasons.extend(index_mismatches(run_dir))
+        reasons.extend(index_not_in_report(report_path.read_text(encoding="utf-8"), run_dir))
+    return reasons, manifest
+
+
+def _pre_approval(run_dir: Path, run_id: str) -> tuple[list[str], str, dict | None]:
+    reasons, manifest = report_content_problems(run_dir, run_id)
+    if manifest is None:
+        return reasons, "NOT_REVIEWED", None
+    decision = current_decision(run_dir, run_id, "Gate_C", run_dir / "report" / "review_manifest.json")
     if decision != "APPROVED":
         reasons.append(f"Gate_C={decision}")
     return reasons, decision, manifest

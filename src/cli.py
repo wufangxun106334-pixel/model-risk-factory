@@ -35,7 +35,7 @@ from src.fixtures import write_fixtures
 from src.local_checks import run_mutation_check, run_reference_parity
 from src.inventory import expected_model_ids, inventory_path
 from src.migration import candidate_dir, freeze_candidate, load_candidate
-from src.report import render_report, report_status, write_approval
+from src.report import render_report, report_content_problems, report_status, write_approval
 from src.review import artifact_digest, current_decision, record_review
 from src.validation import compute_validation_metrics
 from src.workflow import run_candidate_fixtures, run_development, run_holdout
@@ -203,6 +203,14 @@ def _dispatch(arguments: argparse.Namespace) -> dict[str, Any]:
         elif arguments.gate == "Gate_C":
             # One artifact path for generation, approval and status: the review
             # manifest that binds the report, metrics, index, tables and summary.
+            # Content is re-derived from the metrics before the review is recorded,
+            # so a swapped or edited cell cannot be approved even with a fresh hash.
+            content_problems, _manifest = report_content_problems(run_dir, run_id)
+            if content_problems:
+                raise ContractError(
+                    "Gate C requires a report whose content matches validation_metrics.json: "
+                    + "; ".join(content_problems[:5])
+                )
             artifact = run_dir / "report" / "review_manifest.json"
         else:
             if arguments.attempt is None:

@@ -124,30 +124,21 @@ def test_tampered_candidate_needs_a_new_gate_b(tmp_path):
 
 
 def test_gate_c_is_required_before_a_report_can_be_approved(tmp_path):
-    from src.report import report_status, write_approval
+    from v2_metrics import metrics_fixture
+    from src.report import render_report, report_status, write_approval
 
     run = make_run(tmp_path)
-    write_json(run / "validation_metrics.json", {"run_id": RUN_ID})
-    (run / "report").mkdir(parents=True, exist_ok=True)
-    (run / "report" / "validation_report.md").write_text("report body\n", encoding="utf-8")
-    (run / "report" / "values_index.csv").write_text("section,label,json_path,text\n", encoding="utf-8")
-    (run / "report" / "validation_tables.md").write_text("# tables\n", encoding="utf-8")
-    write_json(run / "report" / "review_manifest.json", {
-        "schema_version": "1",
-        "run_id": RUN_ID,
-        "report_sha256": sha256_file(run / "report" / "validation_report.md"),
-        "metrics_sha256": sha256_file(run / "validation_metrics.json"),
-        "values_index_sha256": sha256_file(run / "report" / "values_index.csv"),
-        "tables_sha256": sha256_file(run / "report" / "validation_tables.md"),
-        "value_count": 1,
-        "unresolved_numbers": [],
-    })
+    write_json(run / "validation_metrics.json", metrics_fixture(RUN_ID))
+    for model_id, relative in (("MDL_CREDIT_V1", "model_inventory.json"), ("MDL_CREDIT_V2", "inventories/MDL_CREDIT_V2.json"), ("MDL_CREDIT_TREE", "inventories/MDL_CREDIT_TREE.json")):
+        write_json(run / relative, {"run_id": RUN_ID, "model_id": model_id, "review_status": "APPROVED", "sources": []})
+    write_json(run / "review_log.json", {"schema_version": "1", "run_id": RUN_ID, "reviews": []})
+    render_report(run, RUN_ID, agent_summary=None, inventories={"MDL_CREDIT_V1": "APPROVED"})
     assert report_status(run, RUN_ID)["gate_c"] == "NOT_REVIEWED"
     with pytest.raises(GateError):
         write_approval(run, RUN_ID)
 
-    manifest = run / "report" / "review_manifest.json"
-    record_review(run, RUN_ID, "Gate_C", manifest, artifact_digest(manifest, "Gate_C"), "APPROVED", "agent-delegated", "delegated report review")
+    manifest_path = run / "report" / "review_manifest.json"
+    record_review(run, RUN_ID, "Gate_C", manifest_path, artifact_digest(manifest_path, "Gate_C"), "APPROVED", "agent-delegated", "delegated report review")
     assert read_json(run / "review_log.json")["reviews"][-1]["gate"] == "Gate_C"
     write_approval(run, RUN_ID)
     assert report_status(run, RUN_ID)["status"] == "APPROVED"
