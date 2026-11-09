@@ -474,12 +474,29 @@ def expected_tables(metrics: dict) -> list[dict]:
     return parse_markdown_tables("\n\n".join(rendered))
 
 
+ROW_KEY_COLUMNS = {"attribute": 2}
+
+
+def row_key_width(header: list[str]) -> int:
+    """How many leading cells identify a row (the fairness table needs two)."""
+
+    return ROW_KEY_COLUMNS.get(header[0], 1) if header else 1
+
+
+def row_key(row: list[str], width: int) -> tuple:
+    return tuple(cell for cell in row[:width])
+
+
+def format_row_key(key: tuple) -> str:
+    return "/".join(key)
+
+
 def verify_report_cells(run_dir: Path, metrics: dict | None = None) -> list[str]:
     """Compare each table cell in the report with a fresh render of the metrics.
 
-    This is the check that a swapped or edited cell cannot pass: the report is
-    re-derived from ``validation_metrics.json`` and compared cell by cell, so the
-    index and the manifest hash are irrelevant to it.
+    Table identity is the full header signature and row identity is the row label,
+    and both must be unique: otherwise a "wrong row first, correct row last" copy
+    would pass because a dict comprehension keeps only the last occurrence.
     """
 
     report_path = run_dir / "report" / "validation_report.md"
@@ -489,38 +506,68 @@ def verify_report_cells(run_dir: Path, metrics: dict | None = None) -> list[str]
     if metrics is None:
         return ["validation_metrics.json missing"]
     try:
-        expected = {table["header"][0] if table["header"] else "": table for table in expected_tables(metrics)}
+        rendered = expected_tables(metrics)
     except (ContractError, KeyError, IndexError, TypeError, ValueError) as error:
         return [f"report tables cannot be re-rendered from the metrics: {error}"]
-    actual_tables = parse_markdown_tables(report_path.read_text(encoding="utf-8"))
+
     problems: list[str] = []
-    seen: set[tuple] = set()
-    for table in actual_tables:
+    expected_by_header: dict[tuple, dict] = {}
+    for table in rendered:
         key = tuple(table["header"])
-        if key not in {tuple(item["header"]) for item in expected.values()}:
+        if key in expected_by_header:
+            problems.append(f"renderer produced the table {key[0]!r} twice")
             continue
-        expected_table = next(item for item in expected.values() if tuple(item["header"]) == key)
-        seen.add(key)
-        expected_rows = {row[0]: row for row in expected_table["rows"]}
-        actual_rows = {row[0]: row for row in table["rows"]}
-        for label, row in expected_rows.items():
-            found = actual_rows.get(label)
-            if found is None:
-                problems.append(f"table {key[0]!r}: row {label!r} missing")
+        width = row_key_width(table["header"])
+        labels = [row_key(row, width) for row in table["rows"]]
+        duplicates = sorted({format_row_key(label) for label in labels if labels.count(label) > 1})
+        if duplicates:
+            problems.append(f"renderer produced duplicate row labels in table {key[0]!r}: {duplicates}")
+        expected_by_header[key] = table
+    if problems:
+        return problems
+
+    occurrences: dict[tuple, list[dict]] = {}
+    expected_headers = set(expected_by_header)
+    for table in parse_markdown_tables(report_path.read_text(encoding="utf-8")):
+        key = tuple(table["header"])
+        if key in expected_headers:
+            occurrences.setdefault(key, []).append(table)
+
+    for key, expected_table in expected_by_header.items():
+        label = key[0] if key else str(key)
+        found = occurrences.get(key, [])
+        if not found:
+            problems.append(f"table {label!r}: not found in the report")
+            continue
+        if len(found) > 1:
+            problems.append(f"table {label!r}: appears {len(found)} times, must appear exactly once")
+            continue
+        table = found[0]
+        width = row_key_width(expected_table["header"])
+        expected_labels = [row_key(row, width) for row in expected_table["rows"]]
+        actual_labels = [row_key(row, width) for row in table["rows"]]
+        duplicates = sorted({format_row_key(row_label) for row_label in actual_labels if actual_labels.count(row_label) > 1})
+        if duplicates:
+            problems.append(f"table {label!r}: duplicate row labels {duplicates} (each row must appear exactly once)")
+            continue
+        expected_rows = dict(zip(expected_labels, expected_table["rows"]))
+        actual_rows = dict(zip(actual_labels, table["rows"]))
+        for row_label, row in expected_rows.items():
+            shown = format_row_key(row_label)
+            found_row = actual_rows.get(row_label)
+            if found_row is None:
+                problems.append(f"table {label!r}: row {shown!r} missing")
                 continue
-            if len(found) != len(row):
-                problems.append(f"table {key[0]!r} row {label!r}: {len(found)} cells, expected {len(row)}")
+            if len(found_row) != len(row):
+                problems.append(f"table {label!r} row {shown!r}: {len(found_row)} cells, expected {len(row)}")
                 continue
-            for index, (want, got) in enumerate(zip(row, found)):
+            for index, (want, got) in enumerate(zip(row, found_row)):
                 if want != got:
                     column = expected_table["header"][index] if index < len(expected_table["header"]) else str(index)
-                    problems.append(f"table {key[0]!r} row {label!r} column {column!r}: report has {got!r}, metrics render {want!r}")
-        for label in actual_rows:
-            if label not in expected_rows:
-                problems.append(f"table {key[0]!r}: unexpected row {label!r}")
-    for key, table in {tuple(item["header"]): item for item in expected.values()}.items():
-        if key not in seen:
-            problems.append(f"table {key[0]!r}: not found in the report")
+                    problems.append(f"table {label!r} row {shown!r} column {column!r}: report has {got!r}, metrics render {want!r}")
+        for row_label in actual_rows:
+            if row_label not in expected_rows:
+                problems.append(f"table {label!r}: unexpected row {format_row_key(row_label)!r}")
     return problems
 
 
