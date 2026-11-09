@@ -30,6 +30,7 @@ from src.common import (
 from src.data import download_uci, prepare_synthetic, prepare_uci
 from src.evidence import export_evidence
 from src.failures import run_failure_drills
+from src.holdout_ledger import verify_ledger as verify_holdout_ledger
 from src.fixtures import write_fixtures
 from src.local_checks import run_mutation_check, run_reference_parity
 from src.inventory import expected_model_ids, inventory_path
@@ -70,6 +71,9 @@ def _parser() -> argparse.ArgumentParser:
     prepare.add_argument("--seed", type=int, default=None)
     prepare.add_argument("--expected-sha256")
     prepare.add_argument("--approve-uci-use", action="store_true")
+
+    ledger = subparsers.add_parser("verify-holdout-ledger")
+    ledger.add_argument("--raw-uci", type=Path, required=True)
 
     download = subparsers.add_parser("download-uci")
     download.add_argument("--run-id", required=True)
@@ -147,6 +151,8 @@ def _dispatch(arguments: argparse.Namespace) -> dict[str, Any]:
     if command == "init-run":
         manifest = create_run(RUNS_ROOT, REPOSITORY, arguments.mode)
         return {"run_id": manifest["run_id"], "status": "INITIALIZED", "manifest": manifest}
+    if command == "verify-holdout-ledger":
+        return verify_holdout_ledger(REPOSITORY, arguments.raw_uci)
     run_dir, manifest = load_run(RUNS_ROOT, arguments.run_id)
     run_id = arguments.run_id
     if command == "check-provider":

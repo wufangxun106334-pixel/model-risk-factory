@@ -237,25 +237,40 @@ def _stratified_counts(available: dict[int, int], size: int) -> dict[int, int]:
     return counts
 
 
-def _excluded_holdout_ids(config: dict) -> tuple[set[str], list[dict]]:
-    """Load previously consumed Holdout ids so the next Holdout cannot reuse them."""
+def _excluded_holdout_ids(config: dict, raw_zip: Path | None = None) -> tuple[set[str], list[dict]]:
+    """Rebuild previously consumed Holdouts from the committed ledger.
+
+    The consumed Holdout files are machine-local, so the exclusion set is never
+    read from disk: it is reconstructed from the approved UCI ZIP and the hashes
+    recorded in the ledger. A clean checkout can therefore prepare the formal
+    split without any run directory.
+    """
 
     specification = config.get("holdout_exclusion")
     if not isinstance(specification, dict) or specification.get("enabled") is not True:
         return set(), []
-    sources = specification.get("sources")
-    if not isinstance(sources, list) or not sources:
-        raise ValueError("holdout_exclusion.sources must list the consumed Holdout files")
+    campaigns = specification.get("campaigns")
+    if not isinstance(campaigns, list) or not campaigns:
+        raise ValueError("holdout_exclusion.campaigns must list the consumed campaigns")
     repository = _config_path().parents[1]
-    identifiers: set[str] = set()
-    records: list[dict] = []
-    for relative in sources:
-        path = (repository / str(relative)).resolve()
-        if not path.is_file():
-            raise ValueError(f"Consumed Holdout source is missing: {relative}")
-        values = pd.read_csv(path, usecols=["client_id"])["client_id"].astype(str)
-        identifiers.update(values.tolist())
-        records.append({"path": str(relative), "sha256": _sha256_file(path), "rows": int(len(values)), "ids": set(values.tolist())})
+    from src.holdout_ledger import exclusion_ids, load_ledger, recover_historical_splits
+
+    ledger = load_ledger(repository / str(specification.get("ledger") or "config/holdout_ledger.json"))
+    if raw_zip is None:
+        raise ValueError("Holdout exclusion needs the approved UCI ZIP to rebuild the consumed splits")
+    recovered = recover_historical_splits(Path(raw_zip), ledger)
+    identifiers = exclusion_ids(recovered, campaigns)
+    records = [
+        {
+            "campaign_id": campaign_id,
+            "algorithm": recovered[campaign_id]["algorithm"],
+            "seed": recovered[campaign_id]["seed"],
+            "rows": recovered[campaign_id]["holdout_rows"],
+            "holdout_sha256": recovered[campaign_id]["holdout_sha256"],
+            "ids": recovered[campaign_id]["holdout_ids"],
+        }
+        for campaign_id in campaigns
+    ]
     return identifiers, records
 
 
@@ -265,9 +280,11 @@ def _holdout_exclusion_block(config: dict, frames: dict[str, pd.DataFrame], reco
     return {
         "enabled": bool(specification.get("enabled")),
         "rule": specification.get("rule"),
+        "ledger": specification.get("ledger"),
+        "reconstruction": "consumed splits rebuilt from the approved ZIP and verified against the ledger hashes",
         "sources": [{key: value for key, value in record.items() if key != "ids"} for record in records],
         "holdout_rows": int(len(holdout_ids)),
-        "overlap": {record["path"]: int(len(holdout_ids & record["ids"])) for record in records},
+        "overlap": {record["campaign_id"]: int(len(holdout_ids & record["ids"])) for record in records},
         "overlap_total": int(sum(len(holdout_ids & record["ids"]) for record in records)),
     }
 
@@ -661,7 +678,7 @@ def prepare_uci(
     config, config_sha256 = _load_config()
     seed = int(config["seed"])
     rng = np.random.default_rng(seed)
-    excluded_ids, exclusion_records = _excluded_holdout_ids(config)
+    excluded_ids, exclusion_records = _excluded_holdout_ids(config, input_path)
     frames = _split_frame(frame, rng, excluded_ids)
     provenance = Path(source_path) if source_path is not None else input_path
     manifest = _write_outputs(

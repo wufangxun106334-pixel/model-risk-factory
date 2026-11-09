@@ -1,0 +1,57 @@
+{
+  "schema_version": "1",
+  "dataset": {
+    "kind": "uci",
+    "zip_sha256": "56c885f84457f6680f8438f02bfcdac9579323d8a94465ee5f26e32baa727602",
+    "landing_url": "https://archive.ics.uci.edu/dataset/350/default+of+credit+card+clients",
+    "license": "CC BY 4.0"
+  },
+  "note": "Consumed formal Holdouts, recorded by parameters and hashes only. Rebuild them from the approved ZIP with `python -m src.cli verify-holdout-ledger --raw-uci <zip>`; no rows, ids or labels are stored here.",
+  "campaigns": [
+    {
+      "campaign_id": "MDL_CREDIT_V1:uci:seed-42",
+      "seed": 42,
+      "algorithm": "split-v1-sequential",
+      "excluded_campaigns": [],
+      "consumed_by_run": "v1-20261109T172051Z-a9bd4ef4",
+      "consumed_at": "2026-11-09T17:32:03.301071Z",
+      "splits": {
+        "train.csv": "5ce2e6f5268ad1dbff0aee75f3501d97f083c08ea46df9e7612a6be3711ed607",
+        "dev.csv": "8e6668593ec7f80a654d63764d327345978d4d1d6bb07ad48b8dec1138926f49",
+        "holdout.csv": "f45720ea942a21553e79344d1db5967357a65e80f2e6bdc07472fc7cfd519b1f",
+        "shift_pool.csv": "628bbf0e5816f98a666e1c60f894369ae5c94ec9170d52a1f3520467e453fa4c"
+      }
+    },
+    {
+      "campaign_id": "MDL_CREDIT_V1:uci:seed-43",
+      "seed": 43,
+      "algorithm": "split-v1-sequential",
+      "excluded_campaigns": [],
+      "consumed_by_run": "v1-20261109T181929Z-3fe1c7b5",
+      "consumed_at": "2026-11-09T18:25:21.281115Z",
+      "splits": {
+        "train.csv": "51e2fcafc0f80604b1ed8c8adb3edf3955761522b740df768ade1ce5f07918c5",
+        "dev.csv": "19e3ceaa343fec9e11ca982f1c581cab162fb5cfd4220013fdd3f8b122302cd9",
+        "holdout.csv": "6e2a1a1325070da15848aabe027ebb9a7e2a5d9b173d3fff1f75d9b19492f2fa",
+        "shift_pool.csv": "da75e1dac0b7b2cf1fb6f28681300992a8af4b0d8ca362f9106c49f624006bfc"
+      }
+    },
+    {
+      "campaign_id": "MDL_CREDIT_V1:uci:seed-44",
+      "seed": 44,
+      "algorithm": "split-v2-holdout-first",
+      "excluded_campaigns": [
+        "MDL_CREDIT_V1:uci:seed-42",
+        "MDL_CREDIT_V1:uci:seed-43"
+      ],
+      "consumed_by_run": "v2-20261109T203556Z-02f3834e",
+      "consumed_at": "2026-11-09T20:40:02.526142Z",
+      "splits": {
+        "train.csv": "ea779d3534db3d58c06a1060c81d98e200f3a6c159e7afb65cbaabd0a545f115",
+        "dev.csv": "854dd8f8313e77f3e1c968e6efa2b8fda37b557245dc24a16ab6bf9dabf29de9",
+        "holdout.csv": "5ecf7d0e7a543953bb1d3a79e66e13337cbb2f29845f7b05fad997da765042bb",
+        "shift_pool.csv": "dd9bb1a80c7760b503d9008495ab9bbce7b6b0d2d6676caed7467fbfa6e6236d"
+      }
+    }
+  ]
+}
