@@ -89,6 +89,11 @@ def tree_records(root: str | Path, base: str | Path | None = None) -> list[dict[
     return [file_record(path, base=base) for path in sorted(directory.rglob("*")) if path.is_file() and "__pycache__" not in path.parts]
 
 
+def git_worktree_clean(repository: Path) -> bool:
+    result = subprocess.run(["git", "status", "--porcelain"], cwd=repository, capture_output=True, text=True, check=False)
+    return result.returncode == 0 and not result.stdout.strip()
+
+
 def current_git_commit(repository: Path) -> str:
     result = subprocess.run(["git", "rev-parse", "HEAD"], cwd=repository, capture_output=True, text=True, check=False)
     return result.stdout.strip() if result.returncode == 0 else "UNKNOWN"
@@ -133,6 +138,8 @@ def create_run(runs_root: str | Path, repository: Path, mode: str) -> dict[str, 
         "mode": mode,
         "model_id": "MDL_CREDIT_V1",
         "git_commit_at_init": current_git_commit(repository),
+        # Evidence may only back a release when it came from a committed tree.
+        "worktree_clean_at_init": git_worktree_clean(repository),
         "source_snapshot_at_init": source_snapshot(repository),
         "state": "INITIALIZED",
         "artifacts": {},

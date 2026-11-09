@@ -12,7 +12,7 @@ from src.agent import check_provider, extract_inventory, generate_candidate, sum
 from src.baseline import run_r_baseline
 from src.behavior import run_fixture_parity
 from src.boundary import run_boundary_suite
-from src.context import create_context
+from src.context import create_context, verify_context_at
 from src.common import (
     ContractError,
     append_jsonl,
@@ -71,6 +71,10 @@ def _parser() -> argparse.ArgumentParser:
     prepare.add_argument("--seed", type=int, default=None)
     prepare.add_argument("--expected-sha256")
     prepare.add_argument("--approve-uci-use", action="store_true")
+
+    verify_context_cmd = subparsers.add_parser("verify-context")
+    verify_context_cmd.add_argument("--run-id", required=True)
+    verify_context_cmd.add_argument("--at", required=True, help="git ref whose tree the run was produced from")
 
     ledger = subparsers.add_parser("verify-holdout-ledger")
     ledger.add_argument("--raw-uci", type=Path, required=True)
@@ -153,6 +157,10 @@ def _dispatch(arguments: argparse.Namespace) -> dict[str, Any]:
         return {"run_id": manifest["run_id"], "status": "INITIALIZED", "manifest": manifest}
     if command == "verify-holdout-ledger":
         return verify_holdout_ledger(REPOSITORY, arguments.raw_uci)
+    if command == "verify-context":
+        run_dir, _manifest = load_run(RUNS_ROOT, arguments.run_id)
+        result = verify_context_at(REPOSITORY, run_dir, arguments.run_id, arguments.at)
+        return {"status": "PASS" if result["verified"] else "FAIL", **result}
     run_dir, manifest = load_run(RUNS_ROOT, arguments.run_id)
     run_id = arguments.run_id
     if command == "check-provider":
