@@ -112,12 +112,15 @@ def _runtime_settings() -> dict[str, Any]:
             settings = json.load(handle)
         if not isinstance(settings, dict):
             raise ValueError
+        default_model = settings["default_model"]
         timeout_seconds = _finite_number(settings["timeout_seconds"])
         backoff = _finite_number(settings["retry_backoff_seconds"])
         max_requests = settings["max_requests_per_agent_round"]
         max_retries = settings["max_retries"]
         if (
-            timeout_seconds is None
+            not isinstance(default_model, str)
+            or not default_model.strip()
+            or timeout_seconds is None
             or backoff is None
             or timeout_seconds <= 0
             or backoff < 0
@@ -156,8 +159,9 @@ class ProviderConfig:
             name: str(source[name]) if name in source and source[name] is not None else ""
             for name in _ENV_NAMES
         }
-        problems = [name for name in _ENV_NAMES if not values[name].strip()]
         settings = _runtime_settings()
+        values["LLM_MODEL"] = values["LLM_MODEL"].strip() or settings["default_model"]
+        problems = [name for name in _ENV_NAMES if not values[name].strip()]
 
         base_url = values["LLM_BASE_URL"].strip()
         if base_url and not _valid_https_url(base_url, complete_endpoint=False):

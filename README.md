@@ -2,64 +2,76 @@
 
 EXL × UCD Data & AI Hackathon 2026 — Challenge 04 Agentic model risk factory。
 
-## 当前状态与范围
+**v1 已完成本地验收。** CLI 将团队自建的信用违约模型 `MDL_CREDIT_V1` 从 R 迁移到 Python，并对照 R 基准逐记录验证预测概率、分类和异常处理。其余模型档案、完整验证报告和 Streamlit 界面见 [项目 SOP](docs/02_项目SOP.md) 的 v2 计划。
 
-当前是 **v1 发布候选：同一正式 run 的 V1-01～07 已全部 PASS**，并已导出可校验证据包。v1 只覆盖 `MDL_CREDIT_V1` 的 R→Python 迁移链；其余模型档案、完整验证报告和 Streamlit 界面不在 v1 范围内。
+正式 run `v1-20261109T181929Z-3fe1c7b5` 的 V1-01～07 全部 PASS，Gate A/B 采用代理审核。交付物是本机的 `delivery/<run_id>_acceptance.json` 和 `delivery/<run_id>_evidence.zip`。
 
-v1 验收 run_id：`v1-20261109T181929Z-3fe1c7b5`。逐项状态以 `runs/v1-20261109T181929Z-3fe1c7b5/acceptance.json` 为准（`release_approved=true`），证据包为 `delivery/v1-20261109T181929Z-3fe1c7b5_evidence.zip`。
+## 工作目录
 
-已实测：真实 API 能力检查（网关 `https://sa.kaiwen.dev/v1`，模型 `kimi-k2.7-code`）、真实 UCI 下载与划分、真实 R 容器基准、参考实现与 6 个行为 fixtures parity、故意错误检出、真实 API 候选生成、Gate A/B 审批、候选在最小 Docker 中的开发 parity 与 fixtures、一次性 Holdout parity、验收与导出。真实 Agent 迁移与 Holdout 均已实际执行；合成数据、mock provider 与测试替身的结果**只计入开发验证**，不能作为 V1-01、V1-02、V1-06、V1-07 的正式证据。
+以下命令都在仓库根目录 `model-risk-factory/` 执行。应用入口是 `python -m src.cli`。
 
-Gate A/B 的审核有两种口径：**人工审核**（`--reviewer` 填审核人姓名）与**代理审核**（`--reviewer agent-delegated`）。本次 v1 使用代理审核，见「Gate 审核口径」与「campaign 与 seed」。
+| 路径 | 内容 |
+| --- | --- |
+| [docs/](docs/) | 比赛背景、团队分工、版本验收标准和官方材料。设计决策以 [项目 SOP](docs/02_项目SOP.md) 为准。 |
+| [legacy/](legacy/) | R 模型和模拟旧文档。阈值冲突与 Unknown 是用于检验档案提取的预设素材。 |
+| [config/](config/) | 数据划分 seed、模型和候选输入输出契约、Schema、API 与容器运行参数。 |
+| [src/cli.py](src/cli.py) | 命令入口，串联取数、建基准、建档、审批、迁移、验证和导出。 |
+| [src/data.py](src/data.py)、[src/baseline.py](src/baseline.py)、[src/reference.py](src/reference.py)、[src/parity.py](src/parity.py) | 数据准备、R 基准、可信 Python 参考预测和逐记录比较。 |
+| [src/provider.py](src/provider.py)、[src/agent.py](src/agent.py)、[src/review.py](src/review.py)、[src/workflow.py](src/workflow.py) | 网关接入、Agent 工具、档案和候选审批，以及开发测试到 Holdout 的流程。 |
+| [docker/](docker/) 与 [src/runner.py](src/runner.py) | 候选执行镜像与隔离运行器。 |
+| [src/acceptance.py](src/acceptance.py)、[src/evidence.py](src/evidence.py)、[tests/](tests/) | 验收判定、证据包导出和自动化测试。 |
 
-## 环境与准备（实际执行）
+本地生成的目录由 CLI 按需创建。Git 共享源码、配置和测试；联调时用同一个 `run_id` 对齐证据。
+
+| 本地路径 | 怎么用 |
+| --- | --- |
+| `.venv/`、`.env` | 各自的 Python 环境和本地密钥。用 [.env.example](.env.example) 核对变量名，并把配置导入当前 shell。 |
+| `data/raw/` | 原始 UCI ZIP，由下载命令写入。 |
+| `runs/<run_id>/` | 单次运行的分区数据、R 基准、档案、候选、审批和验证结果。每人使用自己的开发 run。 |
+| `delivery/` | 可分享的白名单证据 ZIP 和验收 JSON。共享时同时注明 `run_id` 和对应提交。 |
+
+## 第一次运行
+
+先安装依赖并跑单元测试。需要真实 Agent 迁移时再配置网关。
 
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
 python -m pip install -r requirements.txt
+python -m pytest -q
+```
+
+启动 Docker 后，用合成数据跑一次 R 基准和 Python 参考验证。这条路径只需本地环境与 R 镜像。每次新建 run，并从当前配置读取 seed。
+
+```bash
 docker pull rocker/r-ver:4.4.2
+RUN_ID=$(python -m src.cli init-run --mode synthetic | python -c 'import json, sys; print(json.load(sys.stdin)["run_id"])')
+SEED=$(python -c 'import json; from pathlib import Path; print(json.loads(Path("config/data_config.json").read_text())["seed"])')
+python -m src.cli prepare --run-id "$RUN_ID" --synthetic --seed "$SEED"
+python -m src.cli baseline --run-id "$RUN_ID"
+python -m src.cli reference-parity --run-id "$RUN_ID"
+python -m src.cli fixture-parity --run-id "$RUN_ID"
+python -m src.cli mutation-check --run-id "$RUN_ID"
+```
+
+首次联调可以查看 `runs/$RUN_ID/command_log.jsonl` 和 `runs/$RUN_ID/parity/reference_dev/parity_summary.json`。正式 Agent 迁移另需构建候选镜像，然后按 [API 配置](#api-配置)、[正式 UCI 数据](#正式-uci-数据) 和 [真实 Agent 迁移流程](#真实-agent-迁移流程) 顺序执行。
+
+```bash
 docker build -t model-risk-factory-runner:v1 docker
 ```
 
-实测环境：Python 3.15.2、Docker 29.9.2（macOS arm64）；宿主无 `Rscript`，R 4.4.2 使用 `rocker/r-ver:4.4.2` 容器实际运行。镜像摘要：R `sha256:df26749182af64d5263bf64149d51a427b476ed28c4e046997143be3f97fdd7c`，候选运行镜像 `sha256:00e23e46b27c8aefbc1f698998d4e929b2f3bb03bbe98a222c355d9d8768ab87`。依赖版本与镜像实测记录见运行目录的 `environment.json`。
+实测环境为 macOS arm64、Python 3.15.2、Docker 29.9.2 和容器内的 R 4.4.2。镜像摘要与依赖记录见正式 run 的 `environment.json`。
 
-## 已实际运行的本地 CLI
+## 分工与交接
 
-```bash
-RUN_ID=v1-20261109T160955Z-c4e69c96
-PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m src.cli init-run --mode synthetic
-# 新 run 由 init-run 生成；下面命令均在该 run 上执行，stdout 重定向到 runs/$RUN_ID/cli_output/。
+- **建模验证**负责数据字典、R 模型和基准、可信 Python 参考实现、固定验证样例与指标。优先看 [数据配置](config/data_config.json)、[候选契约](config/candidate_contract.json) 和 [参考等价性测试](tests/test_reference_parity.py)。
+- **AI 工程**负责网关、Agent、审批、Docker 与证据导出。双方在 [候选契约](config/candidate_contract.json) 和 [SOP 验收标准](docs/02_项目SOP.md) 对齐输入输出、容差和失败状态，再并行修改各自模块。
+- **联调交接**附上提交、`run_id`、复现命令、测试结果与证据路径。修改已冻结的代码、配置或测试后，用新 run 联调。候选执行走 CLI 门禁与 Docker；正式 Holdout 由冻结后的候选完成一次性验收。
+- **证据交接**以 `export` 为该 run 的最后一步。共享 `delivery/` 中的白名单证据包和验收 JSON，封印后的 run 用于查阅。逐行数据、基准答案和密钥留在本机。
 
-PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m src.cli check-provider --run-id "$RUN_ID"
-# 实际退出码 2：当前 shell 未设置网关配置和密钥；未发请求，状态 BLOCKED。
+## 合成开发验证记录
 
-PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m src.cli prepare --run-id "$RUN_ID" --synthetic --seed 42
-PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m src.cli baseline --run-id "$RUN_ID"
-PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m src.cli reference-parity --run-id "$RUN_ID"
-PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m src.cli fixture-parity --run-id "$RUN_ID"
-PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m src.cli mutation-check --run-id "$RUN_ID"
-PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m src.cli acceptance --run-id "$RUN_ID"
-PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m src.cli export --run-id "$RUN_ID"
-```
-
-实际退出码依次为 `2, 0, 0, 0, 0, 0, 0, 0`（第 1 条是 `check-provider`）。**`export` 会封印该 run**：它写入 `evidence_manifest.json`、`export_verified.json`、证据 ZIP 与最终 `acceptance.json`。封印后不要再向运行目录写文件，否则 manifest 哈希会失配。
-
-固定测试实际命令：
-
-```bash
-PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m pytest -p no:cacheprovider -q
-```
-
-实际结果：**103 passed, 7 subtests passed**。测试中的 mock 只验证适配器与门禁逻辑，不算真实 API 证据；`runner_integration/` 使用人工参考脚本，不算 Agent 候选迁移。
-
-新一轮开发可创建独立 run：
-
-```bash
-.venv/bin/python -m src.cli init-run --mode synthetic
-```
-
-## 实测结果
+以下是历史合成 run `v1-20261109T160955Z-c4e69c96` 的开发结果。当前 v1 测试结果为 **103 passed, 7 subtests passed**。合成数据、mock 和人工参考实现用于开发验证，正式结果见下方的逐项验收表。
 
 - 合成数据：30,000 行；train/dev/holdout/shift_pool 分别为 15,000/6,000/6,000/3,000；ID 唯一且四集互斥；各集违约率与总体最大差约 0.00003333（比例），低于 0.01。
 - R 基准：真实 `glm` 拟合，导出双精度系数、特征顺序、训练集填补参数、预测和 `sessionInfo`；不使用 ID、标签或人口属性作为特征。
@@ -104,34 +116,33 @@ PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m pytest -p no:cacheprovider -q
 - `freeze` 需要 Gate A/B、开发 parity PASS、fixtures PASS、候选哈希与 context 一致。
 - `accept`（Holdout）额外要求：冻结候选、Gate A/B 仍有效、开发执行成功、运行镜像与开发一致、`data/holdout.csv` 哈希与 manifest 一致；一次性账本 `runs/holdout_consumption.jsonl` 记录后不可重跑。
 
-## API 配置与 V1-01（v1 已执行）
+## API 配置
 
-CLI 从当前进程环境变量读取配置。v1 实际使用的配置：base `https://sa.kaiwen.dev/v1`、`/v1/chat/completions`、`openai_chat_completions`、模型 `kimi-k2.7-code`、超时 300 秒、能力检查 256 输出 token、候选生成 16384～32768 输出 token。密钥写在本地 `.env`（已在 `.gitignore` 中，不进提交）。
+CLI 从当前进程环境变量读取连接配置。新运行默认使用 [网关配置](config/provider_config.json) 中的 `deepseek-v4.1-flash:1017`，也可以通过 `LLM_MODEL` 显式指定模型。先创建正式 run，再在同一终端执行取数、迁移和验收命令。
 
 ```bash
 export LLM_BASE_URL='https://sa.kaiwen.dev/v1'
 export LLM_CHAT_COMPLETIONS_URL='https://sa.kaiwen.dev/v1/chat/completions'
 export LLM_PROTOCOL='openai_chat_completions'
-export LLM_MODEL='kimi-k2.7-code'
+export LLM_MODEL='deepseek-v4.1-flash:1017'
 printf 'LLM API key: ' >&2
 read -rs LLM_API_KEY
 export LLM_API_KEY
 export LLM_TIMEOUT_SECONDS='300'
 export LLM_MAX_OUTPUT_TOKENS='32768'
 
+RUN_ID=$(.venv/bin/python -m src.cli init-run --mode uci | .venv/bin/python -c 'import json, sys; print(json.load(sys.stdin)["run_id"])')
 PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m src.cli check-provider --run-id "$RUN_ID"
 ```
 
 此命令执行一次短请求和一次两步工具往返，记录脱敏的请求 ID 与执行状态。实测注意点：网关偶发返回 504 或工具往返内容不合规，而 V1-07 只接受首轮即成功的命令链（见「已知工具缺陷」），所以能力检查失败时只能新建 run 重跑。`LLM_MAX_OUTPUT_TOKENS` 过小（如 8192）会使候选在 `submit_candidate` 中途被截断（`finish_reason=length`）。
 
-## UCI 许可与正式 V1-02（v1 已执行）
+## 正式 UCI 数据
 
-v1 实际使用的来源：`https://archive.ics.uci.edu/static/public/350/default+of+credit+card+clients.zip`，原始 ZIP SHA-256 `56c885f84457f6680f8438f02bfcdac9579323d8a94465ee5f26e32baa727602`，许可 CC BY 4.0；使用声明由 `--approve-uci-use` 显式写入 `data/uci_approval.json`。真实数据必须使用 **uci run**，不能复用合成 run：
+v1 使用 [UCI Default of Credit Card Clients](https://archive.ics.uci.edu/dataset/350/default+of+credit+card+clients)（CC BY 4.0）。获准使用后，沿用上一步 `check-provider` 通过的 `RUN_ID`。
 
 ```bash
-.venv/bin/python -m src.cli init-run --mode uci
-# 将输出中的 run_id 设为 RUN_ID；在新 run 上重新执行 check-provider。
-
+SEED=$(.venv/bin/python -c 'import json; from pathlib import Path; print(json.loads(Path("config/data_config.json").read_text())["seed"])')
 .venv/bin/python -m src.cli download-uci \
   --run-id "$RUN_ID" \
   --expected-sha256 '56c885f84457f6680f8438f02bfcdac9579323d8a94465ee5f26e32baa727602' \
@@ -140,7 +151,7 @@ v1 实际使用的来源：`https://archive.ics.uci.edu/static/public/350/defaul
   --run-id "$RUN_ID" \
   --uci data/raw/default_of_credit_card_clients.zip \
   --expected-sha256 '56c885f84457f6680f8438f02bfcdac9579323d8a94465ee5f26e32baa727602' \
-  --approve-uci-use --seed '<config/data_config.json 中的 campaign seed>'
+  --approve-uci-use --seed "$SEED"
 .venv/bin/python -m src.cli baseline --run-id "$RUN_ID"
 .venv/bin/python -m src.cli reference-parity --run-id "$RUN_ID"
 .venv/bin/python -m src.cli fixture-parity --run-id "$RUN_ID"
@@ -149,7 +160,7 @@ v1 实际使用的来源：`https://archive.ics.uci.edu/static/public/350/defaul
 
 `--approve-uci-use` 是已获主办方确认后的显式操作声明，不是程序自动取得许可。`download-uci` 与 `prepare` 都会校验哈希，并分别写入 `data/download.json`、`data/uci_approval.json`；V1-02 会核对这两份记录、原始文件与四份划分的哈希。`.xls` 使用 `header=1` 读取。合成 manifest 的 `formal_status` 永远是 BLOCKED。`prepare --seed` 必须等于配置里的 campaign seed（v1 为 43，见「campaign 与 seed」）。
 
-## 真实 Agent、Gate A/B 与 Holdout（v1 已执行）
+## 真实 Agent 迁移流程
 
 前置条件：同一 run 的 `check-provider` 为 PASS、R 基准已完成，且数据路径已确定。以下命令在 v1 正式 run `v1-20261109T181929Z-3fe1c7b5` 上实际执行。
 
@@ -235,7 +246,7 @@ Agent 只获得允许的模型资料、Schema 和不含原始行/基准答案的
 | 1 | 42 | `v1-20261109T172051Z-a9bd4ef4` | V1-01～06 PASS；一次性 Holdout PASS（6000 行、分类差异 0、`max_abs_diff` 2.22e-16）；V1-07 FAIL（首个 `generate-candidate` 因输出被 8192 token 截断而 exit 2，重试成功后命令链仍留有该失败记录）；Holdout 已按账本消费 |
 | 2 | 43 | `v1-20261109T181929Z-3fe1c7b5` | 正式验收 run：命令链首轮全绿，V1-01～07 全 PASS，Holdout PASS，已导出证据包 |
 
-为什么另开 campaign：campaign 1 的 V1-07 失败来自命令链记账缺陷（重试成功后仍保留失败记录），而不是 Holdout 结论问题——campaign 1 的 Holdout 结果原样保留且为 PASS，结论未被推翻、也未重跑。修复该缺陷必须改 `src/`，而 `verify_context` 覆盖 `src/`，改源码会让该 run 的 Gate 与冻结立即失效；因此正式验收改用一份**从未被评估过的新划分**，两个 campaign 的 Holdout 各自只消费一次。一次性账本 `runs/holdout_consumption.jsonl` 保留两条 `CONSUMED` 记录，不得删除或改写。
+campaign 1 的 Holdout 通过，V1-07 因命令链把首轮生成失败计入验收而失败。正式验收用 seed 43 对同一 UCI 数据集重新划分。两套 Holdout 各有 6,000 条记录，其中 1,199 条重叠。每套划分各执行一次正式 Holdout，两次结果及账本中的 `CONSUMED` 记录均已保留。
 
 候选只按开发证据（dev parity 与行为 fixtures）筛选，Holdout 在冻结后才运行且只运行一次；没有用 Holdout 结果回调候选或提示词。
 
@@ -278,6 +289,6 @@ git rev-parse v1^{commit}   # 应为被标记的发布提交
 - 旧 R 模型和旧文档是团队自建模拟资产；文档故意含阈值冲突和 Unknown。
 - 运行数据是真实 UCI 公开数据（CC BY 4.0），已按主办方许可声明使用；它仍不代表真实客户、英国银行模型表现、独立验证或监管合规。
 - 开发使用 Kimi Code CLI 辅助实现代码、测试和文档。受控 Python 参考预测器是独立编写的确定性基准，不是 Agent 自动迁移；v1 的迁移候选由真实 API 生成（`kimi-k2.7-code`，记录在 `candidate.json` 与 `agent_audit_log.jsonl`）。
-- 产品内 LLM 的实际模型 ID 为 `kimi-k2.7-code`，由同 run 的能力检查与候选生成请求记录证实；mock 或测试替身结果不得描述成现场调用。
+- 已发布 v1 的模型 ID 以正式 run 的能力检查与候选生成记录为准。
 - 使用 NumPy、pandas、Pydantic、pytest、xlrd、Docker 和 R base `glm`。其余两个模型、完整验证报告和 Streamlit 留待后续版本。
 - 设计主文件仍为 [docs/02_项目SOP.md](docs/02_项目SOP.md)；官方背景见 [docs/01_比赛背景与官方要求.md](docs/01_比赛背景与官方要求.md)。

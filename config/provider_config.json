@@ -1,5 +1,6 @@
 {
   "schema_version": "1",
+  "default_model": "deepseek-v4.1-flash:1017",
   "max_requests_per_agent_round": 8,
   "timeout_seconds": 300,
   "max_retries": 2,
