@@ -270,35 +270,84 @@ def _v2_chain(run_dir: Path, run_id: str) -> list[str]:
     return problems
 
 
+def _frozen_attempt(run_dir: Path) -> tuple[int | None, dict]:
+    path = run_dir / "frozen" / "frozen.json"
+    if not path.is_file():
+        return None, {}
+    frozen = read_json(path)
+    attempt = frozen.get("attempt")
+    if not isinstance(attempt, int) or isinstance(attempt, bool):
+        return None, frozen
+    return attempt, frozen
+
+
 def _v2_04(repository: Path, run_dir: Path, run_id: str) -> tuple[str, str]:
     problems: list[str] = []
+    context_sha256 = sha256_file(run_dir / "context_manifest.json") if (run_dir / "context_manifest.json").is_file() else None
     reviews = read_json(run_dir / "review_log.json").get("reviews", []) if (run_dir / "review_log.json").is_file() else []
-    approved = [entry for entry in reviews if entry.get("decision") == "APPROVED" and entry.get("context_sha256") == (sha256_file(run_dir / "context_manifest.json") if (run_dir / "context_manifest.json").is_file() else None)]
+    approved = [entry for entry in reviews if entry.get("decision") == "APPROVED" and entry.get("context_sha256") == context_sha256]
     gate_a_times = [entry["timestamp"] for entry in approved if entry.get("gate") == "Gate_A"]
-    candidate_dirs = sorted((run_dir / "candidates").glob("attempt_*")) if (run_dir / "candidates").is_dir() else []
-    if not candidate_dirs:
-        problems.append("no candidate exists")
+
+    # The gate chain must be checked on the attempt that was actually frozen and
+    # passed, not on attempt_000: a first-attempt failure followed by a successful
+    # repair is legal and covered by tests/test_v2_blockers.py.
+    attempt, frozen = _frozen_attempt(run_dir)
+    if attempt is None:
+        problems.append("no frozen candidate with a recorded attempt")
     else:
-        metadata = read_json(candidate_dirs[0] / "candidate.json")
-        if metadata.get("model_id") != "MDL_CREDIT_V1":
-            problems.append("migration scope is not limited to MDL_CREDIT_V1")
-        if not gate_a_times or metadata.get("created_at") < min(gate_a_times):
-            problems.append("candidate was generated before Gate A approval")
-        source = candidate_dirs[0] / "credit_v1.py"
-        if sha256_file(source) != metadata.get("candidate_sha256"):
-            problems.append("candidate hash does not match its metadata")
-        if current_decision(run_dir, run_id, "Gate_B", source) != "APPROVED":
-            problems.append("Gate_B is not APPROVED for the candidate hash")
-        gate_b_times = [entry["timestamp"] for entry in approved if entry.get("gate") == "Gate_B" and entry.get("reviewed_artifact_sha256") == metadata.get("candidate_sha256")]
-        execution = run_dir / "dev" / f"attempt_{metadata['attempt']:03d}" / "execution.json"
-        if not gate_b_times:
-            problems.append("no Gate B approval for the executed candidate hash")
-        elif execution.is_file():
-            started = read_json(execution).get("started_at")
-            if started and started < min(gate_b_times):
-                problems.append("development execution started before Gate B")
-        if not _valid_execution(execution):
-            problems.append("development execution does not satisfy the isolation contract")
+        directory = run_dir / "candidates" / f"attempt_{attempt:03d}"
+        metadata_path = directory / "candidate.json"
+        if not metadata_path.is_file():
+            problems.append(f"frozen attempt {attempt} has no candidate metadata")
+        else:
+            metadata = read_json(metadata_path)
+            if metadata.get("attempt") != attempt:
+                problems.append("frozen attempt and candidate metadata disagree")
+            if metadata.get("model_id") != "MDL_CREDIT_V1":
+                problems.append("migration scope is not limited to MDL_CREDIT_V1")
+            if metadata.get("candidate_sha256") != frozen.get("candidate_sha256"):
+                problems.append("frozen hash is not the candidate hash")
+            if not gate_a_times or metadata.get("created_at", "") < min(gate_a_times):
+                problems.append("candidate was generated before Gate A approval")
+            source = directory / "credit_v1.py"
+            if not source.is_file() or sha256_file(source) != metadata.get("candidate_sha256"):
+                problems.append(f"candidate source for attempt {attempt} does not match its metadata")
+            if current_decision(run_dir, run_id, "Gate_B", source) != "APPROVED":
+                problems.append("Gate_B is not APPROVED for the frozen candidate hash")
+            gate_b_times = [
+                entry["timestamp"]
+                for entry in approved
+                if entry.get("gate") == "Gate_B" and entry.get("reviewed_artifact_sha256") == metadata.get("candidate_sha256")
+            ]
+            execution = run_dir / "dev" / f"attempt_{attempt:03d}" / "execution.json"
+            if not gate_b_times:
+                problems.append("no Gate B approval for the executed candidate hash")
+            elif execution.is_file():
+                started = read_json(execution).get("started_at")
+                if started and started < min(gate_b_times):
+                    problems.append("development execution started before Gate B")
+            if not _valid_execution(execution):
+                problems.append("frozen attempt's development execution does not satisfy the isolation contract")
+            parity = run_dir / "dev" / f"attempt_{attempt:03d}" / "parity_summary.json"
+            if not parity.is_file() or read_json(parity).get("status") != "PASS":
+                problems.append(f"frozen attempt {attempt} has no passing development parity")
+            fixtures = run_dir / "dev" / f"attempt_{attempt:03d}" / "fixture_summary.json"
+            if not fixtures.is_file():
+                problems.append(f"frozen attempt {attempt} has no behaviour fixture summary")
+            else:
+                summary = read_json(fixtures)
+                if summary.get("status") != "PASS" or summary.get("candidate_sha256") != frozen.get("candidate_sha256"):
+                    problems.append(f"frozen attempt {attempt} did not pass the behaviour fixtures")
+        migration_path = run_dir / "migration_result.json"
+        if not migration_path.is_file():
+            problems.append("migration result missing")
+        else:
+            migration = read_json(migration_path)
+            if migration.get("attempt") != attempt or migration.get("candidate_sha256") != frozen.get("candidate_sha256"):
+                problems.append("migration result does not describe the frozen attempt")
+            if migration.get("dev_status") != "PASS":
+                problems.append("migration result does not record a passing development run")
+
     manifest_path = run_dir / "report" / "review_manifest.json"
     if not manifest_path.is_file():
         problems.append("report review manifest missing")
@@ -313,7 +362,10 @@ def _v2_04(repository: Path, run_dir: Path, run_id: str) -> tuple[str, str]:
             problems.append("report was approved before Gate C")
     if problems:
         return "FAIL", "gate problems: " + "; ".join(problems[:6])
-    return "PASS", "Gate A -> candidate -> Gate B -> execution -> Gate C -> approval order and hashes verified"
+    return "PASS", (
+        "Gate A -> candidate -> Gate B -> execution -> Gate C -> approval order and hashes verified "
+        f"on the frozen attempt {attempt}"
+    )
 
 
 def _v2_05(repository: Path, run_dir: Path, run_id: str) -> tuple[str, str]:

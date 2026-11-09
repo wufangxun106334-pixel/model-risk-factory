@@ -369,20 +369,103 @@ def _numeric_series(frame: pd.DataFrame, column: str) -> np.ndarray:
     return pd.to_numeric(frame[column], errors="coerce").to_numpy(dtype=float)
 
 
-def _predict_shifted(run_dir: Path, shifted_path: Path, output_root: Path, image: str) -> tuple[Path, dict]:
-    """Execute the frozen candidate on the drift batch inside the hardened container."""
+def verified_metric_inputs(run_dir: Path, run_id: str) -> dict:
+    """Everything a metrics run must be true *before* any candidate execution.
+
+    This reuses the trusted gate helpers instead of re-implementing them: the
+    context must verify, the frozen source must hash to the frozen digest, Gate A
+    and Gate B must approve those exact hashes, and the frozen attempt must be
+    the one whose development parity passed under the current context.
+    """
+
+    from src.context import verify_context
+    from src.migration import load_candidate, load_frozen
+    from src.review import current_decision, require_approval
+    from src.workflow import verified_split_hash
+
+    repository = run_dir.parent.parent
+    if not verify_context(repository, run_dir, run_id):
+        raise ContractError("Validation metrics require a valid frozen baseline context")
+    frozen = load_frozen(run_dir, run_id)
+    attempt = int(frozen["attempt"])
+    directory, metadata = load_candidate(run_dir, attempt)
+    if metadata.get("run_id") != run_id:
+        raise ContractError("Frozen candidate metadata belongs to another run")
+    if metadata["candidate_sha256"] != frozen["candidate_sha256"]:
+        raise ContractError("Frozen hash is not the approved candidate hash")
+    source = directory / "credit_v1.py"
+    if sha256_file(source) != frozen["candidate_sha256"]:
+        raise ContractError("Candidate source no longer matches the frozen digest")
+    if sha256_file(run_dir / "frozen" / "credit_v1.py") != frozen["candidate_sha256"]:
+        raise ContractError("Frozen copy no longer matches the frozen digest")
+    context_sha256 = sha256_file(run_dir / "context_manifest.json")
+    if frozen.get("context_sha256") != context_sha256:
+        raise ContractError("Frozen candidate belongs to an invalidated context")
+    require_approval(run_dir, run_id, "Gate_A", run_dir / "model_inventory.json")
+    require_approval(run_dir, run_id, "Gate_B", source)
+    if current_decision(run_dir, run_id, "Gate_B", run_dir / "frozen" / "credit_v1.py") != "APPROVED":
+        raise ContractError("Frozen copy has no Gate B approval for its hash")
+    migration = read_json(run_dir / "migration_result.json")
+    if migration.get("attempt") != attempt or migration.get("candidate_sha256") != frozen["candidate_sha256"]:
+        raise ContractError("Migration result does not describe the frozen attempt")
+    if migration.get("dev_status") != "PASS":
+        raise ContractError("Validation metrics require a candidate whose development parity passed")
+    if migration.get("context_sha256") != context_sha256:
+        raise ContractError("Migration result belongs to an invalidated context")
+    fixtures = run_dir / "dev" / f"attempt_{attempt:03d}" / "fixture_summary.json"
+    if not fixtures.is_file():
+        raise ContractError("Frozen attempt has no behaviour fixture summary")
+    fixture_summary = read_json(fixtures)
+    if fixture_summary.get("status") != "PASS" or fixture_summary.get("candidate_sha256") != frozen["candidate_sha256"] or fixture_summary.get("run_id") != run_id:
+        raise ContractError("Frozen attempt did not pass the behaviour fixtures")
+    splits = {name: verified_split_hash(run_dir, name) for name in ("train", "dev", "holdout", "shift_pool")}
+    return {
+        "attempt": attempt,
+        "candidate_sha256": frozen["candidate_sha256"],
+        "context_sha256": context_sha256,
+        "source": source,
+        "frozen_source": run_dir / "frozen" / "credit_v1.py",
+        "model": run_dir / "reference" / "model.json",
+        "splits": splits,
+    }
+
+
+def _verify_cached_shifted(run_dir: Path, predictions: Path, execution_path: Path, verified: dict, shifted_path: Path) -> dict:
+    execution = read_json(execution_path)
+    if execution.get("status") != "PASS":
+        raise ContractError("The recorded drift-batch execution did not pass")
+    expected = {
+        "candidate": (execution.get("candidate_sha256"), verified["candidate_sha256"], "frozen candidate"),
+        "model": (execution.get("model_sha256"), sha256_file(verified["model"]), "reference model"),
+        "input": (execution.get("input_sha256"), sha256_file(shifted_path), "drift batch input"),
+        "output": (execution.get("output_sha256"), sha256_file(predictions), "drift batch predictions"),
+    }
+    for label, (recorded, actual, description) in expected.items():
+        if recorded is None:
+            raise ContractError(f"Cached drift-batch execution has no {label} hash")
+        if recorded != actual:
+            raise ContractError(f"Cached drift-batch {description} hash does not match the file on disk")
+    return execution
+
+
+def _predict_shifted(run_dir: Path, shifted_path: Path, output_root: Path, image: str, verified: dict) -> tuple[Path, dict]:
+    """Execute the frozen candidate on the drift batch inside the hardened container.
+
+    A cached execution is reused only after every hash it claims is re-checked
+    against the files on disk; a mismatch is a hard failure, never a silent
+    re-run.
+    """
 
     work_dir = output_root / "shifted_execution"
     predictions = output_root / "shifted_predictions.csv"
     execution_path = work_dir / "execution.json"
-    if predictions.is_file() and execution_path.is_file():
-        execution = read_json(execution_path)
-        if execution.get("status") != "PASS":
-            raise ContractError("The recorded drift-batch execution did not pass")
-        return predictions, execution
+    if predictions.is_file() or execution_path.is_file():
+        if not (predictions.is_file() and execution_path.is_file()):
+            raise ContractError("Cached drift-batch artefacts are incomplete; refusing to reuse or overwrite them")
+        return predictions, _verify_cached_shifted(run_dir, predictions, execution_path, verified, shifted_path)
     execution = run_candidate(
-        run_dir / "frozen" / "credit_v1.py",
-        run_dir / "reference" / "model.json",
+        verified["frozen_source"],
+        verified["model"],
         shifted_path,
         work_dir,
         image=image,
@@ -390,6 +473,8 @@ def _predict_shifted(run_dir: Path, shifted_path: Path, output_root: Path, image
     write_json(execution_path, execution)
     if execution.get("status") != "PASS":
         raise ContractError(f"Frozen candidate could not score the drift batch: {execution.get('error')}")
+    if execution.get("candidate_sha256") != verified["candidate_sha256"]:
+        raise ContractError("Drift-batch execution did not run the frozen candidate")
     predictions.write_bytes((work_dir / "output" / "predictions.csv").read_bytes())
     return predictions, execution
 
@@ -402,22 +487,20 @@ def compute_validation_metrics(
     tolerances: dict,
     image: str | None = None,
 ) -> dict:
-    from src.workflow import runner_image, verified_split_hash
+    from src.workflow import runner_image
 
-    frozen_path = run_dir / "frozen" / "frozen.json"
-    if not frozen_path.is_file():
-        raise ContractError("Validation metrics require a frozen candidate")
-    frozen = read_json(frozen_path)
-    attempt = int(frozen["attempt"])
+    verified = verified_metric_inputs(run_dir, run_id)
+    attempt = verified["attempt"]
+    frozen = {"attempt": attempt, "candidate_sha256": verified["candidate_sha256"]}
     output_root = run_dir / "validation"
     output_root.mkdir(parents=True, exist_ok=True)
     selected_image = image or runner_image(run_dir)
 
     datasets = {}
-    for name in ("train", "dev", "holdout", "shift_pool"):
+    for name, digest in verified["splits"].items():
         datasets[name] = {
             "path": f"data/{name}.csv",
-            "sha256": verified_split_hash(run_dir, name),
+            "sha256": digest,
             "rows": int(len(pd.read_csv(run_dir / "data" / f"{name}.csv"))),
         }
 
@@ -460,7 +543,7 @@ def compute_validation_metrics(
     datasets["shifted"] = {"path": "data/shifted.csv", "sha256": shift_manifest["output_sha256"], "rows": int(len(shifted_frame))}
     write_json(output_root / "shifted_manifest.json", {"schema_version": "1", "run_id": run_id, **shift_manifest})
 
-    shifted_predictions, shifted_execution = _predict_shifted(run_dir, shifted_path, output_root, selected_image)
+    shifted_predictions, shifted_execution = _predict_shifted(run_dir, shifted_path, output_root, selected_image, verified)
 
     dev_frame = _joined(run_dir / "data" / "dev.csv", run_dir / "dev" / f"attempt_{attempt:03d}" / "output" / "predictions.csv")
     holdout_frame = _joined(run_dir / "data" / "holdout.csv", run_dir / "holdout" / "output" / "predictions.csv")
