@@ -85,7 +85,7 @@ Docker Desktop、R 和 Python 需在开发机实际验证。依赖版本在接�
 
 | 版本 | 日期目标 | 必须完成 | 放行条件 |
 | --- | --- | --- | --- |
-| **v1 Prototype** | 11-10 结束前 | API 最小验证；UCI 数据加工与划分；一个 R 基准；人工参考 Python 实现与独立等价性工具；故意错误案例；**一次真实 Agent 迁移**（CLI + 最小 Docker + Gate B 审批） | V1-01 至 V1-07 全满足；从数据到 Holdout 等价性结论的迁移证据链可按 README 复现；已实现与占位功能清楚区分 |
+| **v1 Prototype** | 11-10 结束前 | API 最小验证；UCI 数据加工与划分；一个 R 基准；人工参考 Python 实现与独立等价性工具；故意错误案例；待迁移模型的 Agent 档案通过 Gate A；**一次真实 Agent 迁移**（CLI + 最小 Docker + Gate B 审批） | V1-01 至 V1-07 全满足；从数据到 Holdout 等价性结论的迁移证据链可按 README 复现；已实现与占位功能清楚区分 |
 | **v2 正式版** | 11-11 结束前 | 三份 Agent 档案；三审核关卡；Docker 边界加固；四类验证（含校准表）与报告；完整运行证据与导出 | V2-01 至 V2-07 全满足；无阻断缺陷；所有 v1 验收继续通过。Streamlit 四页界面是演示目标，不是发布门槛 |
 | **v3 最终版** | 11-12 结束前 | 集成复测、新环境复现、交付五件套（含 AI 工具声明）、三分钟视频、最终 Git 版本；不再新增功能 | V3-01 至 V3-06 全满足；全部必交文件可访问；冻结范围和已知限制写入 README |
 
@@ -100,7 +100,7 @@ Docker Desktop、R 和 Python 需在开发机实际验证。依赖版本在接�
 | V1-03 | R 基准 | V1 模型可重跑，系数/预处理/开发预测输出有效；未把 ID、标签或人口属性当特征 | R sessionInfo、产物清单 |
 | V1-04 | Python 参考实现等价性 | 主键一一对齐、概率与分类、缺失与拒绝行为满足第 8 节；不得只比较 Accuracy | parity_summary.json、parity_diff.csv |
 | V1-05 | 故意错误案例 | 改变一个系数的隔离副本被固定测试发现；原始基准及测试哈希不变 | 预期失败测试与差异 |
-| V1-06 | 真实 Agent 迁移 | 由实际 API 生成 credit_v1 候选；执行前经 Gate B 批准代码哈希（CLI 确认即可）；只在最小 Docker（`--network none`、只读挂载、非 root、超时）中运行；最多初始生成 + 两次修复；测试代码与基准不可写；候选冻结后才评估 Holdout，结果符合第 8 节，失败则状态为 FAILED | agent_audit_log.jsonl、代码及测试哈希、Holdout parity_summary.json |
+| V1-06 | 真实 Agent 迁移 | Agent 为 MDL_CREDIT_V1 提取档案，经 Gate A 审核通过后，才由实际 API 生成 credit_v1 候选；执行前经 Gate B 批准代码哈希（两道关卡均可通过 CLI 审核）；只在最小 Docker（`--network none`、只读挂载、非 root、超时）中运行；最多初始生成 + 两次修复；测试代码与基准不可写；候选冻结后才评估 Holdout，结果符合第 8 节，失败则状态为 FAILED | model_inventory.json、review_log.json、agent_audit_log.jsonl、代码及测试哈希、Holdout parity_summary.json |
 | V1-07 | 迁移证据链复现 | 按 README 用 CLI 从预置数据跑到 Holdout 等价性结论；结果为真实运行而非硬编码 | 命令、退出码、运行日志 |
 
 人工 Python 实现是等价性工具的开发基线，不能标为 Agent 自动迁移；V1-06 的候选必须由真实 API 生成。
@@ -109,10 +109,10 @@ Docker Desktop、R 和 Python 需在开发机实际验证。依赖版本在接�
 
 | ID | 验收动作 | 通过条件 | 证据 |
 | --- | --- | --- | --- |
-| V2-01 | 三模型建档 | 三份档案符合 Schema；发现预设阈值矛盾；负责人等未知项保留 Unknown；关键事实含来源 | model_inventory.json、来源校验结果 |
+| V2-01 | 三模型建档 | 补齐其余两个模型的档案；三份档案均符合 Schema 并通过 Gate A；发现预设阈值矛盾；负责人等未知项保留 Unknown；关键事实含来源 | model_inventory.json、来源校验结果、review_log.json |
 | V2-02 | 容器执行边界 | 在 v1 最小隔离基础上：容器无法写基准/宿主目录；内存、CPU、PID 与超时边界可触发；容器内无 API key | 容器配置及边界测试结果 |
 | V2-03 | 四类验证 | 等价性、性能（含十分位校准表）、稳定性、公平性结果均来自程序；缺标签/单类/分母为零/小样本时明确状态 | validation_metrics.json、指标测试 |
-| V2-04 | 审核关卡 | 未经 Gate A 确认的档案不能进入迁移；每个新代码哈希执行前需 Gate B 批准；报告未经 Gate C 审阅不标记 APPROVED | review_log.json、关卡测试 |
+| V2-04 | 审核关卡 | 待迁移模型的档案通过 Gate A 后，Agent 才能生成迁移候选；每个新代码哈希执行前需 Gate B 批准；报告未经 Gate C 审阅不标记 APPROVED | review_log.json、关卡测试 |
 | V2-05 | 端到端及导出 | 清单→档案→迁移→验证报告可通过 CLI 或界面走通；MD/CSV/JSON 导出且 run_id 一致 | 端到端检查记录 |
 | V2-06 | 失败和预算处理 | API/解析/超时/修复耗尽/预算不足均保留失败记录，不伪造成功；累计成本不超过 €10 | 故障测试和用量账本 |
 | V2-07 | 报告来源与限制 | 每个数值引用指标 JSON 路径；引用存在不等于语义真实，关键事实需人工复核；无合规认证措辞 | 报告、审核意见 |
@@ -246,7 +246,9 @@ R 基准对所有模型输入进行显式预处理和校验，避免依赖 glm �
 
 ### 7.1 数据流
 
-预置 R 代码和模拟旧文档 → Agent 提取档案 → Gate A 确认 → Agent 生成 Python → Gate B 批准代码哈希 → Docker 开发测试 → 最多两轮修复与重新批准 → 冻结候选 → 独立 Holdout 验收 → 四类指标 → Agent 解释 + 模板报告 → Gate C 审阅。
+v1 迁移流程：待迁移模型的 R 代码和模拟旧文档 → Agent 提取该模型的档案 → Gate A 确认 → Agent 生成 Python → Gate B 批准代码哈希 → Docker 开发测试 → 最多两轮修复与重新批准 → 冻结候选 → 独立 Holdout 验收。
+
+v2 补齐其余两个模型的档案并通过 Gate A，再计算四类指标、由 Agent 解释并生成报告，最后经 Gate C 审阅。
 
 ### 7.2 状态与工具
 
@@ -331,7 +333,7 @@ $$
 
 | Contract（契约） | 必需字段 | 写入者 |
 | --- | --- | --- |
-| model_inventory.json | schema_version、run_id、三个模型、来源/哈希、特征、Unknown、文档矛盾、审核状态 | Agent 提取后经校验器保存 |
+| model_inventory.json | schema_version、run_id、模型档案（v1 为 MDL_CREDIT_V1，v2 为三个模型）、来源/哈希、特征、Unknown、文档矛盾、审核状态 | Agent 提取后经校验器保存 |
 | migration_result.json | model_id、candidate_sha256、attempt、dev_status、final_status、diagnostics_ref | 受信调度器 |
 | validation_metrics.json | dataset_sha256、阈值、样本量、parity/performance/calibration/stability/fairness、值/状态/原因/证据路径 | 受信验证程序 |
 | review_log.json | gate、decision、reviewer、timestamp、comment、reviewed_artifact_sha256 | 人工审核入口 |
@@ -446,8 +448,8 @@ A=用户本人（AI 工程主线），B=队友（建模验证主线）。两人�
 | 日期 | 版本任务 | 分工 | 当天退出条件 |
 | --- | --- | --- | --- |
 | 11-08 | v1：接入关卡与基准资产 | A 负责 API、契约与调度。B 负责 UCI 下载、数据字典、划分和 R 模型 | API 能力与计费查清；数据划分及一个 R 模型可跑 |
-| 11-09 | v1：等价性工具与 Agent 生成 | A 负责最小 Docker、CLI 与 Agent 生成/修复循环。B 负责参考实现、等价性工具与故意错误测试 | V1-01～05 通过；Agent 能生成候选并在容器中跑开发测试 |
-| 11-10 | v1：真实迁移验收 | A 负责候选冻结与 Holdout 验收流程。B 负责指标程序与三个模型的旧文档资产 | V1-01～07 通过，创建 v1 验收记录 |
+| 11-09 | v1：单模型建档、等价性工具与 Agent 生成 | A 负责档案提取、最小 Docker、CLI 与 Agent 生成/修复循环。B 先准备待迁移模型的旧文档，再负责参考实现、等价性工具与故意错误测试 | V1-01～05 通过；待迁移模型的档案先通过 Gate A，Agent 再生成候选并经 Gate B 后在容器中跑开发测试 |
+| 11-10 | v1：真实迁移验收 | A 负责候选冻结与 Holdout 验收流程。B 负责指标程序与其余两个模型的旧文档资产 | V1-01～07 通过，创建 v1 验收记录 |
 | 11-11 | v2：档案、验证报告与审核 | A 负责档案提取、审核关卡、导出与界面。B 负责四类验证、故障测试与材料 | V2-01～07 通过；材料初稿 |
 | 11-12 | v3：新环境复现与冻结 | A、B 共同完成复现测试、缺陷修复、材料和录屏 | V3-01～06 通过；功能冻结、最终标签 |
 | 11-13 | 提交检查 | 处理提交事项及必要阻断缺陷 | 主办方最终时间确认、访问检查、提交回执 |
@@ -466,10 +468,10 @@ A=用户本人（AI 工程主线），B=队友（建模验证主线）。两人�
 1. **Prepare（准备）**：核对报名/题目/日期；检查 Python、R、Docker；确认 API 能力及费用；冻结配置与契约。
 2. **Acquire data（取数）**：下载 UCI 原始文件，记录 SHA-256 与许可；按数据字典处理编码；固定种子分层划分；只在 train 学习参数；构造漂移批次与 fixtures；建立三个 R 模型和预设文档缺口。
 3. **Establish baseline（建立基准）**：B 保存基准与哈希；A 无权通过 Agent 修改基准；先完成参考预测及故意错误检测。
-4. **Migrate（真实迁移）**：开放允许列表工具；Agent 生成 credit_v1 候选；Gate B 批准代码哈希；最小 Docker 中开发测试与受限修复。
+4. **Document & migrate（单模型建档与迁移）**：开放允许列表工具；Agent 根据 R 代码和旧文档提取 MDL_CREDIT_V1 档案；Gate A 通过后才生成 credit_v1 候选；Gate B 批准代码哈希后，在最小 Docker 中执行开发测试与受限修复。
 5. **Freeze candidate（冻结候选）**：保存代码哈希；独立运行 Holdout；失败不泄露答案后反复修复；记录失败和后续处理。
 6. **Accept v1（验收原型）**：逐项执行 V1 检查；记录实际结果、环境和差异；通过后创建 v1 标签。
-7. **Document, validate & review（建档、验证与审阅）**：生成三模型档案并经 Gate A；计算四类指标、生成来源可追溯报告并经 Gate C；加固容器边界；测试超时、预算与无效输出。
+7. **Complete inventory, validate & review（补齐档案、验证与审阅）**：补齐其余两个模型的档案并经 Gate A，确认三份档案均已通过审核；计算四类指标、生成来源可追溯报告并经 Gate C；加固容器边界；测试超时、预算与无效输出。
 8. **Accept v2（验收正式版）**：端到端流程与导出完整，V2 全通过；创建 v2 标签。
 9. **Finalize（最终交付）**：新环境复现、实测业务价值、完善五件套、录屏、两人互审。
 10. **Accept v3（验收最终版）**：V3 全通过，保存最终 commit 与 v3 标签；冻结功能。11-13 核对链接和回执。
