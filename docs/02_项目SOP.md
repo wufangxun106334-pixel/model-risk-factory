@@ -119,12 +119,13 @@ Docker Desktop、R 和 Python 需在开发机实际验证。依赖版本在接�
 
 ### 4.2.1 v2 实现状态（2026-11-09）
 
-V2-01～V2-07 与 V1-01～V1-07 已在正式 run `v2-20261109T210903Z-3dcfab73`（campaign seed 46）上全部通过，实际命令、证据路径、发布阻断修复记录与残留缺陷见 [README](../README.md) 的「v2 发布阻断修复」「v2 正式验收」「已知工具缺陷」三节。以下实现口径在此固定：
+V2-01～V2-07 与 V1-01～V1-07 已在正式 run `v2-20261109T210903Z-3dcfab73`（campaign seed 46）上全部通过；**但该 run 的证据无法绑定到任何提交，且未消费的 UCI 行只剩 1,199 行（不足 6,000 行正式 Holdout），因此正式发布状态为 BLOCKED**，`v2` 标签不构成有效发布引用。缺口、解除条件与后续步骤见 [README](../README.md) 的「发布状态与缺口」一节；实际命令、证据路径与残留缺陷见同文件「v2 发布阻断修复」「v2 正式验收」「已知工具缺陷」三节。以下实现口径在此固定：
 
 - 三份档案的 Gate A 产物：`MDL_CREDIT_V1` 为 `model_inventory.json`，另外两个模型为 `inventories/<model_id>.json`；每个模型的内容期望（特征顺序、代码/文档阈值、必须保留的 Unknown、最少冲突数）由 `config/inventory_expectations.json` 冻结。
 - Gate C 的被审产物统一为 `report/review_manifest.json`：生成、审批（`approve --gate Gate_C`）与状态检查（`report-status`）使用同一路径；该清单绑定报告、`validation_metrics.json`、数值索引、表格与 Agent 摘要的哈希，任一被绑定文件缺失或变化即退回 DRAFT，`report/approval.json` 只在 Gate C 通过后生成。
 - `validation-metrics` 在执行或复用漂移批次结果前，必须先校验 context、冻结源码哈希、当前 Gate A/B 决定、frozen attempt 的开发验证与行为 fixtures、四个划分输入哈希，以及缓存执行记录的 candidate/model/input/output 哈希。
-- 数据划分：历史排除集由 `config/holdout_ledger.json` 记录的 seed、算法与划分哈希，配合已获准的 UCI 原始 ZIP **可重建校验**；正式 Holdout 只从历史已消费 Holdout 未覆盖的行中抽取。campaign 46 与 seed 42/43/44/45 四份已消费 Holdout 的重叠均为 0 行。
+- 数据划分：历史排除集由 `config/holdout_ledger.json` 记录的 seed、算法与划分哈希，配合已获准的 UCI 原始 ZIP **可重建校验**；正式 Holdout 只从历史已消费 Holdout 未覆盖的行中抽取。五份已消费 Holdout 共占 28,801 行，剩余 1,199 行不足以构成任何新的 6,000 行正式 Holdout。
+- 报告与发布：报告表格必须能由 `validation_metrics.json` 逐单元格重建并一致（`verify_report_cells`），Gate C 审批前强制执行；证据只能来自"已提交且工作区干净"的树，`worktree_clean_at_init` 必须为真、`git_commit_at_init` 必须等于被发布提交，并由 `release-check` 在标签树上复算 `verify_context` 与全量测试。
 
 ### 4.3 v3 验收标准
 

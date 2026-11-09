@@ -80,32 +80,55 @@ def test_exclusion_requires_a_forward_dependency_order(tmp_path):
         load_ledger(repo / "config" / "holdout_ledger.json")
 
 
-def test_clean_checkout_prepares_the_formal_split_with_zero_overlap(tmp_path, monkeypatch):
-    repo = clean_repository(tmp_path)
-    monkeypatch.setattr(data, "_config_path", lambda: repo / "config" / "data_config.json")
-    output = tmp_path / "data"
-    manifest = data.prepare_uci(RAW_ZIP, output, True, DATASET_SHA, run_id="clean-checkout")
+def test_clean_checkout_reproduces_a_historical_split_from_the_ledger(tmp_path, monkeypatch):
+    """As of the seed 46 run the ledger held seeds 42-45; a clean checkout must reproduce it."""
 
+    repo = clean_repository(tmp_path)
+    ledger_path = repo / "config" / "holdout_ledger.json"
+    ledger = read_json(ledger_path)
+    consumed = [campaign for campaign in ledger["campaigns"] if campaign["seed"] != 46]
+    assert [campaign["seed"] for campaign in consumed] == [42, 43, 44, 45]
+    ledger["campaigns"] = consumed
+    ledger_path.write_text(json.dumps(ledger), encoding="utf-8")
     config = read_json(repo / "config" / "data_config.json")
-    assert manifest["seed"] == config["seed"]
-    assert manifest["seed"] > max(c["seed"] for c in load_ledger(repo / "config" / "holdout_ledger.json")["campaigns"])
+    config["holdout_exclusion"]["campaigns"] = [campaign["campaign_id"] for campaign in consumed]
+    config["seed"] = 46
+    (repo / "config" / "data_config.json").write_text(json.dumps(config), encoding="utf-8")
+    monkeypatch.setattr(data, "_config_path", lambda: repo / "config" / "data_config.json")
+
+    manifest = data.prepare_uci(RAW_ZIP, tmp_path / "data", True, DATASET_SHA, run_id="clean-checkout")
+    assert manifest["seed"] == 46
     assert {name: entry["rows"] for name, entry in manifest["files"].items()} == {
         "train.csv": 15000,
         "dev.csv": 6000,
         "holdout.csv": 6000,
         "shift_pool.csv": 3000,
     }
+    # The rebuilt split is byte-identical to the one the seed 46 run used.
+    recorded = next(c for c in load_ledger(REPOSITORY / LEDGER_PATH)["campaigns"] if c["seed"] == 46)
+    for name, digest in recorded["splits"].items():
+        assert manifest["files"][name]["sha256"] == digest, name
     exclusion = manifest["holdout_exclusion"]
-    assert exclusion["enabled"] is True
-    assert all(value == 0 for value in exclusion["overlap"].values()), exclusion["overlap"]
     assert exclusion["overlap_total"] == 0
-    # The manifest cites campaign ids and hashes, never local run paths.
     assert not any("runs/" in json.dumps(source) for source in exclusion["sources"])
 
-    rebuilt = recover_historical_splits(RAW_ZIP, load_ledger(repo / "config" / "holdout_ledger.json"))
-    holdout = pd.read_csv(output / "holdout.csv")
-    for campaign_id, value in rebuilt.items():
-        assert len(set(holdout["client_id"].astype(str)) & value["holdout_ids"]) == 0, campaign_id
+
+def test_prepare_now_refuses_because_only_1199_rows_were_never_consumed(tmp_path, monkeypatch):
+    """Documents the data exhaustion: no further 6,000-row formal split is possible."""
+
+    repo = clean_repository(tmp_path)
+    monkeypatch.setattr(data, "_config_path", lambda: repo / "config" / "data_config.json")
+    ledger = load_ledger(repo / "config" / "holdout_ledger.json")
+    consumed: set[str] = set()
+    from src.holdout_ledger import recover_historical_splits
+
+    for campaign in recover_historical_splits(RAW_ZIP, ledger).values():
+        consumed |= campaign["holdout_ids"]
+    assert len(consumed) == 28801
+    assert 30000 - len(consumed) == 1199
+    with pytest.raises(ValueError, match="Too few rows remain"):
+        data.prepare_uci(RAW_ZIP, tmp_path / "data2", True, DATASET_SHA, run_id="exhausted")
+    assert not (tmp_path / "data2" / "holdout.csv").exists()
 
 
 def test_prepare_without_the_zip_cannot_apply_the_exclusion(tmp_path, monkeypatch):

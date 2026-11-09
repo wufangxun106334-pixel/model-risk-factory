@@ -42,8 +42,9 @@ def test_frozen_config():
     assert config["uci_zip_url"] == data.UCI_ZIP_URL
     assert config["uci_competition_use_approved"] is False
     assert config["holdout_exclusion"]["ledger"] == "config/holdout_ledger.json"
-    assert len(config["holdout_exclusion"]["campaigns"]) == 4
-    assert config["holdout_exclusion"]["campaigns"][-1] == "MDL_CREDIT_V1:uci:seed-45"
+    ledger = json.loads((Path(__file__).parents[1] / "config" / "holdout_ledger.json").read_text())
+    assert config["holdout_exclusion"]["campaigns"] == [campaign["campaign_id"] for campaign in ledger["campaigns"]]
+    assert config["seed"] >= max(campaign["seed"] for campaign in ledger["campaigns"])
     assert config["uci_expected_sha256"] is None
 
 

@@ -35,6 +35,7 @@ from src.fixtures import write_fixtures
 from src.local_checks import run_mutation_check, run_reference_parity
 from src.inventory import expected_model_ids, inventory_path
 from src.migration import candidate_dir, freeze_candidate, load_candidate
+from src.release import release_check
 from src.report import render_report, report_content_problems, report_status, write_approval
 from src.review import artifact_digest, current_decision, record_review
 from src.validation import compute_validation_metrics
@@ -71,6 +72,11 @@ def _parser() -> argparse.ArgumentParser:
     prepare.add_argument("--seed", type=int, default=None)
     prepare.add_argument("--expected-sha256")
     prepare.add_argument("--approve-uci-use", action="store_true")
+
+    release = subparsers.add_parser("release-check")
+    release.add_argument("--run-id", required=True)
+    release.add_argument("--tag", required=True, help="git ref that claims the release")
+    release.add_argument("--output", type=Path)
 
     verify_context_cmd = subparsers.add_parser("verify-context")
     verify_context_cmd.add_argument("--run-id", required=True)
@@ -163,6 +169,11 @@ def _dispatch(arguments: argparse.Namespace) -> dict[str, Any]:
         return {"status": "PASS" if result["verified"] else "FAIL", **result}
     run_dir, manifest = load_run(RUNS_ROOT, arguments.run_id)
     run_id = arguments.run_id
+    if command == "release-check":
+        result = release_check(REPOSITORY, arguments.tag, run_dir, run_id)
+        if arguments.output:
+            write_json(arguments.output, result)
+        return result
     if command == "check-provider":
         return check_provider(run_dir, run_id)
     if command == "download-uci":

@@ -21,7 +21,8 @@
       "MDL_CREDIT_V1:uci:seed-42",
       "MDL_CREDIT_V1:uci:seed-43",
       "MDL_CREDIT_V1:uci:seed-44",
-      "MDL_CREDIT_V1:uci:seed-45"
+      "MDL_CREDIT_V1:uci:seed-45",
+      "MDL_CREDIT_V1:uci:seed-46"
     ],
     "rule": "The Holdout is drawn first and only from rows that no previously consumed formal Holdout contains; the consumed splits are rebuilt from the approved UCI ZIP and verified against config/holdout_ledger.json before the exclusion is applied."
   },

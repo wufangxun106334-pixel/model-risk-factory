@@ -70,6 +70,25 @@
         "shift_pool.csv": "ad43e364b6dea47b31406cb193b207df8f257f4c3cbb1a5b5f389fd19e24ea83",
         "train.csv": "6a87f2c816bb0fa4ef92d2132874f69f372e34a649f246305384593358c5863f"
       }
+    },
+    {
+      "campaign_id": "MDL_CREDIT_V1:uci:seed-46",
+      "seed": 46,
+      "algorithm": "split-v2-holdout-first",
+      "excluded_campaigns": [
+        "MDL_CREDIT_V1:uci:seed-42",
+        "MDL_CREDIT_V1:uci:seed-43",
+        "MDL_CREDIT_V1:uci:seed-44",
+        "MDL_CREDIT_V1:uci:seed-45"
+      ],
+      "consumed_by_run": "v2-20261109T210903Z-3dcfab73",
+      "consumed_at": "2026-11-09T21:11:00Z",
+      "splits": {
+        "dev.csv": "fd921a5d290acd3a52bfda5c99c9c538b1dcfac4a31367360cbedd743feafdec",
+        "holdout.csv": "7111c04ed703260459588bc6a0cdd932b507b5df4e095ae7a644b91069d5462b",
+        "shift_pool.csv": "2bbd20ef7b85942c7cfeafa0faa06728643342b11623de637d4fa2b5e6f5a2bb",
+        "train.csv": "41260c9e7d4e13ef169e25aa6e0364d15bb21445be7bcdd163740091c2bf4609"
+      }
     }
   ]
 }
