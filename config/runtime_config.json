@@ -1,0 +1,10 @@
+{
+  "schema_version": "1",
+  "r_image": "rocker/r-ver:4.4.2",
+  "runner_image": "model-risk-factory-runner:v1",
+  "candidate_timeout_seconds": 30,
+  "r_timeout_seconds": 180,
+  "candidate_memory": "512m",
+  "candidate_cpus": "1",
+  "candidate_pids_limit": 64
+}

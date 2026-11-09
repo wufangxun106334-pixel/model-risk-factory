@@ -8,3 +8,8 @@ __pycache__/
 *.pyc
 .Rhistory
 .RData
+data/raw/*
+data/processed/
+runs/
+delivery/
+.pi/

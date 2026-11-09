@@ -15,7 +15,7 @@ release_plan: v1-prototype / v2-formal / v3-final
 
 > SOP = Standard Operating Procedure（标准操作流程）。本文是项目**唯一的设计主文件**。文档描述待实现的设计，不代表代码已经完成或测试已经通过。
 >
-> 比赛背景、官方要求原文和常见疑问见 [01_比赛背景与官方要求.md](01_比赛背景与官方要求.md)。下述实现、预算、阈值与版本计划属于团队决策，不是额外官方要求。
+> 比赛背景、官方要求原文和常见疑问见 [01_比赛背景与官方要求.md](01_比赛背景与官方要求.md)。下述实现、阈值与版本计划属于团队决策，不是额外官方要求。
 
 ## 1. 项目定位与固定边界
 
@@ -44,7 +44,7 @@ release_plan: v1-prototype / v2-formal / v3-final
 - 数据：UCI 公开数据（无直接标识，含人口属性；能否用于比赛待主办方确认）+ 少量合成样例；结果不代表真实英国银行模型表现。
 - Agent：单 Agent、固定阶段、Tool calling（工具调用）、最多两轮代码修复。
 - 生成代码：仅在受限 Docker container（容器）内运行；不开放任意外部代码上传。
-- API：用户指定 https://sa.kaiwen.dev ，总预算上限 €10；具体协议、模型、能力与价格待接入验证（备选方案见 16.2）。
+- API：用户指定 https://sa.kaiwen.dev ，具体协议、模型和工具调用能力待接入验证（备选方案见 16.2）。
 - 输出：Markdown 报告、CSV 差异、JSON 证据；自动生成 PDF 不在实现范围内。
 - 只做 **v1、v2、v3**。不追加 v4，也不以"正式版"为理由扩大为生产银行平台。
 
@@ -73,7 +73,7 @@ release_plan: v1-prototype / v2-formal / v3-final
 | 数据契约 | Pydantic | 校验清单、迁移结果、指标、审核记录 | 本地校验必做；服务端结构化输出待实测 |
 | 测试 | pytest | 固定契约、等价性、异常与故障测试 | 不允许 Agent 修改评分规则 |
 | 执行隔离 | Docker | 执行生成 Python、隔离验证过程 | 无网络、只读根目录、资源与时间限制 |
-| LLM 接入 | Provider adapter（服务适配层） | 屏蔽具体协议、记录用量和错误 | 协议确认后再选 SDK，不预设 OpenAI 兼容 |
+| LLM 接入 | Provider adapter（服务适配层） | 屏蔽具体协议、记录请求和错误 | 协议确认后再选 SDK，不预设 OpenAI 兼容 |
 | 状态与结果 | CSV / JSON / JSONL / Markdown | 数据、元信息、日志、报告 | 单用户本地文件，无数据库 |
 | 版本管理 | Git | 代码、设计与交付版本 | v1/v2/v3 三个通过验收的 Git tags（标签） |
 
@@ -95,7 +95,7 @@ Docker Desktop、R 和 Python 需在开发机实际验证。依赖版本在接�
 
 | ID | Test（验收动作） | Pass（通过条件） | Evidence（证据） |
 | --- | --- | --- | --- |
-| V1-01 | API smoke test（最小调用） | 指定网关真实请求成功；确认协议、模型 ID、工具往返及输出解析；用量和费用可核算；不能确认时当天按 16.2 决策 | 脱敏的 capability_check.json、请求 ID、用量记录 |
+| V1-01 | API smoke test（最小调用） | 指定网关真实请求成功；确认协议、模型 ID、工具往返及输出解析；不能确认时当天按 16.2 决策 | 脱敏的 capability_check.json、请求 ID、脱敏请求日志 |
 | V1-02 | 数据加工与划分 | 原始 UCI 文件 SHA-256 与记录一致；30,000 行按 15,000/6,000/6,000/3,000 分层划分，ID 唯一且互不交叉；各子集违约率与总体相差 ≤1 个百分点；未文档化编码按数据字典处理；固定种子；配置与产物哈希记录 | data_manifest.json、数据字典、划分测试 |
 | V1-03 | R 基准 | V1 模型可重跑，系数/预处理/开发预测输出有效；未把 ID、标签或人口属性当特征 | R sessionInfo、产物清单 |
 | V1-04 | Python 参考实现等价性 | 主键一一对齐、概率与分类、缺失与拒绝行为满足第 8 节；不得只比较 Accuracy | parity_summary.json、parity_diff.csv |
@@ -114,7 +114,7 @@ Docker Desktop、R 和 Python 需在开发机实际验证。依赖版本在接�
 | V2-03 | 四类验证 | 等价性、性能（含十分位校准表）、稳定性、公平性结果均来自程序；缺标签/单类/分母为零/小样本时明确状态 | validation_metrics.json、指标测试 |
 | V2-04 | 审核关卡 | 待迁移模型的档案通过 Gate A 后，Agent 才能生成迁移候选；每个新代码哈希执行前需 Gate B 批准；报告未经 Gate C 审阅不标记 APPROVED | review_log.json、关卡测试 |
 | V2-05 | 端到端及导出 | 清单→档案→迁移→验证报告可通过 CLI 或界面走通；MD/CSV/JSON 导出且 run_id 一致 | 端到端检查记录 |
-| V2-06 | 失败和预算处理 | API/解析/超时/修复耗尽/预算不足均保留失败记录，不伪造成功；累计成本不超过 €10 | 故障测试和用量账本 |
+| V2-06 | 故障处理 | API 请求失败、解析失败、超时、请求上限和修复耗尽均保留失败记录 | 故障测试和请求日志 |
 | V2-07 | 报告来源与限制 | 每个数值引用指标 JSON 路径；引用存在不等于语义真实，关键事实需人工复核；无合规认证措辞 | 报告、审核意见 |
 
 ### 4.3 v3 验收标准
@@ -122,30 +122,28 @@ Docker Desktop、R 和 Python 需在开发机实际验证。依赖版本在接�
 | ID | 验收动作 | 通过条件 | 证据 |
 | --- | --- | --- | --- |
 | V3-01 | 回归与固定数据复跑 | v1/v2 必测项全部通过；数值产物在声明容差内可复现；LLM 文本不要求逐字相同 | test_summary.md |
-| V3-02 | 新环境复现 | 新虚拟环境、锁定依赖及容器按 README 跑通；费用允许时另跑一次真实 Agent；历史回放明确标注 | 环境、命令、版本与执行日志 |
+| V3-02 | 新环境复现 | 新虚拟环境、锁定依赖及容器按 README 跑通；网关可用时另跑一次真实 Agent；历史回放明确标注 | 环境、命令、版本与执行日志 |
 | V3-03 | 五件套交付 | ≤10 页 Slides、≤3 分钟视频、README 代码仓库、1 页架构图（含组件、数据流、AI 模型）、1 页 Responsible AI note（含数据、隐私、偏差、限制、保护措施）；README 与 Deck 声明使用的 AI 工具和已有代码 | 提交材料清单与访问检查 |
-| V3-04 | 业务价值证据 | 同一任务的手工/Agent 耗时含人工审核；记录样本数、操作者、费用，不预设加速百分比 | impact_measurements.csv |
+| V3-04 | 业务价值证据 | 同一任务的手工/Agent 耗时含人工审核；记录样本数和操作者，不预设加速百分比 | impact_measurements.csv |
 | V3-05 | 最终审核 | 无阻断缺陷；限制、未完成可选项、模型/数据性质清楚；两名成员互审关键结果 | final_review.md |
 | V3-06 | 版本冻结 | 所有必交代码/材料对应唯一提交；工作区干净；验收通过后创建 v3 标签 | commit SHA、tag、release_checklist.md |
 
-阻断缺陷：无法运行、误标通过、证据串用、测试泄露给 Agent、基准被改、代码越界执行、预算无法控制或必交材料不可访问。外观优化、MLflow、额外图表不阻断既定范围。
+阻断缺陷：无法运行、误标通过、证据串用、测试泄露给 Agent、基准被改、代码越界执行或必交材料不可访问。外观优化、MLflow、额外图表不阻断既定范围。
 
-## 5. API 接入与费用关卡
+## 5. API 接入验证
 
-指定服务：https://sa.kaiwen.dev 。公开首页标识为 Sub2API — AI API Gateway，设计确认时未取得可验证的接口/模型/计费文档。主页能打开不等于 API 能用。
+指定服务为 https://sa.kaiwen.dev 。实际接口和模型能力通过以下步骤验证。
 
-1. 从服务控制台取得实际 API base URL、协议、模型 ID、认证方式和费率；不要凭主页推断 `/v1` 或某种兼容协议。
+1. 从服务控制台取得实际 API base URL、协议、模型 ID 和认证方式。
 2. Key 仅配置在开发机环境变量；不写入 Git、日志、报告、截图或 Docker 测试容器。
 3. 发一次简短请求，验证响应和错误类型。
 4. 验证完整 Tool calling 往返：模型请求工具→本地调度固定工具→返回结果→模型完成回答。无原生支持时不得假称已支持；先停止并按 16.2 决策。
-5. 若服务端支持 JSON Schema 则使用；无原生结构化输出时，本地 Pydantic 校验仍必做。解析失败最多一次格式重试，纳入成本；不得以字符串抽取伪造合法结果。
-6. 记录 usage、币种、实际费率、兑换依据和累计 EUR 成本。仅有 token 数不能直接等于欧元费用。
-7. 每次请求前预留输入与最大输出费用，累计已用 + 预留不得超过 €10；无法获得价格或控制上界时停止付费请求，先核实。
-8. Agent 每轮最多 8 次模型请求（含重试），每次输出上限按实测可用范围设置，代码修复最多两次；默认超时、退避和重试次数写入配置并冻结。€8 开发、€2 最终演示为内部预留，不增加总预算。
-9. API 不可用时页面可以展示清楚标识的历史运行；不能伪装现场成功，不能静默更换服务商。
-10. **数据最小化**：发送给 LLM 的只有 R 代码、模拟旧文档、Schema 和汇总诊断；不发送 UCI 原始数据行，Holdout 输入与答案均不出本机。
+5. 若服务端支持 JSON Schema 则使用；无原生结构化输出时，本地 Pydantic 校验仍必做。解析失败最多一次格式重试；不得以字符串抽取伪造合法结果。
+6. Agent 每轮最多 8 次模型请求（含重试），每次输出上限按实测可用范围设置，代码修复最多两次；默认超时、退避和重试次数写入配置并冻结。
+7. API 不可用时页面可以展示清楚标识的历史运行；不能伪装现场成功，不能静默更换服务商。
+8. **数据最小化**：发送给 LLM 的只有 R 代码、模拟旧文档、Schema 和汇总诊断；不发送 UCI 原始数据行，Holdout 输入与答案均不出本机。
 
-Provider adapter 至少定义 `generate()`、`tool_roundtrip()`、`usage_to_cost()`；具体 SDK 由协议验证结果决定。
+Provider adapter 至少定义 `generate()` 和 `tool_roundtrip()`；具体 SDK 由协议验证结果决定。
 
 ## 6. 数据与模拟资产
 
@@ -254,7 +252,7 @@ v2 补齐其余两个模型的档案并通过 Gate A，再计算四类指标、�
 
 主状态：INVENTORY_REVIEWED → CANDIDATE_APPROVED → CANDIDATE_FROZEN → FINAL_EVALUATED → REPORT_REVIEWED。草稿、开发测试等中间过程记录在运行日志中，不单独作为状态门槛。
 
-异常状态：FAILED、BLOCKED、NOT_RUN、BUDGET_EXCEEDED。拒绝审核后回到对应草稿；变更输入/代码/配置哈希时，相关下游审核失效。预测性能低不等于执行失败，报告保留警示，不擅自训练新模型。
+异常状态：FAILED、BLOCKED、NOT_RUN。拒绝审核后回到对应草稿；变更输入/代码/配置哈希时，相关下游审核失效。预测性能低不等于执行失败，报告保留警示，不擅自训练新模型。
 
 固定工具：`read_asset`（允许列表内文件）、`validate_inventory`、`submit_candidate`、`run_dev_tests`、`read_dev_diagnostics`。Holdout 评估为验证端入口，不开放为 Agent 工具。模型只能请求工具，执行与权限检查由 Python 调度器负责。
 
@@ -338,7 +336,7 @@ $$
 | validation_metrics.json | dataset_sha256、阈值、样本量、parity/performance/calibration/stability/fairness、值/状态/原因/证据路径 | 受信验证程序 |
 | review_log.json | gate、decision、reviewer、timestamp、comment、reviewed_artifact_sha256 | 人工审核入口 |
 
-附属文件：`manifest.json`、`data_manifest.json`、`agent_audit_log.jsonl`、`usage_ledger.jsonl`、`parity_diff.csv`、`validation_report.md`。整数、空值和状态按 Schema 校验，不允许 NaN/Infinity 混入 JSON。
+附属文件：`manifest.json`、`data_manifest.json`、`agent_audit_log.jsonl`、`provider/request_log.jsonl`、`parity_diff.csv`、`validation_report.md`。整数、空值和状态按 Schema 校验，不允许 NaN/Infinity 混入 JSON。
 
 指标示意（占位，不是运行结果）：
 
@@ -367,7 +365,7 @@ $$
 
 界面由主机可信模块控制，容器不能改审核记录。审核者字段是本地自报标识，不冒充认证身份。v1、v2 的验收都可以通过 CLI 完成；Streamlit 四页是演示目标，时间不足时可减少页面，但审核关卡与导出不能省。
 
-API 超时、解析失败、预算不足、容器失败或修复耗尽：停止对应阶段、保存失败原因、提供明确重试入口。重试仍计费；新候选需重新审核。历史结果显示原 run_id、时间和 REPLAY（回放）标识。
+API 超时、解析失败、达到请求上限、容器失败或修复耗尽：停止对应阶段、保存失败原因、提供明确重试入口。重试计入请求次数；新候选需重新审核。历史结果显示原 run_id、时间和 REPLAY（回放）标识。
 
 ## 12. 目录和计划 CLI
 
@@ -408,8 +406,8 @@ python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
 
-# API capability check：接入验证，可能产生少量费用
-python -m src.cli check-provider
+# API capability check：接入验证
+python -m src.cli check-provider --run-id <run_id>
 
 # Prepare：下载并校验 UCI 原始文件、加工划分、训练 R 模型和基准
 python -m src.cli prepare --seed 42
@@ -427,7 +425,7 @@ python -m src.cli accept --run-id <run_id>
 python -m src.cli export --run-id <run_id>
 ```
 
-配置示例只含 `LLM_BASE_URL`、`LLM_MODEL`、`LLM_API_KEY` 等变量名与占位符。费用、接口路径、模型参数以接入验证为准。运行日志脱敏后再决定是否入 Git。
+配置示例只含 `LLM_BASE_URL`、`LLM_MODEL`、`LLM_API_KEY` 等变量名与占位符。接口路径和模型参数以接入验证为准。运行日志脱敏后再决定是否入 Git。
 
 ## 13. 分工与里程碑
 
@@ -447,7 +445,7 @@ A=用户本人（AI 工程主线），B=队友（建模验证主线）。两人�
 
 | 日期 | 版本任务 | 分工 | 当天退出条件 |
 | --- | --- | --- | --- |
-| 11-08 | v1：接入关卡与基准资产 | A 负责 API、契约与调度。B 负责 UCI 下载、数据字典、划分和 R 模型 | API 能力与计费查清；数据划分及一个 R 模型可跑 |
+| 11-08 | v1：接入关卡与基准资产 | A 负责 API、契约与调度。B 负责 UCI 下载、数据字典、划分和 R 模型 | API 能力查清；数据划分及一个 R 模型可跑 |
 | 11-09 | v1：单模型建档、等价性工具与 Agent 生成 | A 负责档案提取、最小 Docker、CLI 与 Agent 生成/修复循环。B 先准备待迁移模型的旧文档，再负责参考实现、等价性工具与故意错误测试 | V1-01～05 通过；待迁移模型的档案先通过 Gate A，Agent 再生成候选并经 Gate B 后在容器中跑开发测试 |
 | 11-10 | v1：真实迁移验收 | A 负责候选冻结与 Holdout 验收流程。B 负责指标程序与其余两个模型的旧文档资产 | V1-01～07 通过，创建 v1 验收记录 |
 | 11-11 | v2：档案、验证报告与审核 | A 负责档案提取、审核关卡、导出与界面。B 负责四类验证、故障测试与材料 | V2-01～07 通过；材料初稿 |
@@ -465,13 +463,13 @@ A=用户本人（AI 工程主线），B=队友（建模验证主线）。两人�
 
 ## 14. 执行 SOP：从开工到最终版
 
-1. **Prepare（准备）**：核对报名/题目/日期；检查 Python、R、Docker；确认 API 能力及费用；冻结配置与契约。
+1. **Prepare（准备）**：核对报名/题目/日期；检查 Python、R、Docker；确认 API 能力；冻结配置与契约。
 2. **Acquire data（取数）**：下载 UCI 原始文件，记录 SHA-256 与许可；按数据字典处理编码；固定种子分层划分；只在 train 学习参数；构造漂移批次与 fixtures；建立三个 R 模型和预设文档缺口。
 3. **Establish baseline（建立基准）**：B 保存基准与哈希；A 无权通过 Agent 修改基准；先完成参考预测及故意错误检测。
 4. **Document & migrate（单模型建档与迁移）**：开放允许列表工具；Agent 根据 R 代码和旧文档提取 MDL_CREDIT_V1 档案；Gate A 通过后才生成 credit_v1 候选；Gate B 批准代码哈希后，在最小 Docker 中执行开发测试与受限修复。
 5. **Freeze candidate（冻结候选）**：保存代码哈希；独立运行 Holdout；失败不泄露答案后反复修复；记录失败和后续处理。
 6. **Accept v1（验收原型）**：逐项执行 V1 检查；记录实际结果、环境和差异；通过后创建 v1 标签。
-7. **Complete inventory, validate & review（补齐档案、验证与审阅）**：补齐其余两个模型的档案并经 Gate A，确认三份档案均已通过审核；计算四类指标、生成来源可追溯报告并经 Gate C；加固容器边界；测试超时、预算与无效输出。
+7. **Complete inventory, validate & review（补齐档案、验证与审阅）**：补齐其余两个模型的档案并经 Gate A，确认三份档案均已通过审核；计算四类指标、生成来源可追溯报告并经 Gate C；加固容器边界；测试超时、请求上限与无效输出。
 8. **Accept v2（验收正式版）**：端到端流程与导出完整，V2 全通过；创建 v2 标签。
 9. **Finalize（最终交付）**：新环境复现、实测业务价值、完善五件套、录屏、两人互审。
 10. **Accept v3（验收最终版）**：V3 全通过，保存最终 commit 与 v3 标签；冻结功能。11-13 核对链接和回执。
@@ -522,7 +520,7 @@ README 与 Deck 中列出：
 2. **Privacy**：人口属性只用于审计、不入模；不向 LLM 发送原始数据行，只发送代码、文档和汇总诊断；API key 只在本机环境变量。
 3. **Bias**：按 age_band 与 sex 审计 TPR/FPR；人口属性不入模；小样本组标记 NOT_ASSESSABLE；未触发预警不等于公平。
 4. **Limitations**：结果不代表英国银行客户或真实生产模型表现；缺少跨时间回测；Agent 文本可能出错，引用存在不等于语义正确；不是独立验证或监管认证。
-5. **Safeguards**：指标由确定性 Python 程序计算；生成代码只在无网络 Docker 中执行；Holdout 不进 Agent 上下文；三道人工审核关卡；预算与修复次数上限；失败如实记录。
+5. **Safeguards**：指标由确定性 Python 程序计算；生成代码只在无网络 Docker 中执行；Holdout 不进 Agent 上下文；三道人工审核关卡；请求与修复次数上限；失败如实记录。
 
 ### 15.5 三分钟视频与决赛演示
 
@@ -537,13 +535,13 @@ README 与 Deck 中列出：
 
 决赛（如入围，11-23）：每队 10 分钟，建议 7 分钟陈述 + 3 分钟现场演示，之后评委就方法、证据和 Responsible AI 提问。准备：
 
-- 本机完整环境 + **离线回放模式**（不依赖 API 与场地 Wi-Fi，界面标注 REPLAY）；现场调用仅在网络与预算允许时进行；
+- 本机完整环境 + **离线回放模式**（不依赖 API 与场地 Wi-Fi，界面标注 REPLAY）；现场调用仅在网络和网关可用时进行；
 - 视频作为最后备份；
 - 准备 Q&A 要点：为什么用 UCI 数据、等价性阈值依据、Holdout 隔离、Agent 失败时怎么办、扩展到 250 个模型的路径。
 
 ### 15.6 业务价值实测方法（Business Impact 30%，同分决胜项）
 
-同一预置任务、同样文档字段和检查标准，分别记录手工与 Agent + 人工复核的总耗时、费用、遗漏、返工，写入 `impact_measurements.csv`：
+同一预置任务、同样文档字段和检查标准，分别记录手工与 Agent + 人工复核的总耗时、遗漏和返工，写入 `impact_measurements.csv`：
 
 | 维度 | 手工基线（实测） | Agent + 人工复核（实测） | 证据 |
 | --- | --- | --- | --- |
@@ -577,7 +575,7 @@ README 与 Deck 中列出：
 | # | 事项 | 建议 | 状态 / 负责人 |
 | --- | --- | --- | --- |
 | 16.1 | V1 是否改为 **WoE 评分卡** | 逻辑回归迁移本质是一次点积，等价性显得过于容易，Agent 价值不明显。银行信用模型常用 WoE 评分卡（分箱 → WoE → 逻辑回归 → 分数换算），迁移时有真实易错点：R `cut()` 默认右闭区间、缺失值单独成箱、分数取整。工作量增加有限，演示说服力更强 | 待 A/B 商定；若采纳，需改 6.6、第 8 节公式与 V1-04、V1-06 |
-| 16.2 | API 网关风险 | sa.kaiwen.dev 的工具调用与计费未验证，而真实 Agent 迁移属于 v1（11-10 截止）。11-08 当天完成 V1-01；不通过则改用官方 API（如 Claude API），费用仍受 €10 上限约束，变更写入决策记录 | 待 A 当天验证 |
+| 16.2 | API 网关风险 | sa.kaiwen.dev 的工具调用待验证，而真实 Agent 迁移属于 v1（11-10 截止）。11-08 当天完成 V1-01；不通过则由团队确认备选 API（如 Claude API），变更写入决策记录 | 待 A 当天验证 |
 | 16.3 | EXL 示例模型代码 | 向主办方确认是否发放；若发放，评估替换或追加为第 4 个模型，评委认可度更高 | 待询问 |
 | 16.4 | MLflow / Azure ML | 官方偏好但非强制；时间允许时用本地 MLflow 记录运行，否则列入 Roadmap | 可选 |
 
@@ -589,10 +587,10 @@ README 与 Deck 中列出：
 
 | 决策 | 结果 |
 | --- | --- |
-| Q1–Q5 | 竞赛原型，本地演示，Python/AI 工程主线，允许付费 API |
-| Q6–Q11 | Python/Streamlit/R/pytest/Docker，三个档案一个迁移，单 Agent，两次修复，分工，€10 |
+| Q1–Q5 | 竞赛原型，本地演示，Python/AI 工程主线 |
+| Q6–Q11 | Python/Streamlit/R/pytest/Docker，三个档案一个迁移，单 Agent，两次修复，分工 |
 | Q12–Q17 | 预测移植，独立固定测试，四类证据，三审核关卡，缩减顺序 |
-| Q18 | 指定 sa.kaiwen.dev；兼容性与价格须实测 |
+| Q18 | 指定 sa.kaiwen.dev；兼容性须实测 |
 | Q19–Q23 | 四契约，失败停止，MD/CSV/JSON，双处落盘和本地提交 |
 | 最终追加约束 | 只做 v1 原型、v2 正式版、v3 最终版；每版明确验收 |
 | Q24 | 数据使用 UCI Default of Credit Card Clients；合成数据只用于漂移压力场景与异常样例 |
@@ -603,7 +601,7 @@ README 与 Deck 中列出：
 - 官方 PDF：[docs/official/EXL_UCD_Data_AI_Hackathon_2026.pdf](official/EXL_UCD_Data_AI_Hackathon_2026.pdf)；解读见 [01_比赛背景与官方要求.md](01_比赛背景与官方要求.md)。
 - [UCI Default of Credit Card Clients](https://archive.ics.uci.edu/dataset/350/default+of+credit+card+clients)：数据、字段说明与许可。
 - [grill-me](https://github.com/mattpocock/skills/tree/main/skills/productivity/grill-me) 与 [grilling](https://github.com/mattpocock/skills/blob/main/skills/productivity/grilling/SKILL.md)：分轮设计访谈方法；说明见 [03_grill-me方法说明.md](03_grill-me方法说明.md)。
-- [指定 API 网关](https://sa.kaiwen.dev)：协议、模型、价格、工具调用支持待登录控制台核实。
+- [指定 API 网关](https://sa.kaiwen.dev)：协议、模型及工具调用支持待核实。
 - [R glm 文档](https://stat.ethz.ch/R-manual/R-devel/library/stats/html/glm.html) 与 [predict.glm 文档](https://stat.ethz.ch/R-manual/R-devel/library/stats/html/predict.glm.html)：模型与预测参考。
 
-待核实：活动报名/题目开放/截止时间；UCI 数据实际行数、违约率与编码取值（下载后确认）；API 详细能力与成本；开发机工具可用版本；队友能否按分工参与。遇到这些事实不成立，应记录 BLOCKED 并明确调整，不虚构已完成。
+待核实：活动报名/题目开放/截止时间；UCI 数据实际行数、违约率与编码取值（下载后确认）；API 详细能力；开发机工具可用版本；队友能否按分工参与。遇到这些事实不成立，应记录 BLOCKED 并明确调整，不虚构已完成。

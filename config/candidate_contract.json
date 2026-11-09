@@ -1,0 +1,24 @@
+{
+  "schema_version": "1",
+  "model_id": "MDL_CREDIT_V1",
+  "language": "Python 3 standard library only",
+  "entrypoint": "python credit_v1.py --model MODEL_JSON --input INPUT_CSV --output OUTPUT_CSV",
+  "model_json": {
+    "coefficients": "object with intercept and the four feature names",
+    "feature_order": ["delay_1", "log_limit", "util_1", "log_pay_1"],
+    "medians": "training medians for limit_bal, pay_status_1, bill_amt_1, pay_amt_1",
+    "threshold": 0.35
+  },
+  "input_columns": ["client_id", "limit_bal", "pay_status_1", "bill_amt_1", "pay_amt_1"],
+  "output_columns": ["client_id", "probability", "classification", "status", "error_code", "limit_bal_imputed", "pay_status_1_imputed", "bill_amt_1_imputed", "pay_amt_1_imputed"],
+  "rules": [
+    "Reuse exported coefficients; do not train or import a model library.",
+    "log_limit=log1p(limit_bal); delay_1=max(pay_status_1,0); util_1=clip(bill_amt_1/limit_bal,0,2); log_pay_1=log1p(pay_amt_1).",
+    "Impute each missing numeric raw field independently from model medians and emit its 0/1 flag.",
+    "Reject non-numeric values, limit_bal<=0 after imputation, pay_status_1 outside -2..9 or non-integral after imputation, and pay_amt_1<0 after imputation. Negative bill_amt_1 is valid.",
+    "Valid rows use status=VALID and empty error_code; rejected rows use status=REJECTED, stable uppercase error_code, and empty probability/classification.",
+    "Classify with probability >= threshold. Preserve input row order and write at least 17 significant digits for probabilities.",
+    "A missing required column, duplicate client_id, or empty input is a file-level error: write a concise message to stderr and exit 2.",
+    "Return JSON only in the Agent response, with model_id and code. Do not use Markdown fences."
+  ]
+}

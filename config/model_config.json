@@ -1,0 +1,30 @@
+{
+  "model_id": "MDL_CREDIT_V1",
+  "feature_order": [
+    "delay_1",
+    "log_limit",
+    "util_1",
+    "log_pay_1"
+  ],
+  "threshold": 0.35,
+  "max_abs_diff": 1e-8,
+  "mean_abs_diff": 1e-10,
+  "input_columns": [
+    "client_id",
+    "limit_bal",
+    "pay_status_1",
+    "bill_amt_1",
+    "pay_amt_1"
+  ],
+  "output_columns": [
+    "client_id",
+    "probability",
+    "classification",
+    "status",
+    "error_code",
+    "limit_bal_imputed",
+    "pay_status_1_imputed",
+    "bill_amt_1_imputed",
+    "pay_amt_1_imputed"
+  ]
+}
