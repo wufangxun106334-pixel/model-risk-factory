@@ -72,6 +72,25 @@ def build(
     (repo / "src" / "module.py").write_text("VALUE = 1\n", encoding="utf-8")
     (repo / "tests" / "test_smoke.py").write_text(FAILING_TEST if failing else PASSING_TEST, encoding="utf-8")
     (repo / "config" / "settings.json").write_text('{"seed": 46}\n', encoding="utf-8")
+    (repo / "data" / "raw").mkdir(parents=True)
+    approved_zip = repo / "data" / "raw" / "default_of_credit_card_clients.zip"
+    approved_zip.write_bytes(b"approved dataset bytes")
+    (repo / "config" / "holdout_ledger.json").write_text(
+        json.dumps({"schema_version": "1", "dataset": {"zip_sha256": sha256_file(approved_zip)}, "campaigns": []}),
+        encoding="utf-8",
+    )
+    (repo / "tests" / "test_data_ready.py").write_text(
+        "import hashlib, json, pathlib\n"
+        "import pytest\n"
+        "\n"
+        "def test_approved_dataset_is_provisioned():\n"
+        "    zip_path = pathlib.Path('data/raw/default_of_credit_card_clients.zip')\n"
+        "    if not zip_path.is_file():\n"
+        "        pytest.skip('approved dataset is not provisioned')\n"
+        "    ledger = json.loads(pathlib.Path('config/holdout_ledger.json').read_text())\n"
+        "    assert hashlib.sha256(zip_path.read_bytes()).hexdigest() == ledger['dataset']['zip_sha256']\n",
+        encoding="utf-8",
+    )
     git(repo, "init", "-q")
     git(repo, "add", "-A")
     git(repo, "commit", "-q", "-m", "release")

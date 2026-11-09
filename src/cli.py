@@ -35,11 +35,14 @@ from src.fixtures import write_fixtures
 from src.local_checks import run_mutation_check, run_reference_parity
 from src.inventory import expected_model_ids, inventory_path
 from src.migration import candidate_dir, freeze_candidate, load_candidate
-from src.release import release_check
+from src.release import release_check, restore_command_log
 from src.report import render_report, report_content_problems, report_status, write_approval
 from src.review import artifact_digest, current_decision, record_review
 from src.validation import compute_validation_metrics
 from src.workflow import run_candidate_fixtures, run_development, run_holdout
+
+# Commands that only read a run must never mutate it, so they skip the command log.
+READ_ONLY_COMMANDS = frozenset({"verify-context", "release-check", "verify-holdout-ledger", "report-status", "restore-command-log"})
 
 REPOSITORY = Path(__file__).resolve().parents[1]
 # Dev dry runs can point at a sibling directory so the sealed runs/ artifacts and
@@ -73,10 +76,14 @@ def _parser() -> argparse.ArgumentParser:
     prepare.add_argument("--expected-sha256")
     prepare.add_argument("--approve-uci-use", action="store_true")
 
+    restore = subparsers.add_parser("restore-command-log")
+    restore.add_argument("--run-id", required=True)
+
     release = subparsers.add_parser("release-check")
     release.add_argument("--run-id", required=True)
     release.add_argument("--tag", required=True, help="git ref that claims the release")
     release.add_argument("--output", type=Path)
+    release.add_argument("--zip", type=Path, help="approved UCI ZIP to provision into the isolated tree")
 
     verify_context_cmd = subparsers.add_parser("verify-context")
     verify_context_cmd.add_argument("--run-id", required=True)
@@ -169,8 +176,10 @@ def _dispatch(arguments: argparse.Namespace) -> dict[str, Any]:
         return {"status": "PASS" if result["verified"] else "FAIL", **result}
     run_dir, manifest = load_run(RUNS_ROOT, arguments.run_id)
     run_id = arguments.run_id
+    if command == "restore-command-log":
+        return {"status": "RESTORED", **restore_command_log(run_dir)}
     if command == "release-check":
-        result = release_check(REPOSITORY, arguments.tag, run_dir, run_id)
+        result = release_check(REPOSITORY, arguments.tag, run_dir, run_id, zip_path=arguments.zip)
         if arguments.output:
             write_json(arguments.output, result)
         return result
@@ -342,7 +351,7 @@ def main(argv: list[str] | None = None) -> int:
         result = {"status": "ERROR", "error_type": type(exception).__name__, "error": str(exception)}
         exit_code = 2
         error = str(exception)
-    if run_id:
+    if run_id and arguments.command not in READ_ONLY_COMMANDS:
         try:
             run_dir, _ = load_run(RUNS_ROOT, run_id)
             context_path = run_dir / "context_manifest.json"

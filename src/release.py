@@ -13,10 +13,14 @@ silently invalidate the answer.
 from __future__ import annotations
 
 import hashlib
+import shutil
 import subprocess
 import sys
 import zipfile
 from pathlib import Path
+from xml.etree import ElementTree
+
+import json
 
 from src.common import read_json, sha256_file
 from src.context import materialize_tree, verify_context_at
@@ -28,8 +32,11 @@ def _git(repository: Path, *arguments: str) -> str:
 
 
 def _run_tree_tests(tree: Path, timeout_seconds: int) -> dict:
+    """Run the full suite in the published tree and classify every outcome."""
+
+    report = tree / "pytest-junit.xml"
     completed = subprocess.run(
-        [sys.executable, "-m", "pytest", "tests", "-q"],
+        [sys.executable, "-m", "pytest", "tests", "-q", "-p", "no:cacheprovider", f"--junit-xml={report}"],
         cwd=tree,
         capture_output=True,
         text=True,
@@ -37,11 +44,79 @@ def _run_tree_tests(tree: Path, timeout_seconds: int) -> dict:
         check=False,
         env={"PATH": "/usr/bin:/bin:/usr/local/bin", "HOME": str(Path.home()), "PYTHONDONTWRITEBYTECODE": "1"},
     )
+    passed: list[str] = []
+    failed: list[str] = []
+    skipped: list[str] = []
+    if report.is_file():
+        try:
+            root = ElementTree.parse(report).getroot()
+        except ElementTree.ParseError:
+            root = None
+        if root is not None:
+            for case in root.iter("testcase"):
+                name = f"{case.get('classname', '')}::{case.get('name', '')}".strip(":")
+                if case.find("skipped") is not None:
+                    skipped.append(name)
+                elif case.find("failure") is not None or case.find("error") is not None:
+                    failed.append(name)
+                else:
+                    passed.append(name)
     summary = [line for line in completed.stdout.strip().splitlines() if line.strip()][-1:] or [""]
+    totals = {"passed": len(passed), "failed": len(failed), "skipped": len(skipped)}
     return {
-        "passed": completed.returncode == 0,
+        # Full pass means nothing failed and nothing was skipped: a skipped required
+        # test is a release gap, not a pass.
+        "passed": totals["failed"] == 0 and totals["skipped"] == 0 and bool(passed or failed or skipped),
         "exit_code": completed.returncode,
+        "totals": totals,
+        "failed_tests": failed[:10],
+        "skipped_tests": skipped[:10],
         "summary": summary[0][:200],
+    }
+
+
+def _provision_approved_zip(repository: Path, tree: Path, run_dir: Path, zip_path: Path | None) -> list[str]:
+    """Copy the approved UCI ZIP into the isolated tree so data tests really run."""
+
+    ledger_path = tree / "config" / "holdout_ledger.json"
+    if not ledger_path.is_file():
+        return ["published tree has no config/holdout_ledger.json, so the approved dataset cannot be provisioned"]
+    expected = read_json(ledger_path).get("dataset", {}).get("zip_sha256")
+    source = Path(zip_path) if zip_path is not None else repository / "data" / "raw" / "default_of_credit_card_clients.zip"
+    if not isinstance(expected, str) or len(expected) != 64:
+        return ["published ledger does not declare the approved dataset hash"]
+    if not source.is_file():
+        return [f"approved UCI ZIP not found at {source}; data-dependent tests cannot run"]
+    if sha256_file(source) != expected:
+        return [f"local UCI ZIP hash does not match the approved ledger hash ({expected[:12]}…)"]
+    destination = tree / "data" / "raw" / "default_of_credit_card_clients.zip"
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copyfile(source, destination)
+    return []
+
+
+def restore_command_log(run_dir: Path) -> dict:
+    """Drop verification rows appended after the export, using the snapshot as authority."""
+
+    live_path = run_dir / "command_log.jsonl"
+    snapshot_path = run_dir / "command_log_snapshot.jsonl"
+    if not live_path.is_file() or not snapshot_path.is_file():
+        raise ValueError("command_log.jsonl and command_log_snapshot.jsonl are both required")
+    snapshot = snapshot_path.read_text(encoding="utf-8").splitlines()
+    live = live_path.read_text(encoding="utf-8").splitlines()
+    if live[: len(snapshot)] != snapshot:
+        raise ValueError("the live command log does not start with the export snapshot; refusing to truncate")
+    removed = live[len(snapshot) :]
+    live_path.write_text("\n".join(snapshot) + ("\n" if snapshot else ""), encoding="utf-8")
+    return {
+        "run_id": read_json(run_dir / "run_manifest.json").get("run_id") if (run_dir / "run_manifest.json").is_file() else None,
+        "snapshot_lines": len(snapshot),
+        "live_lines_before": len(live),
+        "removed_lines": len(removed),
+        "removed_commands": [row.get("argv", [None] * 4)[3] for row in (json.loads(line) for line in removed)],
+        "restored_sha256": sha256_file(live_path),
+        "snapshot_sha256": sha256_file(snapshot_path),
+        "byte_identical_to_snapshot": sha256_file(live_path) == sha256_file(snapshot_path),
     }
 
 
@@ -169,7 +244,7 @@ def _zip_gaps(archive: Path, run_id: str, manifest: dict, manifest_path: Path) -
     return gaps
 
 
-def release_check(repository: Path, ref: str, run_dir: Path, run_id: str, *, timeout_seconds: int = 1800) -> dict:
+def release_check(repository: Path, ref: str, run_dir: Path, run_id: str, *, timeout_seconds: int = 1800, zip_path: Path | None = None) -> dict:
     repository = Path(repository)
     run_dir = Path(run_dir)
     commit = _git(repository, "rev-parse", f"{ref}^{{commit}}")
@@ -179,6 +254,7 @@ def release_check(repository: Path, ref: str, run_dir: Path, run_id: str, *, tim
     context = verify_context_at(repository, run_dir, run_id, ref)
     tree = materialize_tree(repository, ref)
     try:
+        dataset_gaps = _provision_approved_zip(repository, Path(tree.name), run_dir, zip_path)
         tests = _run_tree_tests(Path(tree.name), timeout_seconds)
     finally:
         tree.cleanup()
@@ -198,8 +274,16 @@ def release_check(repository: Path, ref: str, run_dir: Path, run_id: str, *, tim
         gaps.append(f"run was initialised at {manifest.get('git_commit_at_init')}, not at the released commit {commit}")
     if manifest.get("worktree_clean_at_init") is not True:
         gaps.append("the worktree was dirty when the run was initialised, so the evidence does not belong to any commit")
-    if not tests["passed"]:
-        gaps.append(f"full test suite fails on the published tree: {tests['summary']}")
+    gaps.extend(dataset_gaps)
+    if tests["totals"]["failed"]:
+        gaps.append(f"test suite fails on the published tree: {tests['totals']['failed']} failing ({', '.join(tests['failed_tests'][:5])})")
+    if tests["totals"]["skipped"]:
+        gaps.append(
+            f"required tests were skipped on the published tree: {tests['totals']['skipped']} skipped "
+            f"({', '.join(tests['skipped_tests'][:5])})"
+        )
+    if not tests["totals"]["passed"] and not tests["totals"]["failed"] and not tests["totals"]["skipped"]:
+        gaps.append("no tests were collected on the published tree")
     gaps.extend(_acceptance_gaps(run_dir, run_id, commit))
 
     return {
