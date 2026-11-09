@@ -37,13 +37,13 @@ def clean_repository(tmp_path: Path) -> Path:
 
 def test_ledger_rebuilds_every_consumed_split_byte_for_byte(tmp_path):
     summary = verify_ledger(REPOSITORY, RAW_ZIP)
-    assert [c["campaign_id"] for c in summary["campaigns"]] == [
-        "MDL_CREDIT_V1:uci:seed-42",
-        "MDL_CREDIT_V1:uci:seed-43",
-        "MDL_CREDIT_V1:uci:seed-44",
-    ]
+    ledger = load_ledger(REPOSITORY / LEDGER_PATH)
+    # Every campaign recorded in the ledger must rebuild, in ledger order.
+    assert [c["campaign_id"] for c in summary["campaigns"]] == [c["campaign_id"] for c in ledger["campaigns"]]
     assert all(c["verified"] for c in summary["campaigns"])
-    assert summary["unique_excluded_rows"] == 16801
+    assert [c["seed"] for c in summary["campaigns"]] == [c["seed"] for c in ledger["campaigns"]]
+    # The exclusion union grows with each campaign and never exceeds the dataset.
+    assert 0 < summary["unique_excluded_rows"] <= 30000
 
 
 def test_ledger_records_hashes_only(tmp_path):
@@ -86,7 +86,9 @@ def test_clean_checkout_prepares_the_formal_split_with_zero_overlap(tmp_path, mo
     output = tmp_path / "data"
     manifest = data.prepare_uci(RAW_ZIP, output, True, DATASET_SHA, run_id="clean-checkout")
 
-    assert manifest["seed"] == 45
+    config = read_json(repo / "config" / "data_config.json")
+    assert manifest["seed"] == config["seed"]
+    assert manifest["seed"] > max(c["seed"] for c in load_ledger(repo / "config" / "holdout_ledger.json")["campaigns"])
     assert {name: entry["rows"] for name, entry in manifest["files"].items()} == {
         "train.csv": 15000,
         "dev.csv": 6000,

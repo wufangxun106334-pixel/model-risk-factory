@@ -5,7 +5,7 @@ EXL × UCD Data & AI Hackathon 2026 — Challenge 04 Agentic model risk factory�
 **v1 与 v2 均已完成本地验收。** CLI 将团队自建的信用违约模型 `MDL_CREDIT_V1` 从 R 迁移到 Python，对照 R 基准逐记录验证预测概率、分类和异常处理；v2 补齐另外两个旧模型的档案、容器边界实测、四类验证指标、三道审核门禁、端到端导出与报告数值溯源。
 
 - v1 正式 run `v1-20261109T181929Z-3fe1c7b5`：V1-01～07 全 PASS（Gate A/B 代理审核），标签 `v1`。
-- v2 正式 run **`v2-20261109T203556Z-02f3834e`**：V1-01～07 与 V2-01～07 共 14 项全 PASS，`release_approved=true`，Gate A（三份档案）/ Gate B / Gate C 均为 `agent-delegated` 代理审核，标签 `v2`。
+- v2 正式 run **`v2-20261109T210903Z-3dcfab73`**（campaign seed 46）：V1-01～07 与 V2-01～07 共 14 项全 PASS，`release_approved=true`，Gate A（三份档案）/ Gate B / Gate C 均为 `agent-delegated` 代理审核，本地 `v2` 引用指向该发布提交。前一版 v2 发布提交 `fd44496`（run `v2-20261109T203556Z-02f3834e`，seed 44）的封存证据保留不动，其被取代原因见「v2 发布阻断修复」。
 
 交付物是本机的 `delivery/<run_id>_acceptance.json` 与 `delivery/<run_id>_evidence.zip`；`runs/`、`delivery/` 与原始数据不进 Git。Streamlit 界面按计划留给 v3。
 
@@ -248,7 +248,9 @@ Agent 只获得允许的模型资料、Schema 和不含原始行/基准答案的
 | --- | --- | --- | --- |
 | 1 | 42 | `v1-20261109T172051Z-a9bd4ef4` | V1-01～06 PASS；一次性 Holdout PASS（6000 行、分类差异 0、`max_abs_diff` 2.22e-16）；V1-07 FAIL（首个 `generate-candidate` 因输出被 8192 token 截断而 exit 2，重试成功后命令链仍留有该失败记录）；Holdout 已按账本消费 |
 | 2 | 43 | `v1-20261109T181929Z-3fe1c7b5` | 正式验收 run：命令链首轮全绿，V1-01～07 全 PASS，Holdout PASS，已导出证据包 |
-| v2 | 44 | `v2-20261109T203556Z-02f3834e` | v2 正式验收 run：14 项（V1-01～07 + V2-01～07）全 PASS，Holdout 与两次 v1 Holdout 重叠 0 行，报告 APPROVED，已导出证据包 |
+| v2 | 44 | `v2-20261109T203556Z-02f3834e` | 首个 v2 正式 run：14 项全 PASS。发布后复盘发现 5 项发布阻断（见下节），其证据作为历史保留、不再作为发布依据 |
+| v2-fix | 45 | `v2-20261109T210057Z-a715536f` | 阻断修复后的重跑：V2-01～07 与 V1-01～06 全 PASS，**V1-07 FAIL** —— 首次 `check-provider` 因网关返回不可解析短回复而失败，我在 `prepare`/`baseline` 之后才原地重试成功，命令链因此不再满足「按序成功」。保留为失败证据，不换 seed 追通过 |
+| v2 | 46 | `v2-20261109T210903Z-3dcfab73` | **当前发布 run**：14 项全 PASS，`check-provider` 首轮即通过（失败时立即原地重试再继续），Holdout 与 seed 42/43/44/45 四份已消费 Holdout 逐份重叠 0 行 |
 
 campaign 1 的 Holdout 通过，V1-07 因命令链把首轮生成失败计入验收而失败。正式验收用 seed 43 对同一 UCI 数据集重新划分。两套 Holdout 各有 6,000 条记录，其中 1,199 条重叠。每套划分各执行一次正式 Holdout，两次结果及账本中的 `CONSUMED` 记录均已保留。
 
@@ -261,21 +263,32 @@ PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -c "import pathlib;from src.context i
 git rev-parse v1^{commit}   # 应为被标记的发布提交
 ```
 
-## v2 正式验收（run `v2-20261109T203556Z-02f3834e`）
+## v2 发布阻断修复（针对 `fd44496` 复盘）
 
-v2 在 `main`（基线 `c848f14`）上新建分支 `v2/formal`，先修工具、后跑证据，再合回 `main` 并打 `v2` 标签。数据划分在正式 run 之前冻结：`config/data_config.json` 的 campaign seed 44，Holdout 只从**历史已消费 Holdout 未覆盖的行**中抽取（`holdout_exclusion`），因此与 v1 的两次正式 Holdout 重叠 **0 行**（记录在 `data/data_manifest.json` 的 `holdout_exclusion.overlap`）。
+首个 v2 发布（`fd44496`，run `v2-20261109T203556Z-02f3834e`）之后复核发现 5 项会削弱证据强度的缺陷。全部已修复并有回归测试；正式验收在 campaign 46 上重跑。
 
-| 项 | 结果 | 证据（`runs/v2-20261109T203556Z-02f3834e/`） |
+| 阻断 | 问题 | 修复 | 回归测试 |
+| --- | --- | --- | --- |
+| Gate B 漂移执行 | `validation-metrics` 在跑或复用漂移批次缓存前只检查 `frozen.json` 是否存在，没有校验上下文、冻结源码哈希、Gate A/B 决定、输入与输出哈希 | 新增 `verified_metric_inputs()`：复用 `verify_context`/`load_frozen`/`require_approval`/`current_decision`/`verified_split_hash`，逐项校验 context、冻结源码与副本哈希、Gate A/B、frozen attempt 的 dev parity 与行为 fixtures、四个划分输入哈希；复用缓存时重算 candidate/model/input/output 四个哈希，不一致直接失败而不静默重跑 | `tests/test_v2_blockers.py`（13 例） |
+| V2-04 attempt 绑定 | 验收只看 `attempt_000`，首轮失败、后续候选成功的情况会误判 | `_v2_04` 改为读取 `frozen.json` 的 attempt，校验该 attempt 的 parity/fixtures/execution 与 migration_result | 同上（含 attempt 0 失败→attempt 1 成功的用例） |
+| Gate C 正常 CLI | 生成/审批/状态检查三处路径不一致（`report_review.json` vs `review_manifest.json`），发布时只能靠逐字节副本变通 | 三处统一为 `report/review_manifest.json`；`report_status` 逐项重算报告、指标、数值索引、表格与 Agent 摘要的哈希，任一缺失或被改动即回 DRAFT 并给出具体原因 | `tests/test_v2_blockers_gate_c.py`（4 例，走真实 CLI 入口 report → approve --gate Gate_C → approve-report → report-status） |
+| 报告溯源 | 验收只比对数字是否出现在索引里，伪路径、对调数值、篡改索引都能通过 | 新增 `index_mismatches()`/`index_not_in_report()`：逐行解析 JSON path、按渲染精度核对数值与格式、拒绝矛盾重复行，并要求每条索引文本真的出现在报告正文 | `tests/test_v2_blockers_provenance.py`（8 例） |
+| CPU 证据 | 单容器两线程只能证明“约一核”，无法区分配额是否生效 | 探针改为 4 个并行进程并读取容器内 `cpu.max`，另跑一次**不设 `--cpus`** 的对照；有配额须稳定在 ~1 核、无配额须 ≥1.6 核且差距 ≥0.6，缺少对照或不可区分即判 FAIL | `tests/test_v2_blockers_cpu.py`（3 例）+ 实跑证据 |
+| 干净检出数据准备 | 排除集读取本机 `runs/*/holdout.csv`，队友干净检出无法准备正式划分 | 新增 `config/holdout_ledger.json`（只存 seed、算法、ZIP 哈希与四个划分哈希）与 `recover_historical_splits()`：用已获准 ZIP 重建历史划分并逐字节核对哈希，重建不符即拒绝；`prepare` 改用重建结果作为排除集，新增 `verify-holdout-ledger` 命令 | `tests/test_v2_blockers_dataprep.py`（7 例，含干净检出 prepare 与 0 重叠断言） |
+
+## v2 正式验收（run `v2-20261109T210903Z-3dcfab73`）
+
+正式 run 在同一 CLI 链内完成：三份真实 Agent 建档与 Gate A、真实迁移候选与 Gate B、容器开发验证、冻结、唯一一次 Holdout、四类指标、Agent 摘要、报告与 Gate C、故障演练、导出。数据划分在跑前冻结：campaign seed 46，Holdout 只从**四份已消费 Holdout 未覆盖的行**中抽取，逐份重叠 0 行（证据在 `data/data_manifest.json` 的 `holdout_exclusion`，划分登记哈希与正式 run 逐字节一致）。
+
+| 项 | 结果 | 证据（`runs/v2-20261109T210903Z-3dcfab73/`） |
 | --- | --- | --- |
-| V2-01 三模型建档 | PASS：三份档案 Schema/来源/哈希通过，Gate A 逐份 `agent-delegated`；V1 保留 0.35 与 0.50 的阈值矛盾与 7 条代码/文档差异，V2/TREE 各 4 条；owner 与 training_date 保持 Unknown | `model_inventory.json`、`inventories/MDL_CREDIT_V2.json`、`inventories/MDL_CREDIT_TREE.json`、`review_log.json` |
-| V2-02 容器边界 | PASS：7 项实跑检查（只读根与输入、无宿主/基准挂载、容器内无 API key、内存、CPU、PID、超时）；`--memory-swap` 与 `--memory` 同值 | `boundary/boundary_report.json`（含每个探针的原始 payload） |
-| V2-03 四类验证 | PASS：parity 2.22e-16（dev/holdout 各 6000 行、0 分类差异）、holdout ROC-AUC 0.7463 / Brier 0.1417、十分位校准表、场景 A 漂移 PSI（最大 0.0814 < 0.10 提示线）、age_band 与 sex 的 TPR/FPR 与参考组差异 | `validation_metrics.json`、`report/validation_tables.md`、`validation/shifted_manifest.json` |
-| V2-04 三道审核 | PASS：Gate A → 生成候选 → Gate B → 容器执行 → Gate C → 报告 APPROVED 的顺序与哈希全部核对；跳过审批、篡改、上下文失效的阻断由 `tests/test_v2_gates.py` 覆盖 | `review_log.json`、`report/approval.json` |
-| V2-05 端到端 | PASS：同一 run 内 CLI 走通建档→迁移→开发验证→冻结→Holdout→指标→报告→审核，导出 MD/CSV/JSON，`run_id` 与证据哈希一致 | `evidence_manifest.json`（63 个文件）、`export_verified.json` |
-| V2-06 故障处理 | PASS：真实 404、真实 1 ms 超时、真实 8 次请求上限、真实非 JSON 解析失败 + 一次格式重试，以及本地注入的修复耗尽，全部保留错误原文 | `failures/failure_drills.json`、`failures/drills/*.json` |
-| V2-07 报告溯源 | PASS：报告 191 个数值全部由程序按 JSON path 渲染，索引可逐行解析（0 未解析）；Agent 只收到脱敏汇总且不重述数字；报告区分同期留出、漂移敏感性分析、缺失的跨时间回测，无合规措辞 | `report/validation_report.md`、`report/values_index.csv`、`report/agent_summary.json` |
-
-正式 Holdout 只执行一次：冻结后 `accept` 在 `holdout.csv`（6000 行，sha256 `5ecf7d0e…`）上运行，parity PASS 后账本写入 `runs/holdout_consumption.jsonl` 的 `MDL_CREDIT_V1:uci:seed-44` 记录，未重跑、未换 seed。
+| V2-01 三模型建档 | PASS：三份档案 Schema/来源/哈希通过，Gate A 逐份 `agent-delegated`（V1 14 来源 4 冲突、V2 13 来源 7 冲突、TREE 16 来源 7 冲突）；owner 与 training_date 保持 Unknown；V1 保留 0.35/0.50 阈值矛盾 | `model_inventory.json`、`inventories/*.json`、`review_log.json` |
+| V2-02 容器边界 | PASS：8 项实跑检查（只读根与输入、无宿主/基准挂载、容器内无 API key、内存、CPU 配额、CPU 配额对照、PID、超时）；有配额 1.02 核 / 无配额 4.0 核 | `boundary/boundary_report.json` |
+| V2-03 四类验证 | PASS：parity 2.220e-16（dev/holdout 各 6000 行、0 分类差异）；holdout ROC-AUC 0.7529 / Brier 0.1422、十分位校准表、混淆矩阵；场景 A 漂移 PSI 最大 0.0799（<0.10）；age_band 与 sex 的 TPR/FPR 与参考组差异 | `validation_metrics.json`、`report/validation_tables.md`、`validation/shifted_manifest.json` |
+| V2-04 三道审核 | PASS：按实际冻结的 attempt 校验 Gate A → 候选 → Gate B → 执行 → Gate C → APPROVED 的顺序与哈希 | `review_log.json`、`report/approval.json` |
+| V2-05 端到端 | PASS：单 run CLI 全链，导出 MD/CSV/JSON，`run_id` 与 63 个证据文件哈希一致 | `evidence_manifest.json`、`export_verified.json` |
+| V2-06 故障处理 | PASS：真实 404、真实超时、真实 8 次请求上限、真实非 JSON 解析失败、注入修复耗尽，错误原文全留 | `failures/failure_drills.json`、`failures/drills/*.json` |
+| V2-07 报告溯源 | PASS：191 个数值逐条解析回 JSON path（0 不符、0 缺失、0 未解析）；Agent 只收脱敏汇总且不重述数字；报告区分同期留出/漂移敏感性/缺失的跨时间回测，无合规措辞 | `report/validation_report.md`、`report/values_index.csv`、`report/agent_summary.json` |
 
 ### v2 正式 run 的实际命令（按执行顺序）
 
@@ -287,8 +300,12 @@ export LLM_MODEL=deepseek-v4.1-flash:1017
 export LLM_TIMEOUT_SECONDS=300
 export LLM_MAX_OUTPUT_TOKENS=32768
 export LLM_API_KEY=...            # 仅本机进程环境变量，不写入仓库
+
+# 干净检出即可校验历史排除集（只需要已获准的 UCI ZIP）
+.venv/bin/python -m src.cli verify-holdout-ledger --raw-uci data/raw/default_of_credit_card_clients.zip
+
 RUN_ID=$(.venv/bin/python -m src.cli init-run --mode uci | .venv/bin/python -c 'import json,sys;print(json.load(sys.stdin)["run_id"])')
-.venv/bin/python -m src.cli check-provider --run-id "$RUN_ID"
+.venv/bin/python -m src.cli check-provider --run-id "$RUN_ID"   # 失败时立即在同一 run 内重试，再继续后续步骤
 .venv/bin/python -m src.cli download-uci --run-id "$RUN_ID" --expected-sha256 56c885f84457f6680f8438f02bfcdac9579323d8a94465ee5f26e32baa727602 --approve-uci-use
 .venv/bin/python -m src.cli prepare --run-id "$RUN_ID" --uci data/raw/default_of_credit_card_clients.zip --expected-sha256 56c885f84457f6680f8438f02bfcdac9579323d8a94465ee5f26e32baa727602 --approve-uci-use
 .venv/bin/python -m src.cli baseline --run-id "$RUN_ID"
@@ -298,42 +315,43 @@ RUN_ID=$(.venv/bin/python -m src.cli init-run --mode uci | .venv/bin/python -c '
 .venv/bin/python -m src.cli docker-boundary --run-id "$RUN_ID"
 for M in MDL_CREDIT_V1 MDL_CREDIT_V2 MDL_CREDIT_TREE; do
   .venv/bin/python -m src.cli extract-inventory --run-id "$RUN_ID" --model $M
-  # 审阅完整档案、复核来源哈希与行号后逐份签署 Gate A
   .venv/bin/python -m src.cli approve --run-id "$RUN_ID" --gate Gate_A --model $M --sha256 <artifact_sha256> --reviewer agent-delegated --comment '<授权来源与逐项核对内容>'
 done
 .venv/bin/python -m src.cli generate-candidate --run-id "$RUN_ID" --attempt 0
-# 实读全部候选源码、核对 64 位哈希后签署 Gate B
 .venv/bin/python -m src.cli approve --run-id "$RUN_ID" --gate Gate_B --attempt 0 --sha256 <candidate_sha256> --reviewer agent-delegated --comment '<授权来源与逐项核对内容>'
 .venv/bin/python -m src.cli run-dev --run-id "$RUN_ID" --attempt 0
 .venv/bin/python -m src.cli candidate-fixtures --run-id "$RUN_ID" --attempt 0
 .venv/bin/python -m src.cli freeze --run-id "$RUN_ID" --attempt 0
-.venv/bin/python -m src.cli accept --run-id "$RUN_ID"          # 唯一一次正式 Holdout
+.venv/bin/python -m src.cli accept --run-id "$RUN_ID"            # 本 campaign 唯一一次正式 Holdout
 .venv/bin/python -m src.cli validation-metrics --run-id "$RUN_ID"
 .venv/bin/python -m src.cli agent-summary --run-id "$RUN_ID"
 .venv/bin/python -m src.cli report --run-id "$RUN_ID"
-# 复核报告、指标与 191 行数值索引后签署 Gate C（见下方缺陷 5）
-.venv/bin/python -m src.cli approve --run-id "$RUN_ID" --gate Gate_C --sha256 <report_review_sha256> --reviewer agent-delegated --comment '<授权来源与逐项核对内容>'
+.venv/bin/python -m src.cli approve --run-id "$RUN_ID" --gate Gate_C --sha256 <report/review_manifest.json 的 sha256> --reviewer agent-delegated --comment '<授权来源与逐项核对内容>'   # 与生成、状态检查同一路径
 .venv/bin/python -m src.cli approve-report --run-id "$RUN_ID"
+.venv/bin/python -m src.cli report-status --run-id "$RUN_ID"
 .venv/bin/python -m src.cli failure-drills --run-id "$RUN_ID"
 .venv/bin/python -m src.cli export --run-id "$RUN_ID"
 .venv/bin/python -m src.cli acceptance --run-id "$RUN_ID"
 ```
 
-开发与重试用 `MRF_RUNS_ROOT=dev_runs` + `prepare --synthetic` 的独立 dry run（合成数据，独立账本），不触碰 `runs/` 与正式 Holdout。
+开发、重试与故障演练用 `MRF_RUNS_ROOT=dev_runs` + `prepare --synthetic` 的独立 dry run（合成数据、独立账本），不触碰 `runs/` 与正式 Holdout。
 
 ## 已知工具缺陷
 
-v1 记录的 4 条缺陷已在 v2 修复（`tests/test_v2_tooling.py` 覆盖）：
+v1 记录的 4 条与首个 v2 发布发现的 2 条均已在本次修复：
 
-1. `candidate-fixtures` FAIL 现在写出聚合诊断（`dev/attempt_NNN/fixture_diagnostics.json`）并授权下一轮修复；development FAIL 仍优先。
-2. 命令链改为"同 run 内允许重试"：每一步允许先失败后成功，失败记录全部保留，成功步必须绑定同一 `run_id`、正确的冻结 attempt、Gate B 批准的哈希与当前 context 哈希。
-3. 候选/档案阶段在发送请求前检查 `min_candidate_output_tokens`（16384），并把 `finish_reason=length` 直接报为截断错误。
-4. `prepare --seed` 默认值改为读取 `config/data_config.json`，不再硬编码 42。
+1. `candidate-fixtures` FAIL 写出聚合诊断并授权下一轮修复。
+2. 命令链允许同 run 内重试：失败记录全部保留，成功步绑定同一 `run_id`、冻结 attempt、Gate B 哈希与 context 哈希。注意：**被重试的步骤必须在其后续步骤之前成功**，否则链路不再“按序成功”（campaign 45 就是这样失败的，见上表）。
+3. 候选/档案阶段在请求前检查 `min_candidate_output_tokens`，`finish_reason=length` 直接报截断。
+4. `prepare --seed` 默认值取自 `config/data_config.json`。
+5. Gate C 三处路径已统一为 `report/review_manifest.json`，`report/status` 逐项校验绑定文件；不再需要逐字节副本。
+6. 历史排除集改为可重建：`config/holdout_ledger.json` + `recover_historical_splits()`，干净检出可用已获准 ZIP 重建并核对。
 
-v2 自身新发现、**未在本次 sealed run 内修复**的缺陷（按"先定标准、后跑证据"的次序保留）：
+仍未修复（留待 v3）：
 
-5. `approve --gate Gate_C` 把 Gate C 产物路径写死为 `report/report_review.json`，而 `report_status` 读取的是 `report/review_manifest.json`。正式 run 用**逐字节相同**的副本（sha256 `c9e0c881…`）满足该路径，审批摘要因此在 `review_log.json` 中显式记录了这条工具 caveat 与副本哈希；修复属于 v3 范围，因为改动 `src/` 会使已封存 run 的 context 失效（缺陷 4 的同一机制）。
-6. `context_manifest.json` 的 repository 资产清单仍只列 v1 资产（`legacy/credit_v1.R` 等），v2 新增的 R 资产与配置文件不在 context 中；它们由三份档案记录的来源哈希与 V2-01 校验固定。v3 应把 v2 资产并入 context 清单。
+7. `context_manifest.json` 的 repository 资产清单只列 v1 资产（`legacy/credit_v1.R` 等），v2 新增的 R 资产与 `config/inventory_expectations.json`、`config/holdout_ledger.json` 不在 context 中；它们由三份档案记录的来源哈希、V2-01 校验与划分登记哈希固定。
+8. Agent 档案提取有随机性：本次 V2 首次提取把“0.3/0.3 一致”记成冲突，我按实质内容 REJECTED、归档该产物并重新提取后通过；报告解释文本也会偶发与指标不符的定位性判断，本次按预置规则拒绝并重新生成，所有请求都在 `provider/request_log.jsonl`。v3 应把这类校验做成确定性门禁而不是人工判断。
+9. 候选审查记录（不影响本次结果）：`--model` 在候选实现中可选并回退到与 artifact 相等的常量；十六进制字面量（如 `0x10`）被当作不可解析而拒绝，R 的 `as.numeric` 会接受。
 
 ## 退出码与验收状态
 
@@ -351,12 +369,12 @@ v2 自身新发现、**未在本次 sealed run 内修复**的缺陷（按"先定
 | V1-06 | PASS | 真实 API 候选 `906a9097…`（`generation_mode=REAL_API`）+ 代理 Gate A/B + 同 context + 冻结哈希 + Docker 开发 parity + 行为 fixtures + 一次性 Holdout PASS（6000 行、分类差异 0、`max_abs_diff` 2.22e-16） |
 | V1-07 | PASS | 同 run 命令链首轮 14 步全部 exit 0 且顺序合规；`evidence_manifest.json` 43 个文件哈希与磁盘一致；`export_verified.json` 的 manifest/ZIP 哈希未过期 |
 
-同一正式 run `v1-20261109T181929Z-3fe1c7b5` 的七项全部 PASS（`release_approved=true`），因此为对应本地提交创建了 `v1` 标签。v2 正式 run `v2-20261109T203556Z-02f3834e` 的 14 项全部 PASS（`v1_release_approved=true`、`v2_release_approved=true`、`release_approved=true`），因此为合回 `main` 的发布提交创建了 `v2` 标签。`runs/` 与 `delivery/` 不进 Git，标签指向的是源码与文档提交；run 上下文由 `context_manifest.json` 的 `trusted_source_sha256` / `trusted_tests_sha256` 固定，tag 提交的 `src/`、`tests/`、`config/` 必须与之逐字节一致（验收后不得再改）。
+同一正式 run `v1-20261109T181929Z-3fe1c7b5` 的七项全部 PASS（`release_approved=true`），因此为对应本地提交创建了 `v1` 标签。v2 正式 run `v2-20261109T210903Z-3dcfab73` 的 14 项全部 PASS（`v1_release_approved=true`、`v2_release_approved=true`、`release_approved=true`），因此为合回 `main` 的发布提交创建了 `v2` 标签。`runs/` 与 `delivery/` 不进 Git，标签指向的是源码与文档提交；run 上下文由 `context_manifest.json` 的 `trusted_source_sha256` / `trusted_tests_sha256` 固定，tag 提交的 `src/`、`tests/`、`config/` 必须与之逐字节一致（验收后不得再改）。
 
 ### 复核 v2 正式 run
 
 ```bash
-RUN=v2-20261109T203556Z-02f3834e
+RUN=v2-20261109T210903Z-3dcfab73
 PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -c "import pathlib;from src.context import verify_context;print(verify_context(pathlib.Path('.').resolve(), pathlib.Path('runs/$RUN'), '$RUN'))"   # True
 cat runs/$RUN/acceptance.json | .venv/bin/python -c 'import json,sys;d=json.load(sys.stdin);print(d["release_approved"], [(r["acceptance_id"], r["status"]) for r in d["records"]])'
 shasum -a 256 delivery/$RUN_evidence.zip runs/$RUN/export_verified.json   # 与 export_verified.json 的 archive_sha256 对照

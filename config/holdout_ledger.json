@@ -52,6 +52,24 @@
         "holdout.csv": "5ecf7d0e7a543953bb1d3a79e66e13337cbb2f29845f7b05fad997da765042bb",
         "shift_pool.csv": "dd9bb1a80c7760b503d9008495ab9bbce7b6b0d2d6676caed7467fbfa6e6236d"
       }
+    },
+    {
+      "campaign_id": "MDL_CREDIT_V1:uci:seed-45",
+      "seed": 45,
+      "algorithm": "split-v2-holdout-first",
+      "excluded_campaigns": [
+        "MDL_CREDIT_V1:uci:seed-42",
+        "MDL_CREDIT_V1:uci:seed-43",
+        "MDL_CREDIT_V1:uci:seed-44"
+      ],
+      "consumed_by_run": "v2-20261109T210057Z-a715536f",
+      "consumed_at": "2026-11-09T21:03:00Z",
+      "splits": {
+        "dev.csv": "f2edbd279c3cdf63f3baf5001b9285bd66ba4db38c6bd564f87440a80d77d04c",
+        "holdout.csv": "8e761446d9d433379eee7115f4920816eca1aede31ef274c1a3a47b447f9aa89",
+        "shift_pool.csv": "ad43e364b6dea47b31406cb193b207df8f257f4c3cbb1a5b5f389fd19e24ea83",
+        "train.csv": "6a87f2c816bb0fa4ef92d2132874f69f372e34a649f246305384593358c5863f"
+      }
     }
   ]
 }

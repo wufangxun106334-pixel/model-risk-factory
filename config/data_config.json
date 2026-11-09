@@ -1,7 +1,7 @@
 {
   "schema_version": "1",
   "model_id": "MDL_CREDIT_V1",
-  "seed": 45,
+  "seed": 46,
   "total_rows": 30000,
   "split_sizes": {
     "train": 15000,
@@ -20,13 +20,14 @@
     "campaigns": [
       "MDL_CREDIT_V1:uci:seed-42",
       "MDL_CREDIT_V1:uci:seed-43",
-      "MDL_CREDIT_V1:uci:seed-44"
+      "MDL_CREDIT_V1:uci:seed-44",
+      "MDL_CREDIT_V1:uci:seed-45"
     ],
     "rule": "The Holdout is drawn first and only from rows that no previously consumed formal Holdout contains; the consumed splits are rebuilt from the approved UCI ZIP and verified against config/holdout_ledger.json before the exclusion is applied."
   },
   "shift_scenario_a": {
     "rows": 2000,
-    "seed": 45,
+    "seed": 46,
     "util_weight": 2.0,
     "limit_weight": 1.5
   }

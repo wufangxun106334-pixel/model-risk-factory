@@ -28,7 +28,8 @@ def _file_sha256(path: Path) -> str:
 def test_frozen_config():
     config = json.loads((Path(__file__).parents[1] / "config" / "data_config.json").read_text())
     assert config["model_id"] == "MDL_CREDIT_V1"
-    assert config["seed"] == 45
+    # Pinned to the released campaign (v2 formal run v2-20261109T210903Z-3dcfab73).
+    assert config["seed"] == 46
     assert config["total_rows"] == 30000
     assert config["split_sizes"] == {
         "train": 15000,
@@ -41,7 +42,8 @@ def test_frozen_config():
     assert config["uci_zip_url"] == data.UCI_ZIP_URL
     assert config["uci_competition_use_approved"] is False
     assert config["holdout_exclusion"]["ledger"] == "config/holdout_ledger.json"
-    assert len(config["holdout_exclusion"]["campaigns"]) == 3
+    assert len(config["holdout_exclusion"]["campaigns"]) == 4
+    assert config["holdout_exclusion"]["campaigns"][-1] == "MDL_CREDIT_V1:uci:seed-45"
     assert config["uci_expected_sha256"] is None
 
 
