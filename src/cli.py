@@ -123,8 +123,11 @@ def _dispatch(arguments: argparse.Namespace) -> dict[str, Any]:
     if command in {"prepare", "baseline"} and any((run_dir / name).exists() for name in ("model_inventory.json", "candidates", "frozen")):
         raise ContractError("Inputs and baseline are immutable after migration starts; create a new run")
     if command == "prepare":
-        if arguments.seed != 42:
-            raise ContractError("v1 seed is frozen at 42")
+        campaign_seed = int(read_json(REPOSITORY / "config" / "data_config.json")["seed"])
+        if arguments.seed != campaign_seed:
+            raise ContractError(
+                f"v1 seed is frozen at the configured campaign seed {campaign_seed}"
+            )
         if arguments.synthetic:
             result = prepare_synthetic(run_dir / "data", seed=arguments.seed)
         else:

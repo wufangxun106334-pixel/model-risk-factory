@@ -1,7 +1,7 @@
 {
   "schema_version": "1",
   "model_id": "MDL_CREDIT_V1",
-  "seed": 42,
+  "seed": 43,
   "total_rows": 30000,
   "split_sizes": {
     "train": 15000,

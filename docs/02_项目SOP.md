@@ -31,7 +31,7 @@ release_plan: v1-prototype / v2-formal / v3-final
 | 一个 SAS 或 R 模型重新实现为 Python，提供等价性证明 | 选择 R 逻辑回归，保留参数与预测行为，不以重新训练代替迁移 |
 | 自动生成性能、稳定性、公平性验证报告 | Python 计算指标（含校准），Agent 解释，Markdown 模板承载报告 |
 | 建议的 Monitor：跟踪漂移、触发重新验证 | 模拟漂移批次与可配置 PSI 预警，置 `REVALIDATION_REQUIRED` 状态 |
-| Humans review at each gate | 三个人工审核关卡（Gate A/B/C） |
+| Humans review at each gate | 三道审核关卡（Gate A/B/C）；可由人工或经明确授权的代理按同一标准执行（见 7.4） |
 | 公开信用数据（如 Kaggle） | UCI Default of Credit Card Clients |
 | Azure ML、MLflow 等工具偏好 | 当前使用本地文件记录；MLflow/Azure 为可选后续项，不是本次三个版本的必交项 |
 
@@ -264,6 +264,23 @@ v2 补齐其余两个模型的档案并通过 Gate A，再计算四类指标、�
 - 生成代码的执行容器只看到允许的输入与参数，不看到测试源码和基准答案。
 - 受信验证器在独立进程中读取输出并比较基准，不能 import 生成代码到持有保留集的进程。
 - 镜像预先构建；运行时不联网安装依赖。容器隔离适用于本地预置资产演示，不承诺抵御所有恶意代码。
+
+### 7.4 审核执行方式：人工审核与代理审核
+
+Gate A/B/C 的判定标准不因执行方式而变，只区分由谁执行：
+
+- **人工审核**：`reviewer` 填审核人姓名，由审核人本人阅读档案或候选源码后签字。
+- **代理审核**：`reviewer` 填 `agent-delegated`，由被明确授权的执行者代行审核。代理必须实读完整档案与候选源码（不得只看摘要），逐条核对来源行号与文件 SHA-256，核对候选完整 64 位哈希，并把授权来源与逐项核对内容写入审批备注。未实读即审批属于违规。
+- 两种方式共用同一门禁：Gate A 哈希为档案内容（排除 `review_status`）的规范 JSON SHA-256，Gate B 哈希为候选源码完整 SHA-256；顺序固定为 Gate A → 生成候选 → Gate B → 容器执行，跳步或哈希不符一律拒绝。
+- 输入、配置、`src/`、`tests/` 或候选哈希变化后，既有审批立即失效，须对新哈希重新审核；被拒绝的审批不算通过。
+- 审批记录写入 `review_log.json`（含 reviewer、decision、reviewed_artifact_sha256、context_sha256、timestamp）与 `command_log.jsonl`，人工与代理记录可区分且可追溯。
+- 代理审核不改变 V1-01～V1-07 任何判定标准；测试替身或 mock 候选仍不能通过 V1-06。
+
+### 7.5 Holdout 单次消费与 campaign
+
+数据划分的 campaign seed 由 `config/data_config.json` 的 `seed` 固定（总行数、四份行数、违约率容差、UCI URL 仍为不可变常量），写入 `data_manifest.json`，`prepare --seed` 必须与配置一致。一次性账本 `runs/holdout_consumption.jsonl` 以 `(model_id, campaign_id, dataset_sha256)` 记账：同一 campaign 的 Holdout 只能被消费一次，无论成功与否都不重跑、不用于调参。
+
+campaign seed 变更等同于换一份未被评估的划分，属于新 campaign，须在 README 与验收记录中写明原因；旧 campaign 的 Holdout 结果与账本记录原样保留，不得删除或改写。v1 实际记录：campaign 1（seed 42）因命令链记账缺陷 V1-07 FAIL，Holdout 已按账本消费且为 PASS；正式验收改用 campaign 2（seed 43），该 Holdout 从未被评估，单次消费且 PASS。
 
 ## 8. 迁移与数值验收契约
 
@@ -520,7 +537,7 @@ README 与 Deck 中列出：
 2. **Privacy**：人口属性只用于审计、不入模；不向 LLM 发送原始数据行，只发送代码、文档和汇总诊断；API key 只在本机环境变量。
 3. **Bias**：按 age_band 与 sex 审计 TPR/FPR；人口属性不入模；小样本组标记 NOT_ASSESSABLE；未触发预警不等于公平。
 4. **Limitations**：结果不代表英国银行客户或真实生产模型表现；缺少跨时间回测；Agent 文本可能出错，引用存在不等于语义正确；不是独立验证或监管认证。
-5. **Safeguards**：指标由确定性 Python 程序计算；生成代码只在无网络 Docker 中执行；Holdout 不进 Agent 上下文；三道人工审核关卡；请求与修复次数上限；失败如实记录。
+5. **Safeguards**：指标由确定性 Python 程序计算；生成代码只在无网络 Docker 中执行；Holdout 不进 Agent 上下文；三道审核关卡（人工或经授权的代理，见 7.4）；请求与修复次数上限；失败如实记录。
 
 ### 15.5 三分钟视频与决赛演示
 
@@ -595,6 +612,8 @@ README 与 Deck 中列出：
 | 最终追加约束 | 只做 v1 原型、v2 正式版、v3 最终版；每版明确验收 |
 | Q24 | 数据使用 UCI Default of Credit Card Clients；合成数据只用于漂移压力场景与异常样例 |
 | Q25 | 交付须含 AI 工具声明、架构图数据流与 AI 模型、RAI 隐私；校准表必做；规划决赛演示 |
+| 审核执行方式（v1 实现） | 允许代理审核（`reviewer=agent-delegated`）；与人工审核共用哈希校验、审批顺序、失效与重审规则，备注须记录授权来源与核对内容；V1 判定标准不变（见 7.4） |
+| campaign seed（v1 实现） | seed 由 `config/data_config.json` 固定，`prepare --seed` 必须一致；变更即新 campaign，Holdout 每 campaign 单次消费（见 7.5） |
 
 ## 18. 来源与待核实事项
 

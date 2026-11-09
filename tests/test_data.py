@@ -28,7 +28,7 @@ def _file_sha256(path: Path) -> str:
 def test_frozen_config():
     config = json.loads((Path(__file__).parents[1] / "config" / "data_config.json").read_text())
     assert config["model_id"] == "MDL_CREDIT_V1"
-    assert config["seed"] == 42
+    assert config["seed"] == 43
     assert config["total_rows"] == 30000
     assert config["split_sizes"] == {
         "train": 15000,
@@ -41,6 +41,26 @@ def test_frozen_config():
     assert config["uci_zip_url"] == data.UCI_ZIP_URL
     assert config["uci_competition_use_approved"] is False
     assert config["uci_expected_sha256"] is None
+
+
+def test_campaign_seed_is_configurable_but_everything_else_is_frozen(tmp_path, monkeypatch):
+    shipped = json.loads((Path(__file__).parents[1] / "config" / "data_config.json").read_text())
+    path = tmp_path / "data_config.json"
+    monkeypatch.setattr(data, "_config_path", lambda: path)
+
+    for bad_seed in (0, -1, "42", 42.0, None, True):
+        path.write_text(json.dumps({**shipped, "seed": bad_seed}), encoding="utf-8")
+        with pytest.raises(ValueError, match="seed"):
+            data._load_config()
+
+    path.write_text(json.dumps({**shipped, "seed": 44}), encoding="utf-8")
+    loaded, digest = data._load_config()
+    assert loaded["seed"] == 44
+    assert len(digest) == 64
+
+    path.write_text(json.dumps({**shipped, "total_rows": 30001}), encoding="utf-8")
+    with pytest.raises(ValueError, match="total_rows"):
+        data._load_config()
 
 
 def test_synthetic_exact_unique_mutually_exclusive_splits(synthetic_run):

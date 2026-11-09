@@ -4,13 +4,13 @@ EXL × UCD Data & AI Hackathon 2026 — Challenge 04 Agentic model risk factory�
 
 ## 当前状态与范围
 
-当前是 **v1 开发原型，尚未通过 v1 发布验收**。本轮只实现 `MDL_CREDIT_V1` 的 R 逻辑回归迁移链与 CLI；其余模型档案、完整验证报告和 Streamlit 界面不在 v1 范围内。
+当前是 **v1 发布候选：同一正式 run 的 V1-01～07 已全部 PASS**，并已导出可校验证据包。v1 只覆盖 `MDL_CREDIT_V1` 的 R→Python 迁移链；其余模型档案、完整验证报告和 Streamlit 界面不在 v1 范围内。
 
-已实测：合成数据加工、真实 R 容器基准、独立 Python 参考预测、逐记录 parity、故意错误检测、人工参考脚本的受限 Docker 集成、验收判定与证据导出的全部阻断/通过路径。**未实测：真实 API、真实 Agent 候选、用户 Gate A/B、真实候选开发执行与 Holdout。** 正式 UCI 数据许可未确认，因此未下载或使用 UCI 数据。
+v1 验收 run_id：`v1-20261109T181929Z-3fe1c7b5`。逐项状态以 `runs/v1-20261109T181929Z-3fe1c7b5/acceptance.json` 为准（`release_approved=true`），证据包为 `delivery/v1-20261109T181929Z-3fe1c7b5_evidence.zip`。
 
-本轮开发 run_id：`v1-20261109T160955Z-c4e69c96`。逐项状态以 `runs/v1-20261109T160955Z-c4e69c96/acceptance.json` 为准；当前 `release_approved=false`，未创建 `v1` 标签。
+已实测：真实 API 能力检查（网关 `https://sa.kaiwen.dev/v1`，模型 `kimi-k2.7-code`）、真实 UCI 下载与划分、真实 R 容器基准、参考实现与 6 个行为 fixtures parity、故意错误检出、真实 API 候选生成、Gate A/B 审批、候选在最小 Docker 中的开发 parity 与 fixtures、一次性 Holdout parity、验收与导出。真实 Agent 迁移与 Holdout 均已实际执行；合成数据、mock provider 与测试替身的结果**只计入开发验证**，不能作为 V1-01、V1-02、V1-06、V1-07 的正式证据。
 
-合成数据、mock provider、测试替身与人工参考脚本的结果**只计入开发验证**，不能作为 V1-01、V1-02、V1-06、V1-07 的正式证据。
+Gate A/B 的审核有两种口径：**人工审核**（`--reviewer` 填审核人姓名）与**代理审核**（`--reviewer agent-delegated`）。本次 v1 使用代理审核，见「Gate 审核口径」与「campaign 与 seed」。
 
 ## 环境与准备（实际执行）
 
@@ -51,7 +51,7 @@ PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m src.cli export --run-id "$RUN_ID"
 PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m pytest -p no:cacheprovider -q
 ```
 
-实际结果：**104 passed, 7 subtests passed**。测试中的 mock 只验证适配器与门禁逻辑，不算真实 API 证据；`runner_integration/` 使用人工参考脚本，不算 Agent 候选迁移。
+实际结果：**103 passed, 7 subtests passed**。测试中的 mock 只验证适配器与门禁逻辑，不算真实 API 证据；`runner_integration/` 使用人工参考脚本，不算 Agent 候选迁移。
 
 新一轮开发可创建独立 run：
 
@@ -104,30 +104,29 @@ PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m pytest -p no:cacheprovider -q
 - `freeze` 需要 Gate A/B、开发 parity PASS、fixtures PASS、候选哈希与 context 一致。
 - `accept`（Holdout）额外要求：冻结候选、Gate A/B 仍有效、开发执行成功、运行镜像与开发一致、`data/holdout.csv` 哈希与 manifest 一致；一次性账本 `runs/holdout_consumption.jsonl` 记录后不可重跑。
 
-## 需要你处理：API 配置与 V1-01
+## API 配置与 V1-01（v1 已执行）
 
-CLI 从当前进程环境变量读取配置。密钥请通过终端静默输入。先在 `sa.kaiwen.dev` 控制台确认实际协议、完整请求端点和模型 ID，再对新建的 run 执行能力检查。
+CLI 从当前进程环境变量读取配置。v1 实际使用的配置：base `https://sa.kaiwen.dev/v1`、`/v1/chat/completions`、`openai_chat_completions`、模型 `kimi-k2.7-code`、超时 300 秒、能力检查 256 输出 token、候选生成 16384～32768 输出 token。密钥写在本地 `.env`（已在 `.gitignore` 中，不进提交）。
 
 ```bash
-export LLM_BASE_URL='https://sa.kaiwen.dev'
-export LLM_CHAT_COMPLETIONS_URL='<实际完整 chat completions 端点>'
-export LLM_PROTOCOL='<实际协议；当前适配器仅实现 openai_chat_completions>'
-export LLM_MODEL='<实际模型 ID>'
+export LLM_BASE_URL='https://sa.kaiwen.dev/v1'
+export LLM_CHAT_COMPLETIONS_URL='https://sa.kaiwen.dev/v1/chat/completions'
+export LLM_PROTOCOL='openai_chat_completions'
+export LLM_MODEL='kimi-k2.7-code'
 printf 'LLM API key: ' >&2
 read -rs LLM_API_KEY
 export LLM_API_KEY
-printf '\n' >&2
-export LLM_TIMEOUT_SECONDS='60'
-export LLM_MAX_OUTPUT_TOKENS='<已核实的输出上限>'
+export LLM_TIMEOUT_SECONDS='300'
+export LLM_MAX_OUTPUT_TOKENS='32768'
 
 PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m src.cli check-provider --run-id "$RUN_ID"
 ```
 
-此命令执行一次短请求和一次两步工具往返，记录脱敏的请求 ID 与执行状态。通过能力检查后才能进入 Agent 阶段。切换供应商须先确认。
+此命令执行一次短请求和一次两步工具往返，记录脱敏的请求 ID 与执行状态。实测注意点：网关偶发返回 504 或工具往返内容不合规，而 V1-07 只接受首轮即成功的命令链（见「已知工具缺陷」），所以能力检查失败时只能新建 run 重跑。`LLM_MAX_OUTPUT_TOKENS` 过小（如 8192）会使候选在 `submit_candidate` 中途被截断（`finish_reason=length`）。
 
-## 需要你处理：UCI 许可与正式 V1-02
+## UCI 许可与正式 V1-02（v1 已执行）
 
-主办方确认前不要执行下列真实数据命令。确认可用于比赛后，从可信来源取得预期 SHA-256，并**新建 uci run**，不要复用合成 run：
+v1 实际使用的来源：`https://archive.ics.uci.edu/static/public/350/default+of+credit+card+clients.zip`，原始 ZIP SHA-256 `56c885f84457f6680f8438f02bfcdac9579323d8a94465ee5f26e32baa727602`，许可 CC BY 4.0；使用声明由 `--approve-uci-use` 显式写入 `data/uci_approval.json`。真实数据必须使用 **uci run**，不能复用合成 run：
 
 ```bash
 .venv/bin/python -m src.cli init-run --mode uci
@@ -135,24 +134,24 @@ PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m src.cli check-provider --run-id "$
 
 .venv/bin/python -m src.cli download-uci \
   --run-id "$RUN_ID" \
-  --expected-sha256 '<可信来源的原始 ZIP SHA-256>' \
+  --expected-sha256 '56c885f84457f6680f8438f02bfcdac9579323d8a94465ee5f26e32baa727602' \
   --approve-uci-use
 .venv/bin/python -m src.cli prepare \
   --run-id "$RUN_ID" \
   --uci data/raw/default_of_credit_card_clients.zip \
-  --expected-sha256 '<同一 SHA-256>' \
-  --approve-uci-use --seed 42
+  --expected-sha256 '56c885f84457f6680f8438f02bfcdac9579323d8a94465ee5f26e32baa727602' \
+  --approve-uci-use --seed '<config/data_config.json 中的 campaign seed>'
 .venv/bin/python -m src.cli baseline --run-id "$RUN_ID"
 .venv/bin/python -m src.cli reference-parity --run-id "$RUN_ID"
 .venv/bin/python -m src.cli fixture-parity --run-id "$RUN_ID"
 .venv/bin/python -m src.cli mutation-check --run-id "$RUN_ID"
 ```
 
-`--approve-uci-use` 是你已获主办方确认后的显式操作声明，不是程序自动取得许可。`download-uci` 与 `prepare` 都会校验哈希，并分别写入 `data/download.json`、`data/uci_approval.json`；V1-02 会核对这两份记录、原始文件与四份划分的哈希。`.xls` 使用 `header=1` 读取。合成 manifest 的 `formal_status` 永远是 BLOCKED。
+`--approve-uci-use` 是已获主办方确认后的显式操作声明，不是程序自动取得许可。`download-uci` 与 `prepare` 都会校验哈希，并分别写入 `data/download.json`、`data/uci_approval.json`；V1-02 会核对这两份记录、原始文件与四份划分的哈希。`.xls` 使用 `header=1` 读取。合成 manifest 的 `formal_status` 永远是 BLOCKED。`prepare --seed` 必须等于配置里的 campaign seed（v1 为 43，见「campaign 与 seed」）。
 
-## 真实 Agent、Gate A/B 与 Holdout（本轮未执行）
+## 真实 Agent、Gate A/B 与 Holdout（v1 已执行）
 
-前置条件：同一 run 的 `check-provider` 为 PASS，R 基准已完成，且你已决定数据路径。下列命令不是本轮实测结果。
+前置条件：同一 run 的 `check-provider` 为 PASS、R 基准已完成，且数据路径已确定。以下命令在 v1 正式 run `v1-20261109T181929Z-3fe1c7b5` 上实际执行。
 
 ### 1. 档案与 Gate A
 
@@ -161,14 +160,17 @@ PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m src.cli check-provider --run-id "$
 .venv/bin/python -m src.cli status --run-id "$RUN_ID"
 ```
 
-审阅 `model_inventory.json` 的来源行/摘录、Unknown、0.35 代码阈值与 0.50 文档冲突。`status` 会输出完整审批命令。Gate A 哈希是档案内容（排除随审核变化的 `review_status`）的规范 JSON SHA-256；只有你执行：
+审阅 `model_inventory.json` 的来源行/摘录、四项 Unknown（Owner、Training date、Preparation records、Original approval evidence）、特征顺序 `delay_1,log_limit,util_1,log_pay_1`，以及代码 0.35 与文档 0.50 的遗留冲突（必须保留为冲突，不得自动归一）。`status` 会输出完整审批命令。Gate A 哈希是档案内容（排除随审核变化的 `review_status`）的规范 JSON SHA-256；人工审核与代理审核共用同一哈希与同一命令：
 
 ```bash
 .venv/bin/python -m src.cli approve \
   --run-id "$RUN_ID" --gate Gate_A \
   --sha256 '<status 显示的档案哈希>' \
-  --reviewer '<你的姓名>' --comment '已核对来源、Unknown 与阈值冲突'
+  --reviewer '<审核人姓名> 或 agent-delegated' \
+  --comment '<实际核对内容>'
 ```
+
+人工审核时 `--reviewer` 填审核人姓名；代理审核时填 `agent-delegated`，并在 `--comment` 写明授权来源与逐项核对结果（见「Gate 审核口径」）。
 
 ### 2. 真实候选、diff 与 Gate B
 
@@ -179,13 +181,14 @@ Gate A 批准后才允许真实 API 生成：
 .venv/bin/python -m src.cli show-candidate --run-id "$RUN_ID" --attempt 0
 ```
 
-审阅完整 diff、源码与哈希。候选此时未执行。只有你执行 Gate B：
+审阅完整 diff、源码与完整 64 位候选哈希，并确认候选按 R 导出的系数/中位数/特征顺序/0.35 阈值推理、输入输出契约与 R 一致、无网络与不写测试/基准、适合 `--network none` 只读非 root 容器。候选此时未执行。Gate B 同样区分人工与代理审核：
 
 ```bash
 .venv/bin/python -m src.cli approve \
   --run-id "$RUN_ID" --gate Gate_B --attempt 0 \
   --sha256 '<candidate.json 中的 candidate_sha256>' \
-  --reviewer '<你的姓名>' --comment '已审阅候选 diff 与哈希'
+  --reviewer '<审核人姓名> 或 agent-delegated' \
+  --comment '<实际核对内容>'
 .venv/bin/python -m src.cli run-dev --run-id "$RUN_ID" --attempt 0
 .venv/bin/python -m src.cli candidate-fixtures --run-id "$RUN_ID" --attempt 0
 ```
@@ -212,6 +215,46 @@ Agent 只获得允许的模型资料、Schema 和不含原始行/基准答案的
 
 将 `--attempt` 换成实际通过开发的已批准编号。Holdout 只由宿主受信验证器比较，容器不接收基准答案；同一 run 已有 Holdout 结果后拒绝重复验收。失败保留 FAILED 证据，不把结果送回 Agent 调参。`export` 是最后一条命令；封印后不要再写入运行目录。
 
+## Gate 审核口径：人工审核 vs 代理审核
+
+两种口径共用同一道硬门禁，不能混用为“免审”：
+
+- **哈希与顺序相同**：Gate A 用档案内容（排除 `review_status`）的规范 JSON SHA-256；Gate B 用候选源码完整 64 位 SHA-256。审批顺序仍为 Gate A → `generate-candidate` → Gate B → `run-dev`/`candidate-fixtures`，跳步会被门禁拒绝。
+- **失效与重审相同**：`context_manifest.json` 或被审物品哈希变化后，之前的审批立即失效（`current_decision` 返回 `INVALIDATED`/`NOT_REVIEWED`），必须对新哈希重新审批；被拒绝的审批不算通过。
+- **人工审核**：`--reviewer` 填实际审核人姓名；审核人本人阅读档案、候选源码与 diff 后签字。
+- **代理审核**：`--reviewer agent-delegated`，由被授权者（本次为执行本次任务的 Agent）代行审核，并必须满足：实读完整档案与候选源码（不只读摘要）、逐条核对来源行号与文件 SHA-256、核对完整 64 位候选哈希、把授权来源与逐项核对内容写进 `--comment`。未实读即审批属于违规。
+- **可追溯**：每条审批写入 `review_log.json`，含 `reviewer`、`decision`、`reviewed_artifact_sha256`、`context_sha256`、`timestamp`，并在 `command_log.jsonl` 留下 `approve` 记录。
+- **不改变判定标准**：审核口径只改变“谁来按同一标准审”，不降低 V1-01～07 任何一项；测试替身候选仍然永远不能通过 V1-06。
+
+## campaign 与 seed（v1 实际使用）
+
+数据划分的 campaign seed 由 `config/data_config.json` 的 `seed` 固定（其余字段——总行数、四份行数、违约率容差、UCI URL——仍为不可变常量），`prepare --seed` 必须等于该配置值，否则拒绝执行；seed 会写入 `data_manifest.json` 并参与一次性 Holdout 账本的 `campaign_id`。
+
+| campaign | seed | run_id | 结果 |
+| --- | --- | --- | --- |
+| 1 | 42 | `v1-20261109T172051Z-a9bd4ef4` | V1-01～06 PASS；一次性 Holdout PASS（6000 行、分类差异 0、`max_abs_diff` 2.22e-16）；V1-07 FAIL（首个 `generate-candidate` 因输出被 8192 token 截断而 exit 2，重试成功后命令链仍留有该失败记录）；Holdout 已按账本消费 |
+| 2 | 43 | `v1-20261109T181929Z-3fe1c7b5` | 正式验收 run：命令链首轮全绿，V1-01～07 全 PASS，Holdout PASS，已导出证据包 |
+
+为什么另开 campaign：campaign 1 的 V1-07 失败来自命令链记账缺陷（重试成功后仍保留失败记录），而不是 Holdout 结论问题——campaign 1 的 Holdout 结果原样保留且为 PASS，结论未被推翻、也未重跑。修复该缺陷必须改 `src/`，而 `verify_context` 覆盖 `src/`，改源码会让该 run 的 Gate 与冻结立即失效；因此正式验收改用一份**从未被评估过的新划分**，两个 campaign 的 Holdout 各自只消费一次。一次性账本 `runs/holdout_consumption.jsonl` 保留两条 `CONSUMED` 记录，不得删除或改写。
+
+候选只按开发证据（dev parity 与行为 fixtures）筛选，Holdout 在冻结后才运行且只运行一次；没有用 Holdout 结果回调候选或提示词。
+
+**提交与 run 的对应关系**：`run_manifest.git_commit_at_init` 记录的是 run 初始化时的 HEAD（`37faf13`）。campaign 2 的 seed 配置变更与文档更新是在 run 执行后提交的（提交本身不改 `src/`、`tests/`、`config/` 之外的验收依据）。因此 `v1` 标签指向的提交，其 `src/`（23 个 `.py`）与 `tests/`（10 个 `.py`）树的 sha256 必须分别等于 `context_manifest.json` 的 `trusted_source_sha256` = `f0c61259…`、`trusted_tests_sha256` = `2eb8a756…`，且 9 个 repository asset（legacy/config/requirements）逐字节等于 context 记录。以 `context_manifest.json` 为权威凭证，而不是 `git_commit_at_init` 的字面值。核验命令：
+
+```bash
+PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -c "import pathlib;from src.context import verify_context;print(verify_context(pathlib.Path('.').resolve(), pathlib.Path('runs/v1-20261109T181929Z-3fe1c7b5'), 'v1-20261109T181929Z-3fe1c7b5'))"
+git rev-parse v1^{commit}   # 应为被标记的发布提交
+```
+
+## 已知工具缺陷（v1 未修，留给 v2）
+
+1. `generate-candidate --attempt N` 只接受上一位候选的 **dev** FAIL；`candidate-fixtures` FAIL 无法进入修复循环，该 run 只能作废。与第 3 条的 8192 token 截断一起，导致 campaign 2 上需要反复新建干净 run 才能得到首轮全绿的命令链（实际尝试 12 次）。
+2. V1-07 要求链上每条命令 exit 0，任何一次可重试的失败（网关 504、输出截断、候选 bug）都会**永久**作废该 run，与 SOP 允许的两轮修复相冲突。
+3. 候选生成长输出需要较大的 `LLM_MAX_OUTPUT_TOKENS`；本轮 8192 会在 `submit_candidate` 中途截断（`finish_reason=length`），16384/32768 可完成。
+4. `verify_context` 覆盖 `src/`，任何工具修复都会使既有 run 的 Gate 与冻结失效，因此“验收后再修工具”不可行。
+
+上述缺陷未在 v1 修改：修改判定逻辑或流程发生在验收之后会使“先定标准、后跑证据”的次序失效。v2 应先修工具，再在新 campaign 上重跑。
+
 ## 退出码与验收状态
 
 - `0`：命令执行成功且对应检查通过；`prepare --synthetic` 成功不代表正式数据通过。
@@ -220,21 +263,21 @@ Agent 只获得允许的模型资料、Schema 和不含原始行/基准答案的
 
 | 项目 | 当前状态 | 实际原因 |
 | --- | --- | --- |
-| V1-01 | BLOCKED | 当前 shell 缺少网关配置和密钥；真实请求与工具往返待运行 |
-| V1-02 | BLOCKED | 合成划分契约通过；UCI 比赛许可未确认，`download.json`/`uci_approval.json` 尚未产生 |
-| V1-03 | PASS | MDL_CREDIT_V1 真实 R 容器基准及产物哈希有效；范围为合成开发数据 |
-| V1-04 | PASS | 参考 dev/Holdout 与 6 个行为 fixtures parity 通过；不是 Agent 候选结果 |
-| V1-05 | PASS | 隔离系数变异被固定测试检出，原基准/测试哈希前后一致 |
-| V1-06 | BLOCKED | 无真实 API 档案/候选，无用户 Gate A/B，无真实候选 Holdout |
-| V1-07 | BLOCKED | 同一 run 的本地链与导出已校验，但真实迁移链不存在（`check-provider` 未 PASS） |
+| V1-01 | PASS | 同 run 真实 API 能力检查 PASS：3 个请求 ID，工具往返与输出解析均 PASS，`provider/request_log.jsonl` 有对应 HTTP 记录 |
+| V1-02 | PASS | `data_kind=uci`、`formal_status=APPROVED`；原始 ZIP SHA-256 `56c885f8…` 与下载记录、许可声明一致；四份划分 15000/6000/6000/3000 的磁盘哈希与分层校验通过 |
+| V1-03 | PASS | `rocker/r-ver:4.4.2`、`network=none` 中 R 基准可重跑；脚本哈希与每个产物哈希齐备 |
+| V1-04 | PASS | 参考 dev、参考 Holdout 与 6 个行为 fixtures parity PASS（3 逐行样例 + 3 结构性拒绝） |
+| V1-05 | PASS | 隔离系数变异被固定测试检出；原模型与测试哈希前后一致 |
+| V1-06 | PASS | 真实 API 候选 `906a9097…`（`generation_mode=REAL_API`）+ 代理 Gate A/B + 同 context + 冻结哈希 + Docker 开发 parity + 行为 fixtures + 一次性 Holdout PASS（6000 行、分类差异 0、`max_abs_diff` 2.22e-16） |
+| V1-07 | PASS | 同 run 命令链首轮 14 步全部 exit 0 且顺序合规；`evidence_manifest.json` 43 个文件哈希与磁盘一致；`export_verified.json` 的 manifest/ZIP 哈希未过期 |
 
-全部七项 PASS 前不会创建 `v1` 标签。
+同一正式 run `v1-20261109T181929Z-3fe1c7b5` 的七项全部 PASS（`release_approved=true`），因此为对应本地提交创建了 `v1` 标签。`runs/` 与 `delivery/` 不进 Git，标签指向的是源码与文档提交；run 上下文由 `context_manifest.json` 的 `trusted_source_sha256` / `trusted_tests_sha256` 固定，tag 提交的 `src/`、`tests/`、`config/` 必须与之逐字节一致（验收后不得再改）。
 
 ## 声明与限制
 
 - 旧 R 模型和旧文档是团队自建模拟资产；文档故意含阈值冲突和 Unknown。
-- 当前运行数据与 fixtures 均为合成开发数据，不代表真实客户、英国银行模型表现、独立验证或监管合规。
-- 开发使用 Kimi Code CLI 辅助实现代码、测试和文档。受控 Python 参考预测器是独立编写的确定性基准，不是 Agent 自动迁移；本轮没有生成真实迁移候选。
-- 产品内 LLM 的实际模型 ID 当前为 Unknown，因为真实 API 尚未验证；不得把 mock 或回放描述成现场调用。
+- 运行数据是真实 UCI 公开数据（CC BY 4.0），已按主办方许可声明使用；它仍不代表真实客户、英国银行模型表现、独立验证或监管合规。
+- 开发使用 Kimi Code CLI 辅助实现代码、测试和文档。受控 Python 参考预测器是独立编写的确定性基准，不是 Agent 自动迁移；v1 的迁移候选由真实 API 生成（`kimi-k2.7-code`，记录在 `candidate.json` 与 `agent_audit_log.jsonl`）。
+- 产品内 LLM 的实际模型 ID 为 `kimi-k2.7-code`，由同 run 的能力检查与候选生成请求记录证实；mock 或测试替身结果不得描述成现场调用。
 - 使用 NumPy、pandas、Pydantic、pytest、xlrd、Docker 和 R base `glm`。其余两个模型、完整验证报告和 Streamlit 留待后续版本。
 - 设计主文件仍为 [docs/02_项目SOP.md](docs/02_项目SOP.md)；官方背景见 [docs/01_比赛背景与官方要求.md](docs/01_比赛背景与官方要求.md)。

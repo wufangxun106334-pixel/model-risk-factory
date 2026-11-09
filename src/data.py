@@ -75,8 +75,12 @@ def _config_path() -> Path:
 def _load_config() -> tuple[dict, str]:
     config_bytes = _config_path().read_bytes()
     config = json.loads(config_bytes)
+    seed = config.get("seed")
+    if not isinstance(seed, int) or isinstance(seed, bool) or seed < 1:
+        # The campaign seed is the only free parameter: it is fixed per campaign and
+        # recorded in every data manifest, so a new campaign must be declared in config.
+        raise ValueError("Frozen data configuration mismatch: seed")
     expected = {
-        "seed": DEFAULT_SEED,
         "total_rows": TOTAL_ROWS,
         "split_sizes": SPLIT_SIZES,
         "max_default_rate_difference": DEFAULT_RATE_TOLERANCE,
