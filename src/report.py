@@ -9,6 +9,7 @@ numeric token cannot be traced back to a recorded path.
 
 from __future__ import annotations
 
+import csv
 import re
 from pathlib import Path
 
@@ -152,7 +153,7 @@ def fairness_table(renderer: Renderer) -> str:
     for attribute, payload in metrics["fairness"]["attributes"].items():
         for group in payload.get("groups", {}):
             base = f"fairness.attributes.{attribute}.groups.{group}"
-            renderer.note(f"fairness.attributes.{attribute}.groups.{group}", label=f"{attribute} group label", section="fairness", text=group)
+            renderer.note(f"fairness.attributes.{attribute}.groups", label=f"{attribute} group label", section="fairness", text=group)
             rows.append([
                 attribute,
                 group,
@@ -428,6 +429,88 @@ def render_report(run_dir: Path, run_id: str, *, agent_summary: dict | None, inv
     }
     write_json(report_dir / "review_manifest.json", manifest)
     return {"report": str(report_path), "manifest": str(report_dir / "review_manifest.json"), "unresolved_numbers": unresolved, "value_count": len(renderer.index)}
+
+
+def text_matches_value(value, text: str) -> bool:
+    """True when ``text`` is one of the renderer's faithful renderings of ``value``.
+
+    Accepted forms are exactly the ones ``Renderer.path`` can emit: the canonical
+    fixed/scientific/17-significant-digit renderings, the plain integer form, the
+    empty marker, and a key of the object the path resolves to (used for group
+    labels).
+    """
+
+    if value is None:
+        return text in {"—", "not assessable", ""}
+    if isinstance(value, bool):
+        return text == ("true" if value else "false")
+    if isinstance(value, int):
+        return text == str(value)
+    if isinstance(value, float):
+        if text in {"—", "not assessable"}:
+            return False
+        return text in {f"{value:.4f}", f"{value:.3e}", f"{value:.0e}", f"{value:.17g}", str(value)}
+    if isinstance(value, dict):
+        return text in value
+    if isinstance(value, list):
+        return text in {str(item) for item in value}
+    return text == str(value)
+
+
+def index_mismatches(run_dir: Path, metrics: dict | None = None) -> list[str]:
+    """Re-resolve every values_index.csv row against the metrics JSON.
+
+    This is the check a reviewer performs by hand: read the path, read the
+    recorded text, and confirm the JSON really holds that value at that
+    precision. Duplicate paths are allowed only when they repeat the same text.
+    """
+
+    index_path = run_dir / "report" / "values_index.csv"
+    if not index_path.is_file():
+        return ["values index missing"]
+    metrics = metrics if metrics is not None else read_json(run_dir / "validation_metrics.json")
+    problems: list[str] = []
+    seen: dict[str, set[str]] = {}
+    with index_path.open(encoding="utf-8") as handle:
+        rows = list(csv.DictReader(handle))
+    if not rows:
+        return ["values index has no rows"]
+    for row in rows:
+        path = (row.get("json_path") or "").strip()
+        text = row.get("text") or ""
+        if not path:
+            problems.append("values index row without a json_path")
+            continue
+        try:
+            value = resolve(metrics, path)
+        except (ContractError, KeyError, IndexError, ValueError, TypeError):
+            problems.append(f"{path}: path does not resolve in validation_metrics.json")
+            continue
+        if not text_matches_value(value, text):
+            problems.append(f"{path}: index text {text!r} does not match the metrics value {value!r}")
+        # Repeated paths are fine when they repeat the same rendering; a container
+        # value may also contribute several distinct keys (group labels). Anything
+        # else is a contradiction.
+        previous = seen.setdefault(path, set())
+        if previous and text not in previous and not isinstance(value, (dict, list)):
+            problems.append(f"{path}: contradictory index rows {sorted(previous)!r} and {text!r}")
+        previous.add(text)
+    return problems
+
+
+def index_not_in_report(report_text: str, run_dir: Path) -> list[str]:
+    """Every indexed rendering must actually appear in the report body."""
+
+    index_path = run_dir / "report" / "values_index.csv"
+    if not index_path.is_file():
+        return ["values index missing"]
+    missing = []
+    with index_path.open(encoding="utf-8") as handle:
+        for row in csv.DictReader(handle):
+            text = row.get("text") or ""
+            if text and text not in report_text:
+                missing.append(f"{row.get('json_path')}: {text!r} is not in the report")
+    return missing
 
 
 def verify_provenance(report_text: str, index: list[dict]) -> list[str]:

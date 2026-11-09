@@ -22,7 +22,7 @@ from src.acceptance import (
 from src.common import current_git_commit, read_json, read_jsonl, sha256_file, utc_now
 from src.contracts import AcceptanceRecord
 from src.inventory import expected_model_ids, inventory_path, load_inventory, model_expectation
-from src.report import check_wording, report_status, verify_provenance
+from src.report import check_wording, index_mismatches, index_not_in_report, report_status, verify_provenance
 from src.review import current_decision
 from src.workflow import verified_split_hash
 
@@ -426,9 +426,12 @@ def _v2_07(repository: Path, run_dir: Path, run_id: str) -> tuple[str, str]:
     text = report_path.read_text(encoding="utf-8")
     rows = _index_rows(index_path)
     problems: list[str] = []
+    metrics = read_json(run_dir / "validation_metrics.json") if (run_dir / "validation_metrics.json").is_file() else {}
     unresolved = verify_provenance(text, rows)
     if unresolved:
         problems.append(f"numbers without a JSON path: {unresolved[:5]}")
+    problems.extend(index_mismatches(run_dir, metrics)[:5])
+    problems.extend(index_not_in_report(text, run_dir)[:5])
     if len(rows) < 20:
         problems.append("values index is too small to cover the report")
     status = report_status(run_dir, run_id)
