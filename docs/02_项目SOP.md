@@ -516,7 +516,7 @@ README 与 Deck 中列出：
 
 ### 15.4 Responsible AI note（1 页）五个模块
 
-1. **Data used**：UCI Default of Credit Card Clients（CC BY 4.0，2005 年台湾样本，无直接标识但含人口属性，使用已经主办方确认）；fixtures 与漂移场景 B 为合成数据；三个旧模型及旧文档为团队自建。
+1. **Data used**：UCI Default of Credit Card Clients（CC BY 4.0，2005 年台湾样本，无直接标识但含人口属性，能否用于比赛待主办方确认）；fixtures 与漂移场景 B 为合成数据；三个旧模型及旧文档为团队自建。
 2. **Privacy**：人口属性只用于审计、不入模；不向 LLM 发送原始数据行，只发送代码、文档和汇总诊断；API key 只在本机环境变量。
 3. **Bias**：按 age_band 与 sex 审计 TPR/FPR；人口属性不入模；小样本组标记 NOT_ASSESSABLE；未触发预警不等于公平。
 4. **Limitations**：结果不代表英国银行客户或真实生产模型表现；缺少跨时间回测；Agent 文本可能出错，引用存在不等于语义正确；不是独立验证或监管认证。
