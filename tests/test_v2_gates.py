@@ -31,7 +31,7 @@ APPROVED_PAYLOAD = {
     "code_threshold": 0.3,
     "documented_threshold": 0.3,
     "unknowns": ["owner", "training_date"],
-    "conflicts": [{"topic": "feature list", "code": "7 features", "note": "note lists 6"}],
+    "conflicts": [{"field": "input_validity_limits"}],
     "sources": [
         {
             "path": "legacy/credit_v2.R",

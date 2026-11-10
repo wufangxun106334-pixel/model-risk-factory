@@ -137,6 +137,57 @@ def acceptance_records(run_dir: Path) -> tuple[bool | None, list[dict]]:
     return acceptance.get("release_approved"), list(acceptance.get("records") or [])
 
 
+DATA_KIND_LABELS = {"synthetic": "SYNTHETIC", "uci": "UCI"}
+
+
+def run_facts(run_dir: Path) -> dict:
+    """Facts that let a reviewer tell a synthetic dry run from a formal one.
+
+    Everything comes from files in the run, so the badge cannot claim a state the
+    artifacts do not support.
+    """
+
+    manifest = _read(run_dir / "run_manifest.json")
+    manifest = manifest if isinstance(manifest, dict) else {}
+    data = _read(run_dir / "data" / "data_manifest.json")
+    data_kind = str((data or {}).get("data_kind") or "").lower() if isinstance(data, dict) else ""
+    release_approved, _records = acceptance_records(run_dir)
+    return {
+        "data_kind": DATA_KIND_LABELS.get(data_kind, "DATA UNKNOWN"),
+        "data_kind_raw": data_kind or None,
+        "mode": manifest.get("mode"),
+        "commit": (manifest.get("git_commit_at_init") or "")[:12] or None,
+        "clean_at_init": manifest.get("worktree_clean_at_init"),
+        "release_approved": release_approved,
+    }
+
+
+def status_badges(run_dir: Path, *, live: bool = False) -> list[str]:
+    """Badges shown above every page: data kind, live/replay, release state, commit."""
+
+    facts = run_facts(run_dir)
+    badges = [facts["data_kind"]]
+    badges.append("LIVE" if live else "REPLAY")
+    # This badge reports the run's own acceptance record only. A published release
+    # additionally needs `release-check` -> APPROVED on the release commit, which is
+    # deliberately not claimed here.
+    if facts["release_approved"] is True:
+        badges.append("ACCEPTANCE PASSED")
+    elif facts["release_approved"] is False:
+        badges.append("ACCEPTANCE NOT PASSED")
+    else:
+        badges.append("NO ACCEPTANCE RECORD")
+    if facts["commit"]:
+        badges.append(f"COMMIT {facts['commit']}")
+    return badges
+
+
+STATUS_BADGE_HELP = (
+    "SYNTHETIC/UCI comes from the run's data manifest. REPLAY means these are stored results read from "
+    "the run directory; LIVE means a CLI action ran against this run in this browser session."
+)
+
+
 def downloads(run_dir: Path, run_id: str) -> list[Path]:
     """Files the reviewer can download: report, tables, metrics and the sealed evidence ZIP."""
 

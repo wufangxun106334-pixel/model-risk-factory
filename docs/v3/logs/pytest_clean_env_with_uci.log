@@ -1,0 +1,22 @@
+......................................................................................................................................... [ 41%]
+........................................................................ [ 62%]
+........................................................................ [ 84%]
+....................................................                     [100%]
+=============================== warnings summary ===============================
+tests/test_v2_blockers_dataprep.py::test_ledger_rebuilds_every_consumed_split_byte_for_byte
+tests/test_v2_blockers_dataprep.py::test_tampered_ledger_hash_is_rejected
+tests/test_v2_blockers_dataprep.py::test_clean_checkout_reproduces_a_historical_split_from_the_ledger
+tests/test_v2_blockers_dataprep.py::test_clean_checkout_reproduces_a_historical_split_from_the_ledger
+tests/test_v2_blockers_dataprep.py::test_seed_47_holdout_is_exactly_the_1199_never_consumed_rows_and_then_data_is_exhausted
+tests/test_v2_blockers_dataprep.py::test_seed_47_holdout_is_exactly_the_1199_never_consumed_rows_and_then_data_is_exhausted
+tests/test_v2_blockers_dataprep.py::test_seed_47_holdout_is_exactly_the_1199_never_consumed_rows_and_then_data_is_exhausted
+tests/test_v2_blockers_dataprep.py::test_seed_47_holdout_is_exactly_the_1199_never_consumed_rows_and_then_data_is_exhausted
+  /private/tmp/mrf-v3-clean/src/data.py:658: Pandas4Warning: The xlrd engine is deprecated and will be removed in a future version. Use the calamine engine instead, by setting engine='calamine'.
+    return pd.read_excel(io.BytesIO(content), header=1, engine="xlrd")
+
+tests/test_v2_blockers_release.py::test_duplicate_zip_member_blocks
+  /opt/homebrew/Cellar/python@3.15/3.15.2/Frameworks/Python.framework/Versions/3.15/lib/python3.15/zipfile/__init__.py:1755: UserWarning: Duplicate name: 'v2-release/report/validation_report.md'
+    return self._open_to_write(zinfo, force_zip64=force_zip64)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+333 passed, 9 warnings, 7 subtests passed in 26.08s

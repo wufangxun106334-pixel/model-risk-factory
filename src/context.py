@@ -30,6 +30,7 @@ REPOSITORY_ASSETS = [
     "requirements.txt",
 ]
 RUN_ASSETS = [
+    "data/data_manifest.json",
     "data/train.csv",
     "data/dev.csv",
     "data/holdout.csv",

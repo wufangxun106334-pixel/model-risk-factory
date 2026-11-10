@@ -203,7 +203,10 @@ def extract_inventory(repository: Path, run_dir: Path, run_id: str, model_id: st
             _audit(run_dir, run_id, "inventory", "ASSET_READ", model_id=model_id, path=arguments["path"], sha256=result["sha256"])
             return result
         if name == "validate_inventory":
-            build_inventory(run_id, arguments["payload"], repository, run_dir / "inventory_validation.json")
+            payload = arguments["payload"]
+            if not isinstance(payload, dict) or payload.get("model_id") != model_id:
+                raise ContractError(f"Expected inventory model_id {model_id}")
+            build_inventory(run_id, payload, repository, run_dir / "inventory_validation.json")
             return {"status": "VALID", "approval": "NOT_GRANTED"}
         raise ContractError(f"Tool is not available in inventory stage: {name}")
 
@@ -215,8 +218,10 @@ def extract_inventory(repository: Path, run_dir: Path, run_id: str, model_id: st
         "Return one JSON object matching the supplied Schema, with no Markdown. "
         f"Use model_id exactly {model_id}. "
         "Preserve owner and training_date as exactly Unknown when the sources do not state them, and list each unknown token in unknowns. "
-        f"Report the code threshold and the documented threshold separately, even when they agree, and record every disagreement with the documentation in conflicts: code {expectation['code_threshold']} / documented {expectation['documented_threshold']}. "
-        "A feature or hyperparameter that the code uses but the note omits is a conflict; a feature or limit the note states but the code does not implement is also a conflict. "
+        f"Report the code threshold and the documented threshold separately in code_threshold / documented_threshold ({expectation['code_threshold']} / {expectation['documented_threshold']}). "
+        "Use the verified conflict fields below. Return one object with only a field key for each of them. "
+        f"Required fields in conflicts: {', '.join(expectation['known_conflicts'])}. "
+        "The validator attaches the frozen description and exact evidence from both source files. "
         "Every key fact needs a source path, actual SHA-256, valid line range and verbatim excerpt. Do not infer missing facts. "
         "Call validate_inventory at most twice: an excerpt must be copied exactly from the cited line range, "
         "every configured source must appear in sources, and each unknown field must also appear in unknowns. "
@@ -231,6 +236,8 @@ def extract_inventory(repository: Path, run_dir: Path, run_id: str, model_id: st
             if not response.content:
                 raise ContractError("Inventory response has no JSON content")
             payload = json.loads(response.content)
+            if not isinstance(payload, dict) or payload.get("model_id") != model_id:
+                raise ContractError(f"Expected inventory model_id {model_id}")
             inventory = build_inventory(run_id, payload, repository, output)
             _audit(run_dir, run_id, "inventory", "INVENTORY_VALIDATED", model_id=model_id, request_id=response.request_id, request_event_id=response.request_event_id, inventory_sha256=artifact_digest(output, "Gate_A"), context_sha256=sha256_file(run_dir / "context_manifest.json"), format_attempt=format_attempt)
             return inventory
@@ -359,11 +366,10 @@ def summarize_validation(repository: Path, run_dir: Path, run_id: str) -> dict:
     """Ask the real gateway to interpret the desensitised aggregate metrics.
 
     Only aggregate numbers are sent: no rows, no client identifiers and no
-    Holdout inputs. The wording check rejects compliance-style overclaims before
-    anything is written.
+    Holdout inputs. The returned claims and review focus have a closed schema.
     """
 
-    from src.report import NUMBER, AgentSummary, agent_summary_schema, check_wording, desensitized_summary
+    from src.report import AgentInterpretation, agent_summary_schema, check_interpretation, desensitized_summary
 
     metrics_path = run_dir / "validation_metrics.json"
     if not metrics_path.is_file():
@@ -375,20 +381,13 @@ def summarize_validation(repository: Path, run_dir: Path, run_id: str) -> dict:
     provider = _provider(repository, run_dir, run_id, "report-summary")
     _require_output_budget(repository, provider, "Report summary")
     prompt = (
-        "You are explaining a migrated credit-default scorecard to a model reviewer. "
-        "You receive desensitised aggregate metrics only. Explain what the numbers show, "
-        "state limitations, and list evidence that is missing. "
-        "Never claim regulatory approval, independent validation, production readiness or "
-        "that the model is fair; fairness numbers are audit signals only. "
-        "Distinguish a same-period hold-out from a weighted drift sensitivity analysis, and "
-        "state that a cross-time back-test is unavailable. "
-        "Do not write any numeric value in your answer: describe direction and status in words "
-        "(for example 'parity passes with no classification differences'), because every number in "
-        "the report must be rendered from a metrics path. "
-        "Return one JSON object matching this Schema, with no Markdown: "
-        + json.dumps(agent_summary_schema(), ensure_ascii=False)
-        + ". Aggregates: "
-        + json.dumps(aggregates, ensure_ascii=False, sort_keys=True)
+        "You are reviewing aggregate validation metrics for a migrated credit-default scorecard. "
+        "Return exactly one JSON object with status_claims and focus, without prose or Markdown. "
+        "Copy only the required status_claims fields from derived_facts, including degraded_checks. "
+        "For focus, select the review area that most needs the reviewer's attention based on the evidence. "
+        "Choose one of PARITY, PERFORMANCE, STABILITY or FAIRNESS. "
+        "JSON Schema: " + json.dumps(agent_summary_schema(), ensure_ascii=False)
+        + ". Aggregates: " + json.dumps(aggregates, ensure_ascii=False, sort_keys=True)
     )
     messages = [
         {"role": "system", "content": "You are a constrained validation-report writing assistant. Use only the supplied aggregates."},
@@ -403,14 +402,12 @@ def summarize_validation(repository: Path, run_dir: Path, run_id: str) -> dict:
         try:
             if not response.content:
                 raise ContractError("summary response has no content")
-            summary = AgentSummary.model_validate_json(response.content)
-            text = " ".join([summary.headline, *summary.results, *summary.limitations, *summary.evidence_gaps])
-            check_wording(text)
-            digits = NUMBER.findall(text)
-            if digits:
-                raise ContractError(f"Summary must not restate numbers ({digits[:5]}); every figure is rendered from a metrics path")
+            if not response.request_id or not response.request_event_id:
+                raise ContractError("summary response is missing gateway request evidence")
+            summary = AgentInterpretation.model_validate_json(response.content)
+            check_interpretation(summary, metrics)
             payload = {
-                "schema_version": "1",
+                "schema_version": "2",
                 "run_id": run_id,
                 "generated_at": utc_now(),
                 "model": provider.config.model,

@@ -22,7 +22,6 @@ from src.provider import (
     ProviderTransportError,
     UrllibTransport,
 )
-from src.report import AgentSummary
 
 PROBE_MESSAGES = [{"role": "user", "content": "Reply with exactly: DRILL_OK"}]
 

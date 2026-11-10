@@ -126,3 +126,32 @@ def test_parity_frame_joins_r_and_python_predictions(tmp_path):
     assert ui_data.parity_summary(run_dir, "dev", 1) is None
     with pytest.raises(ValueError):
         ui_data.parity_paths(run_dir, "dev")
+
+
+def test_status_badges_distinguish_synthetic_formal_replay_and_live(tmp_path):
+    run_dir = _run(tmp_path, "v2-synthetic", "2026-11-10T10:00:00Z")
+    (run_dir / "data").mkdir()
+    (run_dir / "data" / "data_manifest.json").write_text(json.dumps({"data_kind": "synthetic"}), encoding="utf-8")
+    (run_dir / "acceptance.json").write_text(json.dumps({"release_approved": False, "records": []}), encoding="utf-8")
+
+    assert ui_data.run_facts(run_dir)["data_kind"] == "SYNTHETIC"
+    badges = ui_data.status_badges(run_dir)
+    assert badges[:2] == ["SYNTHETIC", "REPLAY"]
+    assert "ACCEPTANCE NOT PASSED" in badges
+    assert f"COMMIT {'a' * 12}" in badges
+    assert ui_data.status_badges(run_dir, live=True)[1] == "LIVE"
+
+
+def test_status_badges_mark_a_formal_approved_run_and_an_unknown_data_kind(tmp_path):
+    formal = _run(tmp_path, "v3-formal", "2026-11-10T11:00:00Z")
+    (formal / "data").mkdir()
+    (formal / "data" / "data_manifest.json").write_text(json.dumps({"data_kind": "uci"}), encoding="utf-8")
+    (formal / "acceptance.json").write_text(json.dumps({"release_approved": True, "records": []}), encoding="utf-8")
+    badges = ui_data.status_badges(formal)
+    assert badges[0] == "UCI"
+    assert "ACCEPTANCE PASSED" in badges
+
+    empty = _run(tmp_path, "v3-empty", "2026-11-10T12:00:00Z")
+    badges = ui_data.status_badges(empty)
+    assert badges[0] == "DATA UNKNOWN"
+    assert "NO ACCEPTANCE RECORD" in badges

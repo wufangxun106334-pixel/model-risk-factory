@@ -136,6 +136,8 @@ def action(label: str, args: list[str], key: str, *, help_text: str | None = Non
     if st.button(label, key=key, help=help_text, disabled=not allowed):
         with st.spinner(f"Running {args[0]} ..."):
             st.session_state["last_result"] = ui_data.run_cli(args, ROOT)
+        # A CLI action ran against this run in this session: results are now LIVE.
+        st.session_state["live_run"] = RUN_ID
         st.rerun()
 
 
@@ -153,6 +155,7 @@ def review_form(gate: str, sha256: str, key: str, *, model: str | None = None, a
             st.error(str(error))
             return
         st.session_state["last_result"] = ui_data.run_cli(args, ROOT)
+        st.session_state["live_run"] = RUN_ID
         st.rerun()
 
 
@@ -201,6 +204,9 @@ if RUN_ID is None:
     st.stop()
 
 RUN_DIR = ROOT / RUN_ID
+live = st.session_state.get("live_run") == RUN_ID
+st.markdown(" ".join(f"`{text}`" for text in ui_data.status_badges(RUN_DIR, live=live)))
+st.caption(ui_data.STATUS_BADGE_HELP)
 WITH_WORK = [run_id for run_id in run_ids if PROGRESS[run_id]]
 if PROGRESS[RUN_ID] == 0:
     st.warning(

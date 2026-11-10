@@ -490,6 +490,9 @@ def compute_validation_metrics(
     from src.workflow import runner_image
 
     verified = verified_metric_inputs(run_dir, run_id)
+    data_kind = read_json(run_dir / "data" / "data_manifest.json").get("data_kind")
+    if data_kind not in {"synthetic", "uci"}:
+        raise ContractError("Validation metrics require a known data source")
     attempt = verified["attempt"]
     frozen = {"attempt": attempt, "candidate_sha256": verified["candidate_sha256"]}
     output_root = run_dir / "validation"
@@ -586,6 +589,7 @@ def compute_validation_metrics(
         "schema_version": "1",
         "run_id": run_id,
         "model_id": "MDL_CREDIT_V1",
+        "data_kind": data_kind,
         "generated_at": utc_now(),
         "threshold": threshold,
         "candidate_sha256": frozen["candidate_sha256"],

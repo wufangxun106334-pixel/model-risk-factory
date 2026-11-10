@@ -1,0 +1,11 @@
+......................................................................................................................................... [ 41%]
+...........ssssssss..................................................... [ 62%]
+........................................................................ [ 84%]
+....................................................                     [100%]
+=============================== warnings summary ===============================
+tests/test_v2_blockers_release.py::test_duplicate_zip_member_blocks
+  /opt/homebrew/Cellar/python@3.15/3.15.2/Frameworks/Python.framework/Versions/3.15/lib/python3.15/zipfile/__init__.py:1755: UserWarning: Duplicate name: 'v2-release/report/validation_report.md'
+    return self._open_to_write(zinfo, force_zip64=force_zip64)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+325 passed, 8 skipped, 1 warning, 7 subtests passed in 14.12s

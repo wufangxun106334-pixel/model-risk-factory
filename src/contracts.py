@@ -40,6 +40,10 @@ class ModelInventory(StrictModel):
     review_status: Literal["PENDING", "APPROVED", "REJECTED"]
 
 
+class InventoryFinding(StrictModel):
+    field: str
+
+
 class InventoryPayload(StrictModel):
     model_id: ModelId
     model_type: str
@@ -49,7 +53,7 @@ class InventoryPayload(StrictModel):
     code_threshold: float
     documented_threshold: float
     unknowns: list[str]
-    conflicts: list[dict[str, object]]
+    conflicts: list[InventoryFinding]
     sources: list[InventorySource]
 
 

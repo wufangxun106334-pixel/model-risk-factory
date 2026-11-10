@@ -1,13 +1,14 @@
 from __future__ import annotations
 
+import math
 from pathlib import Path
 
 from src.common import ContractError, read_json, sha256_file, write_json
-from src.contracts import InventoryPayload, ModelInventory
+from src.contracts import InventoryPayload, InventorySource, ModelInventory
 
 EXPECTATIONS_PATH = Path("config") / "inventory_expectations.json"
 SCHEMA_PATH = "config/inventory_schema.json"
-
+THRESHOLD_VALUE_TOLERANCE = 1e-12
 
 def load_expectations(repository: Path) -> dict:
     path = repository / EXPECTATIONS_PATH
@@ -59,6 +60,31 @@ def validate_sources(sources, repository: Path, allowed: set[str]) -> None:
             raise ContractError(f"Inventory source excerpt mismatch: {source.path}")
 
 
+def _confirmed_conflicts(fields: list[str], expectation: dict, repository: Path) -> list[dict]:
+    known = expectation["known_conflicts"]
+    if len(fields) != len(set(fields)):
+        raise ContractError("An inventory conflict is recorded more than once")
+    if set(fields) != set(known):
+        raise ContractError(
+            f"Inventory conflict fields must match the frozen findings: {', '.join(known)}"
+        )
+    code, note = expectation["sources"]
+    findings = []
+    for field, fact in known.items():
+        sources = [
+            InventorySource(path=path, sha256=sha256_file(repository / path),
+                            line_start=line, line_end=line, excerpt=excerpt)
+            for path, (line, excerpt) in ((code, fact["code"]), (note, fact["note"]))
+        ]
+        validate_sources(sources, repository, {code, note})
+        findings.append({
+            "field": field,
+            "description": fact["description"],
+            "sources": [source.model_dump() for source in sources],
+        })
+    return findings
+
+
 def build_inventory(run_id: str, payload: dict, repository: Path, output_path: Path) -> dict:
     parsed = InventoryPayload.model_validate(payload)
     expectation = model_expectation(repository, parsed.model_id)
@@ -68,8 +94,8 @@ def build_inventory(run_id: str, payload: dict, repository: Path, output_path: P
             f"Inventory feature order does not match the frozen {parsed.model_id} contract"
         )
     if (
-        abs(parsed.code_threshold - float(expectation["code_threshold"])) > 1e-12
-        or abs(parsed.documented_threshold - float(expectation["documented_threshold"])) > 1e-12
+        not math.isclose(parsed.code_threshold, expectation["code_threshold"], rel_tol=0, abs_tol=THRESHOLD_VALUE_TOLERANCE)
+        or not math.isclose(parsed.documented_threshold, expectation["documented_threshold"], rel_tol=0, abs_tol=THRESHOLD_VALUE_TOLERANCE)
     ):
         raise ContractError(
             f"Inventory must preserve the {parsed.model_id} code/documentation threshold pair "
@@ -80,15 +106,15 @@ def build_inventory(run_id: str, payload: dict, repository: Path, output_path: P
             raise ContractError(f"Unknown {field} must not be invented")
         if field not in parsed.unknowns:
             raise ContractError(f"Unknown field {field} must be listed in unknowns")
-    if len(parsed.conflicts) < int(expectation["min_conflicts"]):
-        raise ContractError(f"Inventory for {parsed.model_id} is missing its documented conflict")
+    conflicts = _confirmed_conflicts([item.field for item in parsed.conflicts], expectation, repository)
     covered = {source.path for source in parsed.sources}
     if not set(expectation["sources"]) <= covered:
         raise ContractError("Every model source must appear at least once in sources")
     inventory = ModelInventory(
         schema_version="1",
         run_id=run_id,
-        **parsed.model_dump(),
+        **parsed.model_dump(exclude={"conflicts"}),
+        conflicts=conflicts,
         review_status="PENDING",
     ).model_dump()
     write_json(output_path, inventory)

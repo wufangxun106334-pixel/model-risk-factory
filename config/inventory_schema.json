@@ -13,7 +13,16 @@
     "code_threshold": {"type": "number"},
     "documented_threshold": {"type": "number"},
     "unknowns": {"type": "array", "items": {"type": "string"}},
-    "conflicts": {"type": "array", "items": {"type": "object"}},
+    "conflicts": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["field"],
+        "properties": {"field": {"type": "string"}}
+      }
+    },
     "sources": {
       "type": "array",
       "minItems": 1,

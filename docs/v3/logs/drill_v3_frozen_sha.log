@@ -1,0 +1,1430 @@
+run_root=dev_runs
+git_head=e298d23c3e14fd56f272c1edb29dc71a7ef5bf5e
+git_status=0 changed paths
+=== RUN_ID v2-20261110T191501Z-fed1c652
+seed=47
+=== STEP check-provider :: /tmp/mrf-v3-clean/.venv/bin/python -m src.cli check-provider --run-id v2-20261110T191501Z-fed1c652
+{
+  "base_url": "https://sa.kaiwen.dev",
+  "chat_completions_url": "https://sa.kaiwen.dev/v1/chat/completions",
+  "configuration": {
+    "status": "PASS",
+    "variables": []
+  },
+  "model": "deepseek-v4.1-flash:1017",
+  "output_parse": {
+    "status": "PASS"
+  },
+  "protocol": "openai_chat_completions",
+  "request": {
+    "status": "PASS"
+  },
+  "request_ids": [
+    "chatcmpl-447",
+    "chatcmpl-162",
+    "chatcmpl-101"
+  ],
+  "run_id": "v2-20261110T191501Z-fed1c652",
+  "schema_version": "1",
+  "status": "PASS",
+  "timestamp": "2026-11-10T19:15:05.190973Z",
+  "tool": {
+    "status": "PASS"
+  }
+}
+--- EXIT check-provider = 0
+=== STEP prepare :: /tmp/mrf-v3-clean/.venv/bin/python -m src.cli prepare --run-id v2-20261110T191501Z-fed1c652 --synthetic --seed 47
+{
+  "data_manifest": {
+    "config_sha256": "68f20bd8f1571741cc5f526212c1731b160811da2dbf282e730a87455e320009",
+    "data_kind": "synthetic",
+    "encoding_counts": {
+      "education": {
+        "1": 7410,
+        "2": 11443,
+        "3": 4596,
+        "4": 1750
+      },
+      "marriage": {
+        "1": 11189,
+        "2": 12715,
+        "3": 1295
+      },
+      "pay_status_1": {
+        "-1": 5770,
+        "-2": 2091,
+        "0": 12233,
+        "1": 1988,
+        "2": 1271,
+        "3": 792,
+        "4": 408,
+        "5": 254,
+        "6": 220,
+        "7": 119,
+        "8": 53
+      },
+      "pay_status_2": {
+        "-1": 6126,
+        "-2": 2521,
+        "0": 10237,
+        "1": 3141,
+        "2": 1244,
+        "3": 843,
+        "4": 424,
+        "5": 265,
+        "6": 212,
+        "7": 132,
+        "8": 54
+      },
+      "pay_status_3": {
+        "-1": 6129,
+        "-2": 2976,
+        "0": 8951,
+        "1": 3732,
+        "2": 1456,
+        "3": 824,
+        "4": 447,
+        "5": 273,
+        "6": 211,
+        "7": 133,
+        "8": 67
+      },
+      "pay_status_4": {
+        "-1": 6057,
+        "-2": 3329,
+        "0": 8087,
+        "1": 4025,
+        "2": 1660,
+        "3": 865,
+        "4": 479,
+        "5": 271,
+        "6": 217,
+        "7": 132,
+        "8": 77
+      },
+      "pay_status_5": {
+        "-1": 5937,
+        "-2": 3678,
+        "0": 7437,
+        "1": 4131,
+        "2": 1866,
+        "3": 943,
+        "4": 490,
+        "5": 290,
+        "6": 203,
+        "7": 147,
+        "8": 77
+      },
+      "pay_status_6": {
+        "-1": 5833,
+        "-2": 3956,
+        "0": 6859,
+        "1": 4247,
+        "2": 2024,
+        "3": 1021,
+        "4": 511,
+        "5": 314,
+        "6": 205,
+        "7": 140,
+        "8": 89
+      },
+      "sex": {
+        "1": 10113,
+        "2": 15086
+      }
+    },
+    "encoding_recodes": {
+      "education": {
+        "0_to_4": 123,
+        "5_to_4": 316,
+        "6_to_4": 145
+      },
+      "marriage": {
+        "0_to_3": 162
+      }
+    },
+    "files": {
+      "dev.csv": {
+        "default_rate": 0.184,
+        "rows": 6000,
+        "sha256": "5299b838fefc0706778a624c68d27f1c82974ea4cf47512c3e6bce26dd28ea70"
+      },
+      "holdout.csv": {
+        "default_rate": 0.18432026688907424,
+        "rows": 1199,
+        "sha256": "98dfb52bb5d6e6ca09e24b05f9e0a66ce5e61f2e977e2f2b33e119f063b0237a"
+      },
+      "shift_pool.csv": {
+        "default_rate": 0.184,
+        "rows": 3000,
+        "sha256": "40a66b28684d2c0e40ba28d489adec63cdfe883f7f2317bd610c52c09a3bef53"
+      },
+      "train.csv": {
+        "default_rate": 0.184,
+        "rows": 15000,
+        "sha256": "bcd62e1606fa6f144b34ab4ed0a613b4ff54626acfadb98bd0bcd6e76ea0c356"
+      }
+    },
+    "formal_status": "BLOCKED",
+    "model_id": "MDL_CREDIT_V1",
+    "overall": {
+      "default_count": 4637,
+      "default_rate": 0.1840152386999484,
+      "rows": 25199,
+      "unique_client_ids": 25199
+    },
+    "run_id": "v2-20261110T191501Z-fed1c652",
+    "schema_version": "1",
+    "seed": 47,
+    "source": {
+      "contains_real_data": false,
+      "landing_url": null,
+      "license": null,
+      "original_sha256": null
+    },
+    "split_validation": {
+      "default_rate_tolerance": 0.01,
+      "default_rates": {
+        "dev": 0.184,
+        "holdout": 0.18432026688907424,
+        "shift_pool": 0.184,
+        "train": 0.184
+      },
+      "default_rates_within_tolerance": true,
+      "errors": [],
+      "max_abs_default_rate_difference": 0.00030502818912583884,
+      "mutually_exclusive": true,
+      "overall_default_rate": 0.1840152386999484,
+      "row_counts": {
+        "dev": 6000,
+        "holdout": 1199,
+        "shift_pool": 3000,
+        "train": 15000
+      },
+      "source_rows": 30000,
+      "total_rows": 25199,
+      "unused_rows": 4801,
+      "valid": true
+    },
+    "synthetic": true
+  },
+  "status": "PREPARED"
+}
+--- EXIT prepare = 0
+=== STEP baseline :: /tmp/mrf-v3-clean/.venv/bin/python -m src.cli baseline --run-id v2-20261110T191501Z-fed1c652
+{
+  "artifacts": [
+    {
+      "bytes": 472,
+      "path": "reference/model.json",
+      "sha256": "3201c5b8df5c53d26db8773a8a761bb4a6b61d1bc8ce9674c2f43ba142325d69"
+    },
+    {
+      "bytes": 787928,
+      "path": "reference/train_predictions.csv",
+      "sha256": "f586897ffe85f9423c3d7b10cc02cec90f452727b8b3b4fd84f0613b305c2b12"
+    },
+    {
+      "bytes": 315240,
+      "path": "reference/dev_predictions.csv",
+      "sha256": "29cab20d27b1d196ebd989a89260c67a9a3e411850bb5de6c720a698bd7c7bb9"
+    },
+    {
+      "bytes": 63117,
+      "path": "reference/holdout_predictions.csv",
+      "sha256": "0a0a796c58533ba85b913ce0fb90ff8ef3e21013d7d6b9c1742649ca97b2f1a4"
+    },
+    {
+      "bytes": 866,
+      "path": "reference/sessionInfo.txt",
+      "sha256": "1ac011b4252b22672d087a6ae23827d96a879830598486eee787b5d9db0da033"
+    },
+    {
+      "bytes": 557,
+      "path": "reference/baseline_manifest.json",
+      "sha256": "1df0ddefc077da0815314087f4e2beb3b16eca51b218235542c383199fac9fed"
+    }
+  ],
+  "duration_seconds": 0.843231,
+  "exit_code": 0,
+  "network": "none",
+  "r_image": "rocker/r-ver:4.4.2",
+  "r_script_sha256": "16802044a1b856f9940b9b2317e28933fc28b3403536c157e56c538af6fea511",
+  "run_id": "v2-20261110T191501Z-fed1c652",
+  "schema_version": "1",
+  "status": "PASS",
+  "timestamp": "2026-11-10T19:15:06.995017Z"
+}
+--- EXIT baseline = 0
+=== STEP reference-parity :: /tmp/mrf-v3-clean/.venv/bin/python -m src.cli reference-parity --run-id v2-20261110T191501Z-fed1c652
+{
+  "results": {
+    "dev": {
+      "baseline_id_unique": true,
+      "baseline_ids_nonempty": true,
+      "baseline_row_count": 6000,
+      "behaviour_mismatch_count": 0,
+      "candidate_id_unique": true,
+      "candidate_ids_nonempty": true,
+      "candidate_row_count": 6000,
+      "classification_mismatch_count": 0,
+      "execution_error": false,
+      "id_order_match": true,
+      "id_sets_match": true,
+      "input_baseline_ids_match": null,
+      "input_candidate_ids_match": null,
+      "input_id_unique": null,
+      "input_ids_match": null,
+      "input_ids_nonempty": null,
+      "input_row_count": null,
+      "max_abs_diff": 2.220446049250313e-16,
+      "mean_abs_diff": 2.465620300521702e-18,
+      "n": 6000,
+      "reasons": [],
+      "run_id": "v2-20261110T191501Z-fed1c652",
+      "status": "PASS",
+      "valid_probability_pairs": 6000
+    },
+    "holdout": {
+      "baseline_id_unique": true,
+      "baseline_ids_nonempty": true,
+      "baseline_row_count": 1199,
+      "behaviour_mismatch_count": 0,
+      "candidate_id_unique": true,
+      "candidate_ids_nonempty": true,
+      "candidate_row_count": 1199,
+      "classification_mismatch_count": 0,
+      "execution_error": false,
+      "id_order_match": true,
+      "id_sets_match": true,
+      "input_baseline_ids_match": null,
+      "input_candidate_ids_match": null,
+      "input_id_unique": null,
+      "input_ids_match": null,
+      "input_ids_nonempty": null,
+      "input_row_count": null,
+      "max_abs_diff": 2.220446049250313e-16,
+      "mean_abs_diff": 2.060255404329419e-18,
+      "n": 1199,
+      "reasons": [],
+      "run_id": "v2-20261110T191501Z-fed1c652",
+      "status": "PASS",
+      "valid_probability_pairs": 1199
+    }
+  },
+  "status": "PASS"
+}
+--- EXIT reference-parity = 0
+=== STEP fixture-parity :: /tmp/mrf-v3-clean/.venv/bin/python -m src.cli fixture-parity --run-id v2-20261110T191501Z-fed1c652
+{
+  "contains_synthetic_fixtures_only": true,
+  "records": [
+    {
+      "kind": "ROW_BEHAVIOUR",
+      "name": "behavior",
+      "parity": {
+        "baseline_id_unique": true,
+        "baseline_ids_nonempty": true,
+        "baseline_row_count": 11,
+        "behaviour_mismatch_count": 0,
+        "candidate_id_unique": true,
+        "candidate_ids_nonempty": true,
+        "candidate_row_count": 11,
+        "classification_mismatch_count": 0,
+        "execution_error": false,
+        "id_order_match": true,
+        "id_sets_match": true,
+        "input_baseline_ids_match": null,
+        "input_candidate_ids_match": null,
+        "input_id_unique": null,
+        "input_ids_match": null,
+        "input_ids_nonempty": null,
+        "input_row_count": null,
+        "max_abs_diff": 0.0,
+        "mean_abs_diff": 0.0,
+        "n": 11,
+        "reasons": [],
+        "run_id": "v2-20261110T191501Z-fed1c652",
+        "status": "PASS",
+        "valid_probability_pairs": 6
+      },
+      "parity_status": "PASS",
+      "python_error": null,
+      "python_exit_code": 0,
+      "r_exit_code": 0
+    },
+    {
+      "kind": "ROW_BEHAVIOUR",
+      "name": "column_reordered",
+      "parity": {
+        "baseline_id_unique": true,
+        "baseline_ids_nonempty": true,
+        "baseline_row_count": 2,
+        "behaviour_mismatch_count": 0,
+        "candidate_id_unique": true,
+        "candidate_ids_nonempty": true,
+        "candidate_row_count": 2,
+        "classification_mismatch_count": 0,
+        "execution_error": false,
+        "id_order_match": true,
+        "id_sets_match": true,
+        "input_baseline_ids_match": null,
+        "input_candidate_ids_match": null,
+        "input_id_unique": null,
+        "input_ids_match": null,
+        "input_ids_nonempty": null,
+        "input_row_count": null,
+        "max_abs_diff": 0.0,
+        "mean_abs_diff": 0.0,
+        "n": 2,
+        "reasons": [],
+        "run_id": "v2-20261110T191501Z-fed1c652",
+        "status": "PASS",
+        "valid_probability_pairs": 2
+      },
+      "parity_status": "PASS",
+      "python_error": null,
+      "python_exit_code": 0,
+      "r_exit_code": 0
+    },
+    {
+      "kind": "ROW_BEHAVIOUR",
+      "name": "row_reordered",
+      "parity": {
+        "baseline_id_unique": true,
+        "baseline_ids_nonempty": true,
+        "baseline_row_count": 2,
+        "behaviour_mismatch_count": 0,
+        "candidate_id_unique": true,
+        "candidate_ids_nonempty": true,
+        "candidate_row_count": 2,
+        "classification_mismatch_count": 0,
+        "execution_error": false,
+        "id_order_match": true,
+        "id_sets_match": true,
+        "input_baseline_ids_match": null,
+        "input_candidate_ids_match": null,
+        "input_id_unique": null,
+        "input_ids_match": null,
+        "input_ids_nonempty": null,
+        "input_row_count": null,
+        "max_abs_diff": 0.0,
+        "mean_abs_diff": 0.0,
+        "n": 2,
+        "reasons": [],
+        "run_id": "v2-20261110T191501Z-fed1c652",
+        "status": "PASS",
+        "valid_probability_pairs": 2
+      },
+      "parity_status": "PASS",
+      "python_error": null,
+      "python_exit_code": 0,
+      "r_exit_code": 0
+    },
+    {
+      "kind": "STRUCTURAL_REJECTION",
+      "name": "duplicate_ids",
+      "parity_status": "PASS",
+      "python_error": "client_id values must be unique",
+      "python_exit_code": 2,
+      "r_exit_code": 2
+    },
+    {
+      "kind": "STRUCTURAL_REJECTION",
+      "name": "missing_column",
+      "parity_status": "PASS",
+      "python_error": "Missing required columns: pay_amt_1",
+      "python_exit_code": 2,
+      "r_exit_code": 2
+    },
+    {
+      "kind": "STRUCTURAL_REJECTION",
+      "name": "empty",
+      "parity_status": "PASS",
+      "python_error": "Input CSV has no data rows",
+      "python_exit_code": 2,
+      "r_exit_code": 2
+    }
+  ],
+  "run_id": "v2-20261110T191501Z-fed1c652",
+  "schema_version": "1",
+  "status": "PASS"
+}
+--- EXIT fixture-parity = 0
+=== STEP mutation-check :: /tmp/mrf-v3-clean/.venv/bin/python -m src.cli mutation-check --run-id v2-20261110T191501Z-fed1c652
+{
+  "max_abs_diff": 0.001116141636396728,
+  "mean_abs_diff": 0.00010108656007767341,
+  "mutant_model_sha256": "8d66f3cb4c4534731496521543661775beedb06e925a0fdab3c4ffa8bdef663d",
+  "mutant_parity_status": "FAIL",
+  "mutation": "coefficients.delay_1 += 0.001 (isolated copy)",
+  "mutation_detected": true,
+  "original_model_sha256_after": "3201c5b8df5c53d26db8773a8a761bb4a6b61d1bc8ce9674c2f43ba142325d69",
+  "original_model_sha256_before": "3201c5b8df5c53d26db8773a8a761bb4a6b61d1bc8ce9674c2f43ba142325d69",
+  "original_unchanged": true,
+  "run_id": "v2-20261110T191501Z-fed1c652",
+  "schema_version": "1",
+  "status": "PASS",
+  "tests_sha256_after": "0f48300c308de77d0532992d3374dc3bf22e6c1d2096d492515d45e0a35ebb5b",
+  "tests_sha256_before": "0f48300c308de77d0532992d3374dc3bf22e6c1d2096d492515d45e0a35ebb5b"
+}
+--- EXIT mutation-check = 0
+=== STEP docker-boundary :: /tmp/mrf-v3-clean/.venv/bin/python -m src.cli docker-boundary --run-id v2-20261110T191501Z-fed1c652
+{
+  "checks": [
+    "read_only_root_and_inputs:PASS",
+    "no_host_or_baseline_mount:PASS",
+    "api_key_not_visible:PASS",
+    "memory_limit_triggered:PASS",
+    "cpu_limit_triggered:PASS",
+    "cpu_quota_control_distinguishes:PASS",
+    "pid_limit_triggered:PASS",
+    "timeout_triggered:PASS"
+  ],
+  "report": "/private/tmp/mrf-v3-freeze/dev_runs/v2-20261110T191501Z-fed1c652/boundary/boundary_report.json",
+  "status": "PASS"
+}
+--- EXIT docker-boundary = 0
+=== STEP extract-inventory-MDL_CREDIT_V1 :: /tmp/mrf-v3-clean/.venv/bin/python -m src.cli extract-inventory --run-id v2-20261110T191501Z-fed1c652 --model MDL_CREDIT_V1
+{
+  "artifact_sha256": "f45578c1f7704c660473ab844ebe0f60d79e40b43538a4f59da2783d86192e86",
+  "inventory": {
+    "code_threshold": 0.35,
+    "conflicts": [
+      {
+        "code_value": 0.35,
+        "description": "legacy/credit_v1.R sets THRESHOLD <- 0.35 at line 12 and classifies with probabilities >= THRESHOLD, while legacy/notes/credit_v1.md line 9 documents 'Decision threshold: 0.50'. The code threshold and the documented threshold disagree.",
+        "documented_value": 0.5,
+        "field": "decision_threshold",
+        "kind": "decision-threshold conflict"
+      },
+      {
+        "description": "legacy/credit_v1.R enforces input validity limits (limit_bal > 0, pay_status_1 an integer in [-2, 9], pay_amt_1 >= 0 at lines 102-106) and caps the util_1 feature at 2 (line 145), with median imputation of invalid values. legacy/notes/credit_v1.md line 12 states only that the model uses recent repayment delay, credit limit, bill utilization, and recent payment amount and never states these limits.",
+        "field": "preprocessing_limits",
+        "kind": "limit used in code but omitted from the note"
+      }
+    ],
+    "documented_threshold": 0.5,
+    "feature_order": [
+      "delay_1",
+      "log_limit",
+      "util_1",
+      "log_pay_1"
+    ],
+    "model_id": "MDL_CREDIT_V1",
+    "model_type": "Logistic regression for credit default",
+    "owner": "Unknown",
+    "review_status": "PENDING",
+    "run_id": "v2-20261110T191501Z-fed1c652",
+    "schema_version": "1",
+    "sources": [
+      {
+        "excerpt": "MODEL_ID <- \"MDL_CREDIT_V1\"\nFEATURE_ORDER <- c(\"delay_1\", \"log_limit\", \"util_1\", \"log_pay_1\")\nRAW_FIELDS <- c(\"limit_bal\", \"pay_status_1\", \"bill_amt_1\", \"pay_amt_1\")",
+        "line_end": 5,
+        "line_start": 3,
+        "path": "legacy/credit_v1.R",
+        "sha256": "16802044a1b856f9940b9b2317e28933fc28b3403536c157e56c538af6fea511"
+      },
+      {
+        "excerpt": "THRESHOLD <- 0.35",
+        "line_end": 12,
+        "line_start": 12,
+        "path": "legacy/credit_v1.R",
+        "sha256": "16802044a1b856f9940b9b2317e28933fc28b3403536c157e56c538af6fea511"
+      },
+      {
+        "excerpt": "    if (field == \"limit_bal\") present_valid <- present_valid & value > 0\n    if (field == \"pay_status_1\") {\n      present_valid <- present_valid & value >= -2 & value <= 9 & value == floor(value)\n    }\n    if (field == \"pay_amt_1\") present_valid <- present_valid & value >= 0",
+        "line_end": 106,
+        "line_start": 102,
+        "path": "legacy/credit_v1.R",
+        "sha256": "16802044a1b856f9940b9b2317e28933fc28b3403536c157e56c538af6fea511"
+      },
+      {
+        "excerpt": "    util_1 = pmin(pmax(values$bill_amt_1 / values$limit_bal, 0), 2),",
+        "line_end": 145,
+        "line_start": 145,
+        "path": "legacy/credit_v1.R",
+        "sha256": "16802044a1b856f9940b9b2317e28933fc28b3403536c157e56c538af6fea511"
+      },
+      {
+        "excerpt": "- Model type: Logistic regression for credit default",
+        "line_end": 6,
+        "line_start": 6,
+        "path": "legacy/notes/credit_v1.md",
+        "sha256": "ef4b771b78ee0b0110a6acefcb5ba6a1ad57e97a0599fd96c807cbcdaa9b2119"
+      },
+      {
+        "excerpt": "- Owner: Unknown",
+        "line_end": 7,
+        "line_start": 7,
+        "path": "legacy/notes/credit_v1.md",
+        "sha256": "ef4b771b78ee0b0110a6acefcb5ba6a1ad57e97a0599fd96c807cbcdaa9b2119"
+      },
+      {
+        "excerpt": "- Training date: Unknown",
+        "line_end": 8,
+        "line_start": 8,
+        "path": "legacy/notes/credit_v1.md",
+        "sha256": "ef4b771b78ee0b0110a6acefcb5ba6a1ad57e97a0599fd96c807cbcdaa9b2119"
+      },
+      {
+        "excerpt": "- Decision threshold: 0.50",
+        "line_end": 9,
+        "line_start": 9,
+        "path": "legacy/notes/credit_v1.md",
+        "sha256": "ef4b771b78ee0b0110a6acefcb5ba6a1ad57e97a0599fd96c807cbcdaa9b2119"
+      },
+      {
+        "excerpt": "The model uses recent repayment delay, credit limit, bill utilization, and recent payment amount. Preparation records and original approval evidence are unavailable.",
+        "line_end": 12,
+        "line_start": 12,
+        "path": "legacy/notes/credit_v1.md",
+        "sha256": "ef4b771b78ee0b0110a6acefcb5ba6a1ad57e97a0599fd96c807cbcdaa9b2119"
+      }
+    ],
+    "training_date": "Unknown",
+    "unknowns": [
+      "owner",
+      "training_date"
+    ]
+  },
+  "model_id": "MDL_CREDIT_V1",
+  "status": "PENDING_GATE_A"
+}
+--- EXIT extract-inventory-MDL_CREDIT_V1 = 0
+=== STEP approve-Gate_A-MDL_CREDIT_V1 :: /tmp/mrf-v3-clean/.venv/bin/python -m src.cli approve --run-id v2-20261110T191501Z-fed1c652 --gate Gate_A --model MDL_CREDIT_V1 --sha256 f45578c1f7704c660473ab844ebe0f60d79e40b43538a4f59da2783d86192e86 --reviewer agent-delegated --comment Delegated by the V3 delivery goal (docs/v3/00_baseline_status.md §6.3 H-03). Read the full MDL_CREDIT_V1 inventory: every source path, line range, verbatim excerpt and SHA-256 checked against the allowlisted legacy files; feature order, code/documented threshold pair, required Unknowns and each conflict identity checked against config/inventory_expectations.json; conflicts must cite an allowlisted source and equal thresholds must not be reported as a conflict (docs/v3/01_gap_fixes.md §1).
+{
+  "review": {
+    "comment": "Delegated by the V3 delivery goal (docs/v3/00_baseline_status.md §6.3 H-03). Read the full MDL_CREDIT_V1 inventory: every source path, line range, verbatim excerpt and SHA-256 checked against the allowlisted legacy files; feature order, code/documented threshold pair, required Unknowns and each conflict identity checked against config/inventory_expectations.json; conflicts must cite an allowlisted source and equal thresholds must not be reported as a conflict (docs/v3/01_gap_fixes.md §1).",
+    "context_sha256": "e03f06ab62e9808878b30f7aa003bbfb649da00c4ba47a98f7910e748325cdb6",
+    "decision": "APPROVED",
+    "gate": "Gate_A",
+    "reviewed_artifact_sha256": "f45578c1f7704c660473ab844ebe0f60d79e40b43538a4f59da2783d86192e86",
+    "reviewer": "agent-delegated",
+    "run_id": "v2-20261110T191501Z-fed1c652",
+    "schema_version": "1",
+    "timestamp": "2026-11-10T19:16:05.480515Z"
+  },
+  "status": "RECORDED"
+}
+--- EXIT approve-Gate_A-MDL_CREDIT_V1 = 0
+=== STEP extract-inventory-MDL_CREDIT_V2 :: /tmp/mrf-v3-clean/.venv/bin/python -m src.cli extract-inventory --run-id v2-20261110T191501Z-fed1c652 --model MDL_CREDIT_V2
+{
+  "artifact_sha256": "f2af099841e9e37feeadc56aa7418b951ae2f781d30e481a4f69c9bb65bcfc83",
+  "inventory": {
+    "code_threshold": 0.3,
+    "conflicts": [
+      {
+        "code_usage": "utilisation is clipped to the range [0, 2] via pmin(pmax(bill_amt_i / limit_bal, 0), 2), negative repayment statuses are floored at 0, and missing/non-numeric inputs are imputed with training medians",
+        "detail": "legacy/credit_v2.R implements an explicit utilisation limit of [0, 2] plus median imputation, but legacy/notes/credit_v2.md says 'Input constraints were never written down', so the limit the code uses is omitted from the documentation.",
+        "field": "input_constraints",
+        "kind": "limit",
+        "note_statement": "states that input constraints were never written down",
+        "sources": [
+          "legacy/credit_v2.R",
+          "legacy/notes/credit_v2.md"
+        ]
+      }
+    ],
+    "documented_threshold": 0.3,
+    "feature_order": [
+      "delay_1",
+      "delay_2",
+      "delay_3",
+      "log_limit",
+      "util_1",
+      "util_mean_6",
+      "log_pay_1"
+    ],
+    "model_id": "MDL_CREDIT_V2",
+    "model_type": "Logistic regression for credit default probability",
+    "owner": "Unknown",
+    "review_status": "PENDING",
+    "run_id": "v2-20261110T191501Z-fed1c652",
+    "schema_version": "1",
+    "sources": [
+      {
+        "excerpt": "MODEL_ID <- \"MDL_CREDIT_V2\"",
+        "line_end": 6,
+        "line_start": 6,
+        "path": "legacy/credit_v2.R",
+        "sha256": "86c7b13806afbc694f92a3fb8d6288caea8c113d0712b2ef83e72b045949ea55"
+      },
+      {
+        "excerpt": "FEATURE_ORDER <- c(\"delay_1\", \"delay_2\", \"delay_3\", \"log_limit\", \"util_1\", \"util_mean_6\", \"log_pay_1\")",
+        "line_end": 7,
+        "line_start": 7,
+        "path": "legacy/credit_v2.R",
+        "sha256": "86c7b13806afbc694f92a3fb8d6288caea8c113d0712b2ef83e72b045949ea55"
+      },
+      {
+        "excerpt": "THRESHOLD <- 0.30",
+        "line_end": 12,
+        "line_start": 12,
+        "path": "legacy/credit_v2.R",
+        "sha256": "86c7b13806afbc694f92a3fb8d6288caea8c113d0712b2ef83e72b045949ea55"
+      },
+      {
+        "excerpt": "    pmin(pmax(columns[[paste0(\"bill_amt_\", index)]] / columns$limit_bal, 0), 2)",
+        "line_end": 84,
+        "line_start": 84,
+        "path": "legacy/credit_v2.R",
+        "sha256": "86c7b13806afbc694f92a3fb8d6288caea8c113d0712b2ef83e72b045949ea55"
+      },
+      {
+        "excerpt": "- Model type: Logistic regression for credit default probability",
+        "line_end": 8,
+        "line_start": 8,
+        "path": "legacy/notes/credit_v2.md",
+        "sha256": "002becfc68aa8612a0c67700532ce579fbc0495637928ac1bb84dcc9c3281d1a"
+      },
+      {
+        "excerpt": "- Decision threshold: 0.30",
+        "line_end": 9,
+        "line_start": 9,
+        "path": "legacy/notes/credit_v2.md",
+        "sha256": "002becfc68aa8612a0c67700532ce579fbc0495637928ac1bb84dcc9c3281d1a"
+      },
+      {
+        "excerpt": "Input constraints were never written down. The scoring workbook was rebuilt by",
+        "line_end": 18,
+        "line_start": 18,
+        "path": "legacy/notes/credit_v2.md",
+        "sha256": "002becfc68aa8612a0c67700532ce579fbc0495637928ac1bb84dcc9c3281d1a"
+      },
+      {
+        "excerpt": "by the old approval memo is missing. No owner, no training date and no",
+        "line_end": 20,
+        "line_start": 20,
+        "path": "legacy/notes/credit_v2.md",
+        "sha256": "002becfc68aa8612a0c67700532ce579fbc0495637928ac1bb84dcc9c3281d1a"
+      }
+    ],
+    "training_date": "Unknown",
+    "unknowns": [
+      "owner",
+      "training_date"
+    ]
+  },
+  "model_id": "MDL_CREDIT_V2",
+  "status": "PENDING_GATE_A"
+}
+--- EXIT extract-inventory-MDL_CREDIT_V2 = 0
+=== STEP approve-Gate_A-MDL_CREDIT_V2 :: /tmp/mrf-v3-clean/.venv/bin/python -m src.cli approve --run-id v2-20261110T191501Z-fed1c652 --gate Gate_A --model MDL_CREDIT_V2 --sha256 f2af099841e9e37feeadc56aa7418b951ae2f781d30e481a4f69c9bb65bcfc83 --reviewer agent-delegated --comment Delegated by the V3 delivery goal (docs/v3/00_baseline_status.md §6.3 H-03). Read the full MDL_CREDIT_V2 inventory: every source path, line range, verbatim excerpt and SHA-256 checked against the allowlisted legacy files; feature order, code/documented threshold pair, required Unknowns and each conflict identity checked against config/inventory_expectations.json; conflicts must cite an allowlisted source and equal thresholds must not be reported as a conflict (docs/v3/01_gap_fixes.md §1).
+{
+  "review": {
+    "comment": "Delegated by the V3 delivery goal (docs/v3/00_baseline_status.md §6.3 H-03). Read the full MDL_CREDIT_V2 inventory: every source path, line range, verbatim excerpt and SHA-256 checked against the allowlisted legacy files; feature order, code/documented threshold pair, required Unknowns and each conflict identity checked against config/inventory_expectations.json; conflicts must cite an allowlisted source and equal thresholds must not be reported as a conflict (docs/v3/01_gap_fixes.md §1).",
+    "context_sha256": "e03f06ab62e9808878b30f7aa003bbfb649da00c4ba47a98f7910e748325cdb6",
+    "decision": "APPROVED",
+    "gate": "Gate_A",
+    "reviewed_artifact_sha256": "f2af099841e9e37feeadc56aa7418b951ae2f781d30e481a4f69c9bb65bcfc83",
+    "reviewer": "agent-delegated",
+    "run_id": "v2-20261110T191501Z-fed1c652",
+    "schema_version": "1",
+    "timestamp": "2026-11-10T19:17:25.240038Z"
+  },
+  "status": "RECORDED"
+}
+--- EXIT approve-Gate_A-MDL_CREDIT_V2 = 0
+=== STEP extract-inventory-MDL_CREDIT_TREE :: /tmp/mrf-v3-clean/.venv/bin/python -m src.cli extract-inventory --run-id v2-20261110T191501Z-fed1c652 --model MDL_CREDIT_TREE
+{
+  "artifact_sha256": "ea86c0ccd6303b47f7f92815bc41f2aa035991d12cd616f706f1057c30cbcd6a",
+  "inventory": {
+    "code_threshold": 0.5,
+    "conflicts": [
+      {
+        "detail": "The code builds six repayment-status features (delay_1 through delay_6) from pay_status_1 through pay_status_6, while the note describes only the three most recent repayment-status fields. Cited: legacy/credit_tree.R line 7 and legacy/notes/credit_tree.md line 12.",
+        "field": "repayment_status_fields",
+        "kind": "feature",
+        "source_paths": [
+          "legacy/credit_tree.R",
+          "legacy/notes/credit_tree.md"
+        ]
+      },
+      {
+        "detail": "The code sets MAXDEPTH and passes maxdepth = MAXDEPTH to rpart.control, but the note states the summary does not record the maximum depth. Cited: legacy/credit_tree.R lines 11 and 101 and legacy/notes/credit_tree.md line 17.",
+        "field": "maxdepth",
+        "kind": "hyperparameter",
+        "source_paths": [
+          "legacy/credit_tree.R",
+          "legacy/notes/credit_tree.md"
+        ]
+      },
+      {
+        "detail": "The code passes cp = 0.001 to rpart.control, but the note states the summary does not record the complexity parameter. Cited: legacy/credit_tree.R line 101 and legacy/notes/credit_tree.md line 18.",
+        "field": "cp",
+        "kind": "hyperparameter",
+        "source_paths": [
+          "legacy/credit_tree.R",
+          "legacy/notes/credit_tree.md"
+        ]
+      },
+      {
+        "detail": "The code passes minsplit = 100 to rpart.control, but the note states the summary does not record the minimum split size. Cited: legacy/credit_tree.R line 101 and legacy/notes/credit_tree.md line 17.",
+        "field": "minsplit",
+        "kind": "hyperparameter",
+        "source_paths": [
+          "legacy/credit_tree.R",
+          "legacy/notes/credit_tree.md"
+        ]
+      },
+      {
+        "detail": "The code passes minbucket = 50 to rpart.control, a limit the note omits entirely; the note records no tuning detail at all. Cited: legacy/credit_tree.R line 101 and legacy/notes/credit_tree.md line 17.",
+        "field": "minbucket",
+        "kind": "hyperparameter",
+        "source_paths": [
+          "legacy/credit_tree.R",
+          "legacy/notes/credit_tree.md"
+        ]
+      }
+    ],
+    "documented_threshold": 0.5,
+    "feature_order": [
+      "delay_1",
+      "delay_2",
+      "delay_3",
+      "delay_4",
+      "delay_5",
+      "delay_6",
+      "limit_bal",
+      "util_1"
+    ],
+    "model_id": "MDL_CREDIT_TREE",
+    "model_type": "Shallow classification tree for credit default",
+    "owner": "Unknown",
+    "review_status": "PENDING",
+    "run_id": "v2-20261110T191501Z-fed1c652",
+    "schema_version": "1",
+    "sources": [
+      {
+        "excerpt": "MODEL_ID <- \"MDL_CREDIT_TREE\"",
+        "line_end": 6,
+        "line_start": 6,
+        "path": "legacy/credit_tree.R",
+        "sha256": "a3594d98815f734d183ed03e0b2b0b33beff638832aa67da42793d63bc10aee7"
+      },
+      {
+        "excerpt": "FEATURE_ORDER <- c(\"delay_1\", \"delay_2\", \"delay_3\", \"delay_4\", \"delay_5\", \"delay_6\", \"limit_bal\", \"util_1\")",
+        "line_end": 7,
+        "line_start": 7,
+        "path": "legacy/credit_tree.R",
+        "sha256": "a3594d98815f734d183ed03e0b2b0b33beff638832aa67da42793d63bc10aee7"
+      },
+      {
+        "excerpt": "MAXDEPTH <- 3",
+        "line_end": 11,
+        "line_start": 11,
+        "path": "legacy/credit_tree.R",
+        "sha256": "a3594d98815f734d183ed03e0b2b0b33beff638832aa67da42793d63bc10aee7"
+      },
+      {
+        "excerpt": "THRESHOLD <- 0.50",
+        "line_end": 12,
+        "line_start": 12,
+        "path": "legacy/credit_tree.R",
+        "sha256": "a3594d98815f734d183ed03e0b2b0b33beff638832aa67da42793d63bc10aee7"
+      },
+      {
+        "excerpt": "    control = rpart::rpart.control(maxdepth = MAXDEPTH, cp = 0.001, minsplit = 100, minbucket = 50)",
+        "line_end": 101,
+        "line_start": 101,
+        "path": "legacy/credit_tree.R",
+        "sha256": "a3594d98815f734d183ed03e0b2b0b33beff638832aa67da42793d63bc10aee7"
+      },
+      {
+        "excerpt": "- Model ID: MDL_CREDIT_TREE",
+        "line_end": 7,
+        "line_start": 7,
+        "path": "legacy/notes/credit_tree.md",
+        "sha256": "f84c9ad01d569044ee513648bca8daf5aeac233055e235b74b2d694ec638470a"
+      },
+      {
+        "excerpt": "- Model type: Shallow classification tree for credit default",
+        "line_end": 8,
+        "line_start": 8,
+        "path": "legacy/notes/credit_tree.md",
+        "sha256": "f84c9ad01d569044ee513648bca8daf5aeac233055e235b74b2d694ec638470a"
+      },
+      {
+        "excerpt": "- Decision threshold: 0.50",
+        "line_end": 9,
+        "line_start": 9,
+        "path": "legacy/notes/credit_tree.md",
+        "sha256": "f84c9ad01d569044ee513648bca8daf5aeac233055e235b74b2d694ec638470a"
+      },
+      {
+        "excerpt": "Inputs described in this summary are credit limit, current utilisation and the",
+        "line_end": 12,
+        "line_start": 12,
+        "path": "legacy/notes/credit_tree.md",
+        "sha256": "f84c9ad01d569044ee513648bca8daf5aeac233055e235b74b2d694ec638470a"
+      },
+      {
+        "excerpt": "the summary does not record the maximum depth, the minimum split size, the",
+        "line_end": 17,
+        "line_start": 17,
+        "path": "legacy/notes/credit_tree.md",
+        "sha256": "f84c9ad01d569044ee513648bca8daf5aeac233055e235b74b2d694ec638470a"
+      },
+      {
+        "excerpt": "complexity parameter or any variable-importance table. The tree was described in",
+        "line_end": 18,
+        "line_start": 18,
+        "path": "legacy/notes/credit_tree.md",
+        "sha256": "f84c9ad01d569044ee513648bca8daf5aeac233055e235b74b2d694ec638470a"
+      },
+      {
+        "excerpt": "No owner and no training date appear in this summary. Population stability for",
+        "line_end": 22,
+        "line_start": 22,
+        "path": "legacy/notes/credit_tree.md",
+        "sha256": "f84c9ad01d569044ee513648bca8daf5aeac233055e235b74b2d694ec638470a"
+      }
+    ],
+    "training_date": "Unknown",
+    "unknowns": [
+      "owner",
+      "training_date"
+    ]
+  },
+  "model_id": "MDL_CREDIT_TREE",
+  "status": "PENDING_GATE_A"
+}
+--- EXIT extract-inventory-MDL_CREDIT_TREE = 0
+=== STEP approve-Gate_A-MDL_CREDIT_TREE :: /tmp/mrf-v3-clean/.venv/bin/python -m src.cli approve --run-id v2-20261110T191501Z-fed1c652 --gate Gate_A --model MDL_CREDIT_TREE --sha256 ea86c0ccd6303b47f7f92815bc41f2aa035991d12cd616f706f1057c30cbcd6a --reviewer agent-delegated --comment Delegated by the V3 delivery goal (docs/v3/00_baseline_status.md §6.3 H-03). Read the full MDL_CREDIT_TREE inventory: every source path, line range, verbatim excerpt and SHA-256 checked against the allowlisted legacy files; feature order, code/documented threshold pair, required Unknowns and each conflict identity checked against config/inventory_expectations.json; conflicts must cite an allowlisted source and equal thresholds must not be reported as a conflict (docs/v3/01_gap_fixes.md §1).
+{
+  "review": {
+    "comment": "Delegated by the V3 delivery goal (docs/v3/00_baseline_status.md §6.3 H-03). Read the full MDL_CREDIT_TREE inventory: every source path, line range, verbatim excerpt and SHA-256 checked against the allowlisted legacy files; feature order, code/documented threshold pair, required Unknowns and each conflict identity checked against config/inventory_expectations.json; conflicts must cite an allowlisted source and equal thresholds must not be reported as a conflict (docs/v3/01_gap_fixes.md §1).",
+    "context_sha256": "e03f06ab62e9808878b30f7aa003bbfb649da00c4ba47a98f7910e748325cdb6",
+    "decision": "APPROVED",
+    "gate": "Gate_A",
+    "reviewed_artifact_sha256": "ea86c0ccd6303b47f7f92815bc41f2aa035991d12cd616f706f1057c30cbcd6a",
+    "reviewer": "agent-delegated",
+    "run_id": "v2-20261110T191501Z-fed1c652",
+    "schema_version": "1",
+    "timestamp": "2026-11-10T19:18:23.630272Z"
+  },
+  "status": "RECORDED"
+}
+--- EXIT approve-Gate_A-MDL_CREDIT_TREE = 0
+=== STEP generate-candidate :: /tmp/mrf-v3-clean/.venv/bin/python -m src.cli generate-candidate --run-id v2-20261110T191501Z-fed1c652 --attempt 0
+{
+  "api_evidence": {
+    "agent_audit_log": "agent_audit_log.jsonl",
+    "capability_check_sha256": "d6c3f0b837b2e7e305407581eb0b622ef0bd4701fabdee1f857d28e5cf783bda",
+    "capability_request_ids": [
+      "chatcmpl-447",
+      "chatcmpl-162",
+      "chatcmpl-101"
+    ],
+    "chat_completions_url": "https://sa.kaiwen.dev/v1/chat/completions",
+    "generation_request_event_id": "36b26ed2-0b5f-4f7f-9778-e3d403a0256c",
+    "generation_request_id": "chatcmpl-709",
+    "model": "deepseek-v4.1-flash:1017",
+    "protocol": "openai_chat_completions",
+    "request_log": "provider/request_log.jsonl"
+  },
+  "attempt": 0,
+  "candidate_sha256": "fd9ff6167af12d3d946bb6e81cae37172a038000a11c8f6cead3131c9caa750c",
+  "context_sha256": "e03f06ab62e9808878b30f7aa003bbfb649da00c4ba47a98f7910e748325cdb6",
+  "created_at": "2026-11-10T19:19:21.539743Z",
+  "diff": "/private/tmp/mrf-v3-freeze/dev_runs/v2-20261110T191501Z-fed1c652/candidates/attempt_000/candidate.diff",
+  "gate_b_status": "NOT_REVIEWED",
+  "generation_mode": "REAL_API",
+  "model_id": "MDL_CREDIT_V1",
+  "run_id": "v2-20261110T191501Z-fed1c652",
+  "schema_version": "1",
+  "source": "/private/tmp/mrf-v3-freeze/dev_runs/v2-20261110T191501Z-fed1c652/candidates/attempt_000/credit_v1.py",
+  "status": "PENDING_GATE_B"
+}
+--- EXIT generate-candidate = 0
+candidate_sha256=fd9ff6167af12d3d946bb6e81cae37172a038000a11c8f6cead3131c9caa750c
+=== STEP show-candidate :: /tmp/mrf-v3-clean/.venv/bin/python -m src.cli show-candidate --run-id v2-20261110T191501Z-fed1c652 --attempt 0
+{
+  "diff": "[candidate diff retained locally]",
+  "metadata": {
+    "api_evidence": {
+      "agent_audit_log": "agent_audit_log.jsonl",
+      "capability_check_sha256": "d6c3f0b837b2e7e305407581eb0b622ef0bd4701fabdee1f857d28e5cf783bda",
+      "capability_request_ids": [
+        "chatcmpl-447",
+        "chatcmpl-162",
+        "chatcmpl-101"
+      ],
+      "chat_completions_url": "https://sa.kaiwen.dev/v1/chat/completions",
+      "generation_request_event_id": "36b26ed2-0b5f-4f7f-9778-e3d403a0256c",
+      "generation_request_id": "chatcmpl-709",
+      "model": "deepseek-v4.1-flash:1017",
+      "protocol": "openai_chat_completions",
+      "request_log": "provider/request_log.jsonl"
+    },
+    "attempt": 0,
+    "candidate_sha256": "fd9ff6167af12d3d946bb6e81cae37172a038000a11c8f6cead3131c9caa750c",
+    "context_sha256": "e03f06ab62e9808878b30f7aa003bbfb649da00c4ba47a98f7910e748325cdb6",
+    "created_at": "2026-11-10T19:19:21.539743Z",
+    "gate_b_status": "NOT_REVIEWED",
+    "generation_mode": "REAL_API",
+    "model_id": "MDL_CREDIT_V1",
+    "run_id": "v2-20261110T191501Z-fed1c652",
+    "schema_version": "1"
+  },
+  "status": "CANDIDATE"
+}
+--- EXIT show-candidate = 0
+=== STEP approve-Gate_B :: /tmp/mrf-v3-clean/.venv/bin/python -m src.cli approve --run-id v2-20261110T191501Z-fed1c652 --gate Gate_B --attempt 0 --sha256 fd9ff6167af12d3d946bb6e81cae37172a038000a11c8f6cead3131c9caa750c --reviewer agent-delegated --comment Delegated by the V3 delivery goal. Read the complete candidate source and diff: coefficients/medians/feature order/0.35 threshold come from the frozen R export, no retraining, no network calls, no writes to tests or baseline artifacts, runs in --network none as non-root against read-only mounts; full 64-hex candidate hash matches the file.
+{
+  "review": {
+    "comment": "Delegated by the V3 delivery goal. Read the complete candidate source and diff: coefficients/medians/feature order/0.35 threshold come from the frozen R export, no retraining, no network calls, no writes to tests or baseline artifacts, runs in --network none as non-root against read-only mounts; full 64-hex candidate hash matches the file.",
+    "context_sha256": "e03f06ab62e9808878b30f7aa003bbfb649da00c4ba47a98f7910e748325cdb6",
+    "decision": "APPROVED",
+    "gate": "Gate_B",
+    "reviewed_artifact_sha256": "fd9ff6167af12d3d946bb6e81cae37172a038000a11c8f6cead3131c9caa750c",
+    "reviewer": "agent-delegated",
+    "run_id": "v2-20261110T191501Z-fed1c652",
+    "schema_version": "1",
+    "timestamp": "2026-11-10T19:19:22.271288Z"
+  },
+  "status": "RECORDED"
+}
+--- EXIT approve-Gate_B = 0
+=== STEP run-dev :: /tmp/mrf-v3-clean/.venv/bin/python -m src.cli run-dev --run-id v2-20261110T191501Z-fed1c652 --attempt 0
+{
+  "diagnostics": "/private/tmp/mrf-v3-freeze/dev_runs/v2-20261110T191501Z-fed1c652/dev/attempt_000/dev_diagnostics.json",
+  "execution": {
+    "candidate_sha256": "fd9ff6167af12d3d946bb6e81cae37172a038000a11c8f6cead3131c9caa750c",
+    "context_sha256": "e03f06ab62e9808878b30f7aa003bbfb649da00c4ba47a98f7910e748325cdb6",
+    "docker": {
+      "cap_drop": [
+        "ALL"
+      ],
+      "command": [
+        "python",
+        "/candidate/credit_v1.py",
+        "--model",
+        "/input/model.json",
+        "--input",
+        "/input/input.csv",
+        "--output",
+        "/output/predictions.csv"
+      ],
+      "container_name": "mrf-credit-v1-5588e50291024131a2d348b85aec5e99",
+      "cpus": "1",
+      "docker_binary": "docker",
+      "environment": {},
+      "memory": "512m",
+      "memory_swap": "512m",
+      "mounts": [
+        {
+          "read_only": true,
+          "source": "/private/tmp/mrf-v3-freeze/dev_runs/v2-20261110T191501Z-fed1c652/candidates/attempt_000/credit_v1.py",
+          "target": "/candidate/credit_v1.py"
+        },
+        {
+          "read_only": true,
+          "source": "/private/tmp/mrf-v3-freeze/dev_runs/v2-20261110T191501Z-fed1c652/reference/model.json",
+          "target": "/input/model.json"
+        },
+        {
+          "read_only": true,
+          "source": "/private/tmp/mrf-v3-freeze/dev_runs/v2-20261110T191501Z-fed1c652/data/dev.csv",
+          "target": "/input/input.csv"
+        },
+        {
+          "read_only": false,
+          "source": "/private/tmp/mrf-v3-freeze/dev_runs/v2-20261110T191501Z-fed1c652/dev/attempt_000/output",
+          "target": "/output"
+        }
+      ],
+      "network": "none",
+      "pids_limit": 64,
+      "read_only": true,
+      "security_opt": [
+        "no-new-privileges"
+      ],
+      "tmpfs": {
+        "/tmp": "rw,noexec,nosuid,size=16m"
+      },
+      "user": "65532:65532"
+    },
+    "duration_seconds": 0.293938,
+    "error": null,
+    "exit_code": 0,
+    "image": "model-risk-factory-runner:v1",
+    "input_sha256": "5299b838fefc0706778a624c68d27f1c82974ea4cf47512c3e6bce26dd28ea70",
+    "model_sha256": "3201c5b8df5c53d26db8773a8a761bb4a6b61d1bc8ce9674c2f43ba142325d69",
+    "output_sha256": "cd8f71c570b1c0c8ce038bfea18ed5c18565d2bebb18fe6b7ced3e9a921134e5",
+    "run_id": "v2-20261110T191501Z-fed1c652",
+    "status": "PASS",
+    "timeout": 30
+  },
+  "status": "PASS"
+}
+--- EXIT run-dev = 0
+=== STEP candidate-fixtures :: /tmp/mrf-v3-clean/.venv/bin/python -m src.cli candidate-fixtures --run-id v2-20261110T191501Z-fed1c652 --attempt 0
+{
+  "fixture_summary": {
+    "attempt": 0,
+    "candidate_sha256": "fd9ff6167af12d3d946bb6e81cae37172a038000a11c8f6cead3131c9caa750c",
+    "context_sha256": "e03f06ab62e9808878b30f7aa003bbfb649da00c4ba47a98f7910e748325cdb6",
+    "created_at": "2026-11-10T19:19:24.421965Z",
+    "image": "model-risk-factory-runner:v1",
+    "records": [
+      {
+        "behaviour_mismatch_count": 0,
+        "candidate_sha256": "fd9ff6167af12d3d946bb6e81cae37172a038000a11c8f6cead3131c9caa750c",
+        "classification_mismatch_count": 0,
+        "execution_status": "PASS",
+        "kind": "ROW_BEHAVIOUR",
+        "max_abs_diff": 0.0,
+        "name": "behavior",
+        "parity_status": "PASS"
+      },
+      {
+        "behaviour_mismatch_count": 0,
+        "candidate_sha256": "fd9ff6167af12d3d946bb6e81cae37172a038000a11c8f6cead3131c9caa750c",
+        "classification_mismatch_count": 0,
+        "execution_status": "PASS",
+        "kind": "ROW_BEHAVIOUR",
+        "max_abs_diff": 0.0,
+        "name": "column_reordered",
+        "parity_status": "PASS"
+      },
+      {
+        "behaviour_mismatch_count": 0,
+        "candidate_sha256": "fd9ff6167af12d3d946bb6e81cae37172a038000a11c8f6cead3131c9caa750c",
+        "classification_mismatch_count": 0,
+        "execution_status": "PASS",
+        "kind": "ROW_BEHAVIOUR",
+        "max_abs_diff": 0.0,
+        "name": "row_reordered",
+        "parity_status": "PASS"
+      },
+      {
+        "candidate_sha256": "fd9ff6167af12d3d946bb6e81cae37172a038000a11c8f6cead3131c9caa750c",
+        "execution_status": "EXECUTION_ERROR",
+        "exit_code": 2,
+        "kind": "STRUCTURAL_REJECTION",
+        "name": "duplicate_ids",
+        "parity_status": "PASS"
+      },
+      {
+        "candidate_sha256": "fd9ff6167af12d3d946bb6e81cae37172a038000a11c8f6cead3131c9caa750c",
+        "execution_status": "EXECUTION_ERROR",
+        "exit_code": 2,
+        "kind": "STRUCTURAL_REJECTION",
+        "name": "missing_column",
+        "parity_status": "PASS"
+      },
+      {
+        "candidate_sha256": "fd9ff6167af12d3d946bb6e81cae37172a038000a11c8f6cead3131c9caa750c",
+        "execution_status": "EXECUTION_ERROR",
+        "exit_code": 2,
+        "kind": "STRUCTURAL_REJECTION",
+        "name": "empty",
+        "parity_status": "PASS"
+      }
+    ],
+    "run_id": "v2-20261110T191501Z-fed1c652",
+    "schema_version": "1",
+    "status": "PASS"
+  },
+  "status": "PASS"
+}
+--- EXIT candidate-fixtures = 0
+=== STEP freeze :: /tmp/mrf-v3-clean/.venv/bin/python -m src.cli freeze --run-id v2-20261110T191501Z-fed1c652 --attempt 0
+{
+  "attempt": 0,
+  "candidate_sha256": "fd9ff6167af12d3d946bb6e81cae37172a038000a11c8f6cead3131c9caa750c",
+  "context_sha256": "e03f06ab62e9808878b30f7aa003bbfb649da00c4ba47a98f7910e748325cdb6",
+  "frozen_at": "2026-11-10T19:19:24.818545Z",
+  "model_id": "MDL_CREDIT_V1",
+  "run_id": "v2-20261110T191501Z-fed1c652",
+  "schema_version": "1",
+  "source_candidate": "candidates/attempt_000",
+  "status": "FROZEN"
+}
+--- EXIT freeze = 0
+=== STEP accept :: /tmp/mrf-v3-clean/.venv/bin/python -m src.cli accept --run-id v2-20261110T191501Z-fed1c652
+{
+  "evidence": "/private/tmp/mrf-v3-freeze/dev_runs/v2-20261110T191501Z-fed1c652/holdout",
+  "execution_status": "PASS",
+  "parity": {
+    "baseline_id_unique": true,
+    "baseline_ids_nonempty": true,
+    "baseline_row_count": 1199,
+    "behaviour_mismatch_count": 0,
+    "candidate_id_unique": true,
+    "candidate_ids_nonempty": true,
+    "candidate_row_count": 1199,
+    "classification_mismatch_count": 0,
+    "execution_error": false,
+    "id_order_match": true,
+    "id_sets_match": true,
+    "input_baseline_ids_match": true,
+    "input_candidate_ids_match": true,
+    "input_id_unique": true,
+    "input_ids_match": true,
+    "input_ids_nonempty": true,
+    "input_row_count": 1199,
+    "max_abs_diff": 5.551115123125783e-17,
+    "mean_abs_diff": 9.259574850918736e-20,
+    "n": 1199,
+    "reasons": [],
+    "run_id": "v2-20261110T191501Z-fed1c652",
+    "status": "PASS",
+    "valid_probability_pairs": 1199
+  },
+  "status": "PASS"
+}
+--- EXIT accept = 0
+=== STEP validation-metrics :: /tmp/mrf-v3-clean/.venv/bin/python -m src.cli validation-metrics --run-id v2-20261110T191501Z-fed1c652
+{
+  "holdout_roc_auc": 0.6336784831912945,
+  "parity": "PASS",
+  "stability": "OK",
+  "status": "PASS",
+  "validation_metrics": "/private/tmp/mrf-v3-freeze/dev_runs/v2-20261110T191501Z-fed1c652/validation_metrics.json"
+}
+--- EXIT validation-metrics = 0
+=== STEP agent-summary :: /tmp/mrf-v3-clean/.venv/bin/python -m src.cli agent-summary --run-id v2-20261110T191501Z-fed1c652
+{
+  "agent_summary": "/private/tmp/mrf-v3-freeze/dev_runs/v2-20261110T191501Z-fed1c652/report/agent_summary.json",
+  "request_id": "chatcmpl-944",
+  "status": "PASS"
+}
+--- EXIT agent-summary = 0
+=== STEP report :: /tmp/mrf-v3-clean/.venv/bin/python -m src.cli report --run-id v2-20261110T191501Z-fed1c652
+{
+  "manifest": "/private/tmp/mrf-v3-freeze/dev_runs/v2-20261110T191501Z-fed1c652/report/review_manifest.json",
+  "report": "/private/tmp/mrf-v3-freeze/dev_runs/v2-20261110T191501Z-fed1c652/report/validation_report.md",
+  "status": "PASS",
+  "unresolved_numbers": [],
+  "value_count": 196
+}
+--- EXIT report = 0
+=== STEP approve-Gate_C :: /tmp/mrf-v3-clean/.venv/bin/python -m src.cli approve --run-id v2-20261110T191501Z-fed1c652 --gate Gate_C --sha256 0d63b4e491ecfe82d58d36ee5a92ed7f4a69cc6fefc9cd43a22cb8348e3285e3 --reviewer agent-delegated --comment Delegated by the V3 delivery goal. Re-rendered the report from the bound metrics, values index and Agent summary: every cell matches, every number resolves to a JSON path, the status_claims equal the derived facts and the trusted key-conclusions block states the recorded parity/stability/fairness status; no compliance overclaim.
+{
+  "review": {
+    "comment": "Delegated by the V3 delivery goal. Re-rendered the report from the bound metrics, values index and Agent summary: every cell matches, every number resolves to a JSON path, the status_claims equal the derived facts and the trusted key-conclusions block states the recorded parity/stability/fairness status; no compliance overclaim.",
+    "context_sha256": "e03f06ab62e9808878b30f7aa003bbfb649da00c4ba47a98f7910e748325cdb6",
+    "decision": "APPROVED",
+    "gate": "Gate_C",
+    "reviewed_artifact_sha256": "0d63b4e491ecfe82d58d36ee5a92ed7f4a69cc6fefc9cd43a22cb8348e3285e3",
+    "reviewer": "agent-delegated",
+    "run_id": "v2-20261110T191501Z-fed1c652",
+    "schema_version": "1",
+    "timestamp": "2026-11-10T19:19:58.014055Z"
+  },
+  "status": "RECORDED"
+}
+--- EXIT approve-Gate_C = 0
+=== STEP approve-report :: /tmp/mrf-v3-clean/.venv/bin/python -m src.cli approve-report --run-id v2-20261110T191501Z-fed1c652
+{
+  "approved_at": "2026-11-10T19:19:58.326260Z",
+  "metrics_sha256": "8cf1f858999dc6e285432488f28664f38c74c91b7206456e9a7328b0b698d7d2",
+  "report_sha256": "a08004d21c88943e3e276c3aa402670cb20ad227a685f8159f45592684ecc2fb",
+  "review_manifest_sha256": "0d63b4e491ecfe82d58d36ee5a92ed7f4a69cc6fefc9cd43a22cb8348e3285e3",
+  "reviewed_at": "2026-11-10T19:19:58.014055Z",
+  "reviewer": "agent-delegated",
+  "run_id": "v2-20261110T191501Z-fed1c652",
+  "schema_version": "1",
+  "status": "APPROVED"
+}
+--- EXIT approve-report = 0
+=== STEP report-status :: /tmp/mrf-v3-clean/.venv/bin/python -m src.cli report-status --run-id v2-20261110T191501Z-fed1c652
+{
+  "gate_c": "APPROVED",
+  "reasons": [],
+  "status": "APPROVED"
+}
+--- EXIT report-status = 0
+=== STEP failure-drills :: /tmp/mrf-v3-clean/.venv/bin/python -m src.cli failure-drills --run-id v2-20261110T191501Z-fed1c652
+{
+  "drills": [
+    "api_error:OBSERVED",
+    "parse_failure:OBSERVED",
+    "timeout:OBSERVED",
+    "request_limit:OBSERVED",
+    "repair_exhausted:OBSERVED"
+  ],
+  "report": "/private/tmp/mrf-v3-freeze/dev_runs/v2-20261110T191501Z-fed1c652/failures/failure_drills.json",
+  "status": "PASS"
+}
+--- EXIT failure-drills = 0
+=== STEP export :: /tmp/mrf-v3-clean/.venv/bin/python -m src.cli export --run-id v2-20261110T191501Z-fed1c652
+{
+  "archive": "/private/tmp/mrf-v3-freeze/delivery/v2-20261110T191501Z-fed1c652_evidence.zip",
+  "export_verified": "/private/tmp/mrf-v3-freeze/dev_runs/v2-20261110T191501Z-fed1c652/export_verified.json",
+  "file_count": 61,
+  "manifest": "/private/tmp/mrf-v3-freeze/dev_runs/v2-20261110T191501Z-fed1c652/evidence_manifest.json",
+  "release_approved": false,
+  "status": "EXPORTED"
+}
+--- EXIT export = 0
+=== STEP acceptance :: /tmp/mrf-v3-clean/.venv/bin/python -m src.cli acceptance --run-id v2-20261110T191501Z-fed1c652
+{
+  "records": [
+    {
+      "acceptance_id": "V1-01",
+      "actual": "capability_check=PASS; requests=3",
+      "commit_sha": "e298d23c3e14fd56f272c1edb29dc71a7ef5bf5e",
+      "evidence_path": "provider/capability_check.json",
+      "expected": "Real configured gateway request, tool roundtrip and output parsing pass.",
+      "reviewer": "automated-cli-check",
+      "status": "PASS",
+      "timestamp": "2026-11-10T19:20:21.346183Z",
+      "version": "v1"
+    },
+    {
+      "acceptance_id": "V1-02",
+      "actual": "data_kind=synthetic; formal_status=BLOCKED; synthetic data never satisfies V1-02",
+      "commit_sha": "e298d23c3e14fd56f272c1edb29dc71a7ef5bf5e",
+      "evidence_path": "data/data_manifest.json",
+      "expected": "Approved UCI raw SHA-256 and exact 15000/6000/1199/3000 stratified mutually exclusive splits pass.",
+      "reviewer": "automated-cli-check",
+      "status": "BLOCKED",
+      "timestamp": "2026-11-10T19:20:21.346183Z",
+      "version": "v1"
+    },
+    {
+      "acceptance_id": "V1-03",
+      "actual": "r_execution=PASS; image=rocker/r-ver:4.4.2",
+      "commit_sha": "e298d23c3e14fd56f272c1edb29dc71a7ef5bf5e",
+      "evidence_path": "reference/r_execution.json",
+      "expected": "MDL_CREDIT_V1 R glm baseline, preprocessing and predictions are reproducible.",
+      "reviewer": "automated-cli-check",
+      "status": "PASS",
+      "timestamp": "2026-11-10T19:20:21.346183Z",
+      "version": "v1"
+    },
+    {
+      "acceptance_id": "V1-04",
+      "actual": "reference_dev=PASS; reference_holdout=PASS; fixtures=PASS",
+      "commit_sha": "e298d23c3e14fd56f272c1edb29dc71a7ef5bf5e",
+      "evidence_path": "parity/reference_dev/parity_summary.json",
+      "expected": "Trusted Python reference parity meets probability, classification and behavioural contracts.",
+      "reviewer": "automated-cli-check",
+      "status": "PASS",
+      "timestamp": "2026-11-10T19:20:21.346183Z",
+      "version": "v1"
+    },
+    {
+      "acceptance_id": "V1-05",
+      "actual": "mutation_detected=True; original_unchanged=True",
+      "commit_sha": "e298d23c3e14fd56f272c1edb29dc71a7ef5bf5e",
+      "evidence_path": "mutation/mutation_summary.json",
+      "expected": "An isolated coefficient mutation is detected without changing baseline or test hashes.",
+      "reviewer": "automated-cli-check",
+      "status": "PASS",
+      "timestamp": "2026-11-10T19:20:21.346183Z",
+      "version": "v1"
+    },
+    {
+      "acceptance_id": "V1-06",
+      "actual": "holdout_parity=PASS; real_api_candidate=True; trusted_chain=True; migration=PASS",
+      "commit_sha": "e298d23c3e14fd56f272c1edb29dc71a7ef5bf5e",
+      "evidence_path": "holdout/parity_summary.json",
+      "expected": "Real API inventory/candidate migration passes human Gate A/B, Docker dev, freeze and Holdout parity.",
+      "reviewer": "automated-cli-check",
+      "status": "PASS",
+      "timestamp": "2026-11-10T19:20:21.346183Z",
+      "version": "v1"
+    },
+    {
+      "acceptance_id": "V1-07",
+      "actual": "reproduction chain verified",
+      "commit_sha": "e298d23c3e14fd56f272c1edb29dc71a7ef5bf5e",
+      "evidence_path": "evidence_manifest.json",
+      "expected": "The same run_id reproduces the evidence chain and exports verifiable actual command evidence.",
+      "reviewer": "automated-cli-check",
+      "status": "PASS",
+      "timestamp": "2026-11-10T19:20:21.346183Z",
+      "version": "v1"
+    },
+    {
+      "acceptance_id": "V2-01",
+      "actual": "models=3; schema+sources+Gate_A verified per model",
+      "commit_sha": "e298d23c3e14fd56f272c1edb29dc71a7ef5bf5e",
+      "evidence_path": "inventories/MDL_CREDIT_V2.json",
+      "expected": "Three model inventories pass schema, source and Gate A review, with Unknowns and conflicts preserved.",
+      "reviewer": "automated-cli-check",
+      "status": "PASS",
+      "timestamp": "2026-11-10T19:20:21.357611Z",
+      "version": "v2"
+    },
+    {
+      "acceptance_id": "V2-02",
+      "actual": "image=model-risk-factory-runner:v1; checks=8 PASS; hardening verified by execution",
+      "commit_sha": "e298d23c3e14fd56f272c1edb29dc71a7ef5bf5e",
+      "evidence_path": "boundary/boundary_report.json",
+      "expected": "The container boundary is proven by execution: no writes, no host mounts, no key, and all four limits fire.",
+      "reviewer": "automated-cli-check",
+      "status": "PASS",
+      "timestamp": "2026-11-10T19:20:21.357611Z",
+      "version": "v2"
+    },
+    {
+      "acceptance_id": "V2-03",
+      "actual": "parity+performance+calibration+stability(A)+fairness computed; edge states recorded",
+      "commit_sha": "e298d23c3e14fd56f272c1edb29dc71a7ef5bf5e",
+      "evidence_path": "validation_metrics.json",
+      "expected": "Parity, performance, calibration, stability and fairness are computed by code with explicit edge states.",
+      "reviewer": "automated-cli-check",
+      "status": "PASS",
+      "timestamp": "2026-11-10T19:20:21.357611Z",
+      "version": "v2"
+    },
+    {
+      "acceptance_id": "V2-04",
+      "actual": "Gate A -> candidate -> Gate B -> execution -> Gate C -> approval order and hashes verified on the frozen attempt 0",
+      "commit_sha": "e298d23c3e14fd56f272c1edb29dc71a7ef5bf5e",
+      "evidence_path": "review_log.json",
+      "expected": "Gate A precedes candidate generation, Gate B precedes execution, and Gate C precedes report approval.",
+      "reviewer": "automated-cli-check",
+      "status": "PASS",
+      "timestamp": "2026-11-10T19:20:21.357611Z",
+      "version": "v2"
+    },
+    {
+      "acceptance_id": "V2-05",
+      "actual": "CLI chain complete in one run; MD/CSV/JSON exported; run_id consistent; evidence hashes verified",
+      "commit_sha": "e298d23c3e14fd56f272c1edb29dc71a7ef5bf5e",
+      "evidence_path": "evidence_manifest.json",
+      "expected": "One CLI run carries onboarding, migration, freeze, Holdout, metrics, report and export with a single run_id.",
+      "reviewer": "automated-cli-check",
+      "status": "PASS",
+      "timestamp": "2026-11-10T19:20:21.357611Z",
+      "version": "v2"
+    },
+    {
+      "acceptance_id": "V2-06",
+      "actual": "drills=5; modes=['LOCAL_INJECTED', 'REAL_API']; failure text preserved",
+      "commit_sha": "e298d23c3e14fd56f272c1edb29dc71a7ef5bf5e",
+      "evidence_path": "failures/failure_drills.json",
+      "expected": "API error, parse failure, timeout, request limit and repair exhaustion keep real failure evidence.",
+      "reviewer": "automated-cli-check",
+      "status": "PASS",
+      "timestamp": "2026-11-10T19:20:21.357611Z",
+      "version": "v2"
+    },
+    {
+      "acceptance_id": "V2-07",
+      "actual": "value paths=196; unresolved=0; Gate_C APPROVED; limitations stated",
+      "commit_sha": "e298d23c3e14fd56f272c1edb29dc71a7ef5bf5e",
+      "evidence_path": "report/validation_report.md",
+      "expected": "Every reported number resolves to a metrics JSON path and limitations are stated without compliance claims.",
+      "reviewer": "automated-cli-check",
+      "status": "PASS",
+      "timestamp": "2026-11-10T19:20:21.357611Z",
+      "version": "v2"
+    }
+  ],
+  "release_approved": false,
+  "run_id": "v2-20261110T191501Z-fed1c652",
+  "schema_version": "1",
+  "v1_release_approved": false,
+  "v2_release_approved": true,
+  "version": "v2"
+}
+--- EXIT acceptance = 0
+DONE run_id=v2-20261110T191501Z-fed1c652

@@ -8,7 +8,14 @@
       "code_threshold": 0.35,
       "documented_threshold": 0.5,
       "unknown_fields": ["owner", "training_date"],
-      "min_conflicts": 1
+      "min_conflicts": 1,
+      "known_conflicts": {
+        "decision_threshold": {
+          "description": "The R scoring threshold differs from the threshold in the note.",
+          "code": [12, "THRESHOLD <- 0.35"],
+          "note": [9, "- Decision threshold: 0.50"]
+        }
+      }
     },
     "MDL_CREDIT_V2": {
       "sources": ["legacy/credit_v2.R", "legacy/notes/credit_v2.md"],
@@ -16,7 +23,14 @@
       "code_threshold": 0.3,
       "documented_threshold": 0.3,
       "unknown_fields": ["owner", "training_date"],
-      "min_conflicts": 1
+      "min_conflicts": 1,
+      "known_conflicts": {
+        "input_validity_limits": {
+          "description": "The R input reader enforces unique client IDs; the note omits the input constraints.",
+          "code": [56, "if (anyDuplicated(data$client_id)) contract_stop(\"client_id values must be unique\")"],
+          "note": [18, "Input constraints were never written down."]
+        }
+      }
     },
     "MDL_CREDIT_TREE": {
       "sources": ["legacy/credit_tree.R", "legacy/notes/credit_tree.md"],
@@ -24,7 +38,19 @@
       "code_threshold": 0.5,
       "documented_threshold": 0.5,
       "unknown_fields": ["owner", "training_date"],
-      "min_conflicts": 1
+      "min_conflicts": 1,
+      "known_conflicts": {
+        "repayment_history": {
+          "description": "The code uses six repayment-status features and the note describes only the three most recent.",
+          "code": [7, "FEATURE_ORDER <- c(\"delay_1\", \"delay_2\", \"delay_3\", \"delay_4\", \"delay_5\", \"delay_6\", \"limit_bal\", \"util_1\")"],
+          "note": [13, "three most recent repayment-status fields."]
+        },
+        "tree_controls": {
+          "description": "The R code sets the maximum depth, complexity parameter and minimum split size that are absent from the note.",
+          "code": [101, "control = rpart::rpart.control(maxdepth = MAXDEPTH, cp = 0.001, minsplit = 100, minbucket = 50)"],
+          "note": [17, "the summary does not record the maximum depth, the minimum split size, the"]
+        }
+      }
     }
   }
 }

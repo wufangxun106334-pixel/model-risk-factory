@@ -1,0 +1,159 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="760" viewBox="0 0 1280 760" font-family="Helvetica Neue, Helvetica, Arial, sans-serif">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#4A5C63"/>
+    </marker>
+    <marker id="arrowGreen" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#0E6E6E"/>
+    </marker>
+    <marker id="arrowRed" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#A33A20"/>
+    </marker>
+  </defs>
+
+  <rect x="0" y="0" width="1280" height="760" fill="#FFFFFF"/>
+  <text x="40" y="44" font-size="24" font-weight="bold" fill="#142B33">Model Risk Factory — components, data flows and the LLM boundary</text>
+  <text x="40" y="68" font-size="13" fill="#5A6B72">Challenge 04 · one page · every gate binds to a SHA-256; green = leaves the host for the gateway, red = never leaves the host</text>
+  <line x1="40" y1="82" x2="1240" y2="82" stroke="#0E6E6E" stroke-width="2"/>
+
+  <!-- legacy assets -->
+  <rect x="40" y="110" width="250" height="150" rx="8" fill="#F4F7F8" stroke="#B9C6CB"/>
+  <text x="56" y="134" font-size="14" font-weight="bold" fill="#142B33">Legacy assets (team-built)</text>
+  <text x="56" y="156" font-size="11.5" fill="#33454C">legacy/credit_v1.R   credit_v2.R   credit_tree.R</text>
+  <text x="56" y="174" font-size="11.5" fill="#33454C">legacy/notes/*.md  (deliberately stale)</text>
+  <text x="56" y="192" font-size="11.5" fill="#33454C">artifacts/reference/model.json  (R coefficients)</text>
+  <text x="56" y="214" font-size="11" fill="#5A6B72">Read-only. The Agent may not write here.</text>
+  <text x="56" y="232" font-size="11" fill="#5A6B72">Every citation carries path + line range + SHA-256.</text>
+
+  <!-- Agent -->
+  <rect x="330" y="110" width="250" height="196" rx="8" fill="#EAF3F3" stroke="#0E6E6E"/>
+  <text x="346" y="134" font-size="13.5" font-weight="bold" fill="#0E6E6E">Agent — tool-calling, 8 requests/round</text>
+  <text x="346" y="156" font-size="11.5" fill="#142B33">1  inventory extraction  → 3 artifacts</text>
+  <text x="346" y="174" font-size="11.5" fill="#142B33">2  Python candidate (max 2 repairs)</text>
+  <text x="346" y="192" font-size="11.5" fill="#142B33">3  report explanation (aggregates only)</text>
+  <text x="346" y="216" font-size="11" fill="#5A6B72">Tools: read_asset, validate_inventory,</text>
+  <text x="346" y="232" font-size="11" fill="#5A6B72">submit_candidate, run_dev_tests, read_dev_diagnostics</text>
+  <text x="346" y="256" font-size="11" fill="#5A6B72">No Holdout access, no test source, no dataset rows.</text>
+  <text x="346" y="278" font-size="11" fill="#0E6E6E">Records: agent_audit_log.jsonl, request_log.jsonl</text>
+  <text x="346" y="296" font-size="11" fill="#0E6E6E">Requests are desensitised and request-id logged.</text>
+
+  <!-- gateway -->
+  <rect x="620" y="110" width="240" height="132" rx="8" fill="#FFFFFF" stroke="#0E6E6E" stroke-dasharray="5,4"/>
+  <text x="636" y="134" font-size="14" font-weight="bold" fill="#0E6E6E">Product gateway</text>
+  <text x="636" y="156" font-size="11.5" fill="#142B33">https://sa.kaiwen.dev/v1</text>
+  <text x="636" y="174" font-size="11.5" fill="#142B33">openai_chat_completions</text>
+  <text x="636" y="192" font-size="12" font-weight="bold" fill="#142B33">deepseek-v4.1-flash:1017</text>
+  <text x="636" y="212" font-size="11" fill="#5A6B72">(v1 candidate: kimi-k2.7-code)</text>
+  <text x="636" y="232" font-size="10.5" fill="#5A6B72">Key: local env var only, never logged.</text>
+
+  <!-- what goes to the LLM -->
+  <rect x="620" y="258" width="240" height="80" rx="8" fill="#E8F5EF" stroke="#2F7D5A"/>
+  <text x="636" y="280" font-size="12.5" font-weight="bold" fill="#2F7D5A">Sent to the LLM</text>
+  <text x="636" y="300" font-size="11" fill="#33454C">R code · simulated note · JSON schemas</text>
+  <text x="636" y="316" font-size="11" fill="#33454C">frozen expectations · aggregate diagnostics</text>
+  <text x="636" y="332" font-size="11" fill="#33454C">desensitised metrics (no rows, no ids)</text>
+
+  <!-- stays local -->
+  <rect x="620" y="358" width="240" height="104" rx="8" fill="#FBEDE8" stroke="#A33A20"/>
+  <text x="636" y="380" font-size="12.5" font-weight="bold" fill="#A33A20">Never leaves the host</text>
+  <text x="636" y="400" font-size="11" fill="#33454C">row-level train/dev/holdout/shift_pool</text>
+  <text x="636" y="416" font-size="11" fill="#33454C">labels · baseline predictions · R answers</text>
+  <text x="636" y="432" font-size="11" fill="#33454C">test source · API key · per-row diff files</text>
+  <text x="636" y="452" font-size="11" fill="#A33A20">Only aggregate summaries cross the boundary.</text>
+
+  <!-- gates -->
+  <rect x="330" y="340" width="250" height="150" rx="8" fill="#FFF9E6" stroke="#B98B12"/>
+  <text x="346" y="364" font-size="14" font-weight="bold" fill="#8A6A0B">Three review gates (hash-bound)</text>
+  <text x="346" y="386" font-size="11.5" fill="#14233b">Gate A  inventory SHA-256 (canonical JSON)</text>
+  <text x="346" y="404" font-size="11.5" fill="#14233b">Gate B  candidate source SHA-256 (64 hex)</text>
+  <text x="346" y="422" font-size="11.5" fill="#14233b">Gate C  report/review_manifest.json SHA-256</text>
+  <text x="346" y="446" font-size="11" fill="#5A6B72">Reviewer: name, or agent-delegated (SOP 7.4).</text>
+  <text x="346" y="464" font-size="11" fill="#5A6B72">Any src/config/candidate change invalidates the gate.</text>
+  <text x="346" y="482" font-size="11" fill="#5A6B72">review_log.json + command_log.jsonl record it.</text>
+
+  <!-- docker runner -->
+  <rect x="330" y="512" width="250" height="132" rx="8" fill="#F4F7F8" stroke="#B9C6CB"/>
+  <text x="346" y="536" font-size="14" font-weight="bold" fill="#142B33">Controlled Docker runner</text>
+  <text x="346" y="558" font-size="11.5" fill="#33454C">--network none · non-root (65532)</text>
+  <text x="346" y="576" font-size="11.5" fill="#33454C">read-only root and inputs · 512 MB</text>
+  <text x="346" y="594" font-size="11.5" fill="#33454C">1 CPU · 64 PID · 30 s timeout</text>
+  <text x="346" y="616" font-size="11" fill="#5A6B72">model-risk-factory-runner@sha256:00e23e46…</text>
+  <text x="346" y="634" font-size="11" fill="#5A6B72">Candidate sees no tests and no baseline answers.</text>
+
+  <!-- validator -->
+  <rect x="40" y="340" width="250" height="150" rx="8" fill="#EAF3F3" stroke="#0E6E6E"/>
+  <text x="56" y="364" font-size="14" font-weight="bold" fill="#0E6E6E">Trusted validator (host process)</text>
+  <text x="56" y="386" font-size="11.5" fill="#33454C">R baseline vs candidate, record by record</text>
+  <text x="56" y="404" font-size="11.5" fill="#33454C">max/mean |Δp| ≤ 1e-8 / 1e-10, p ≥ 0.35</text>
+  <text x="56" y="422" font-size="11.5" fill="#33454C">classification + behaviour + rejections</text>
+  <text x="56" y="440" font-size="11.5" fill="#33454C">PSI · calibration · TPR/FPR by audit group</text>
+  <text x="56" y="464" font-size="11" fill="#5A6B72">Never imports the generated code.</text>
+  <text x="56" y="482" font-size="11" fill="#5A6B72">Numbers → validation_metrics.json</text>
+
+  <!-- data -->
+  <rect x="40" y="512" width="250" height="132" rx="8" fill="#FBEDE8" stroke="#A33A20"/>
+  <text x="56" y="536" font-size="14" font-weight="bold" fill="#A33A20">UCI data (host only)</text>
+  <text x="56" y="558" font-size="11.5" fill="#33454C">30,000 rows · CC BY 4.0 · seed 47</text>
+  <text x="56" y="576" font-size="11.5" fill="#33454C">train 15,000 · dev 6,000 · holdout 1,199</text>
+  <text x="56" y="594" font-size="11.5" fill="#33454C">shift_pool 3,000 · 4,801 unused</text>
+  <text x="56" y="616" font-size="11" fill="#5A6B72">Formal Holdout is consumed once per campaign</text>
+  <text x="56" y="634" font-size="11" fill="#5A6B72">(runs/holdout_consumption.jsonl, not in git).</text>
+
+  <!-- evidence store -->
+  <rect x="900" y="110" width="340" height="196" rx="8" fill="#F4F7F8" stroke="#B9C6CB"/>
+  <text x="916" y="134" font-size="14" font-weight="bold" fill="#142B33">Run evidence (per run_id)</text>
+  <text x="916" y="156" font-size="11.5" fill="#33454C">run_manifest · context_manifest · source_snapshot</text>
+  <text x="916" y="174" font-size="11.5" fill="#33454C">model_inventory + inventories/*  (Gate A)</text>
+  <text x="916" y="192" font-size="11.5" fill="#33454C">candidates/attempt_00x  (Gate B)</text>
+  <text x="916" y="210" font-size="11.5" fill="#33454C">validation_metrics.json · report/*  (Gate C)</text>
+  <text x="916" y="228" font-size="11.5" fill="#33454C">review_log.json · command_log.jsonl · failures/</text>
+  <text x="916" y="250" font-size="11" fill="#5A6B72">Row-level data, predictions and diffs stay in runs/.</text>
+  <text x="916" y="268" font-size="11" fill="#5A6B72">They are excluded from the delivery package by whitelist.</text>
+  <text x="916" y="290" font-size="11" fill="#5A6B72">evidence_manifest.json (61 files) → evidence ZIP.</text>
+
+  <!-- delivery -->
+  <rect x="900" y="340" width="340" height="150" rx="8" fill="#EAF3F3" stroke="#0E6E6E"/>
+  <text x="916" y="364" font-size="14" font-weight="bold" fill="#0E6E6E">Delivery / release check</text>
+  <text x="916" y="386" font-size="11.5" fill="#33454C">delivery/&lt;run_id&gt;_acceptance.json  (14 records)</text>
+  <text x="916" y="404" font-size="11.5" fill="#33454C">delivery/&lt;run_id&gt;_evidence.zip  (whitelist)</text>
+  <text x="916" y="422" font-size="11.5" fill="#33454C">release-check --tag &lt;commit&gt; --run-id &lt;run&gt;</text>
+  <text x="916" y="440" font-size="11.5" fill="#33454C">→ APPROVED / BLOCKED + gap list</text>
+  <text x="916" y="464" font-size="11" fill="#5A6B72">Requires a clean worktree at init, a matching commit,</text>
+  <text x="916" y="482" font-size="11" fill="#5A6B72">0 failed/0 skipped tests in the isolated tag tree.</text>
+
+  <!-- UI -->
+  <rect x="900" y="512" width="340" height="132" rx="8" fill="#FFF9E6" stroke="#B98B12"/>
+  <text x="916" y="536" font-size="14" font-weight="bold" fill="#8A6A0B">Streamlit UI (4 pages, read-only view)</text>
+  <text x="916" y="558" font-size="11.5" fill="#33454C">Inventory · Model detail · Migration · Report</text>
+  <text x="916" y="576" font-size="11.5" fill="#33454C">Every button shells out to: python -m src.cli</text>
+  <text x="916" y="594" font-size="11.5" fill="#33454C">src/ui_data.py reads artifacts; it never writes them</text>
+  <text x="916" y="616" font-size="11" fill="#5A6B72">Run badges: SYNTHETIC/UCI · REPLAY/LIVE · acceptance</text>
+  <text x="916" y="634" font-size="11" fill="#5A6B72">state · commit. The UI cannot bypass a gate.</text>
+
+  <!-- CLI spine -->
+  <rect x="330" y="656" width="910" height="62" rx="8" fill="#142B33"/>
+  <text x="348" y="678" font-size="11.5" font-weight="bold" fill="#FFFFFF">CLI spine: python -m src.cli — every stage, every gate and every read-only check runs through this one entry point</text>
+  <text x="348" y="698" font-size="10.5" fill="#B9C6CB">init-run · check-provider · prepare · baseline · reference-parity · fixture-parity · mutation-check · docker-boundary · extract-inventory · approve (A/B/C)</text>
+  <text x="348" y="711" font-size="10.5" fill="#B9C6CB">generate-candidate · run-dev · candidate-fixtures · freeze · accept · validation-metrics · agent-summary · report · approve-report · failure-drills · export · acceptance · verify-context · release-check</text>
+
+  <!-- arrows -->
+  <line x1="290" y1="186" x2="326" y2="186" stroke="#0E6E6E" stroke-width="2" marker-end="url(#arrowGreen)"/>
+  <text x="288" y="172" font-size="9.5" fill="#0E6E6E">code + note</text>
+
+  <line x1="580" y1="160" x2="616" y2="160" stroke="#0E6E6E" stroke-width="2" marker-end="url(#arrowGreen)"/>
+  <line x1="616" y1="200" x2="580" y2="200" stroke="#0E6E6E" stroke-width="2" marker-end="url(#arrowGreen)"/>
+  <text x="588" y="150" font-size="9.5" fill="#0E6E6E">prompt</text>
+  <text x="588" y="216" font-size="9.5" fill="#0E6E6E">JSON</text>
+
+  <line x1="455" y1="306" x2="455" y2="336" stroke="#B98B12" stroke-width="2" marker-end="url(#arrow)"/>
+  <line x1="455" y1="490" x2="455" y2="508" stroke="#4A5C63" stroke-width="2" marker-end="url(#arrow)"/>
+  <line x1="290" y1="404" x2="326" y2="404" stroke="#4A5C63" stroke-width="2" marker-end="url(#arrow)"/>
+  <line x1="290" y1="578" x2="326" y2="578" stroke="#A33A20" stroke-width="2" marker-end="url(#arrowRed)"/>
+  <text x="286" y="566" font-size="9.5" fill="#A33A20">dataset rows</text>
+  <line x1="616" y1="404" x2="580" y2="472" stroke="#2F7D5A" stroke-width="2" marker-end="url(#arrowGreen)"/>
+  <text x="596" y="500" font-size="9.5" fill="#2F7D5A">aggregate</text>
+  <line x1="580" y1="140" x2="896" y2="140" stroke="#4A5C63" stroke-width="1.5" marker-end="url(#arrow)" stroke-dasharray="4,3"/>
+  <line x1="580" y1="560" x2="896" y2="560" stroke="#4A5C63" stroke-width="1.5" marker-end="url(#arrow)" stroke-dasharray="4,3"/>
+  <line x1="1240" y1="250" x2="1240" y2="336" stroke="#4A5C63" stroke-width="2" marker-end="url(#arrow)"/>
+</svg>

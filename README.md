@@ -2,14 +2,69 @@
 
 EXL × UCD Data & AI Hackathon 2026 — Challenge 04 Agentic model risk factory。
 
-**v1 已验收，v2 工程实现已完成，正式发布仍为 BLOCKED。** CLI 将团队自建的信用违约模型 `MDL_CREDIT_V1` 从 R 迁移到 Python，对照 R 基准逐记录验证预测概率、分类和异常处理。v2 补齐另外两个旧模型的档案、容器边界实测、四类验证指标、三道审核门禁、端到端导出与报告数值溯源。
+**v1 已验收（标签 `v1` → 提交 `70858cd`）。v2 工程实现已完成，但正式发布仍为 BLOCKED。V3（最终版）代码与材料已交付到候选提交；正式 run 因四项前置未齐备而未执行。**
 
-- v1 正式 run `v1-20261109T181929Z-3fe1c7b5`：V1-01～07 全 PASS（Gate A/B 代理审核），标签 `v1`。
-- v2 历史验收 run **`v2-20261109T210903Z-3dcfab73`**（campaign seed 46）：记录显示 V1-01～07 与 V2-01～07 共 14 项全 PASS，Gate A（三份档案）、Gate B 和 Gate C 均由 `agent-delegated` 代理审核。该结果仅用于历史回放。
+- v1 正式 run `v1-20261109T181929Z-3fe1c7b5`：V1-01～07 全 PASS（Gate A/B 代理审核），标签 `v1` 指向 `70858cd`。
+- v2 历史验收 run **`v2-20261109T210903Z-3dcfab73`**（campaign seed 46）：记录显示 14 项全 PASS，Gate A/B/C 均由 `agent-delegated` 代理审核。该结果仅用于历史回放：证据树不等于任何提交。
+- v3 候选已修复审核发现。真实网关生成了三份新合成档案，结构化报告用历史合成指标复核；本地演示成片已录制。正式 seed 47 运行待授权记录和审核人到位。详见 [V3 审核修复记录](docs/v3/10_audit_followup.md)。
 
-> **发布状态为 BLOCKED（2026-11-10 复核）。** seed 46 的证据生成时工作区有未提交改动，无法绑定到发布提交。UCI 数据只剩 **1,199 行**从未用于正式 Holdout，低于 **6,000 行**的要求。本地与 `origin` 均未发现 `v2` 标签。详见[发布状态与缺口](#发布状态与缺口)和[重新放行步骤](#v2-重新放行步骤)。
+> **发布状态 BLOCKED（2026-11-10 V3 复核）。** `release-check --tag 9884e3a --run-id v2-20261109T210903Z-3dcfab73` 返回 **17 条缺口**：seed 46 的证据生成时工作区不干净、初始化提交 `ec6077f` 与发布提交 `9884e3a` 不一致，`verify-context` 在两条路径上都失败。本地存在 `v2` 标签（指向 `9884e3a`，且是在未放行的情况下创建的），`origin` 上没有任何标签（v1 也未推送）。UCI 只剩 **1,199 行**从未用于正式 Holdout。详见 [docs/v3/03_release_readiness.md](docs/v3/03_release_readiness.md)、[发布状态与缺口](#发布状态与缺口)与[重新放行步骤](#v2-重新放行步骤)。
 
-交付物是本机的 `delivery/<run_id>_acceptance.json` 与 `delivery/<run_id>_evidence.zip`；`runs/`、`delivery/` 与原始数据不进 Git。Streamlit 界面按计划留给 v3。
+交付物是 `delivery/<run_id>_acceptance.json` 与 `delivery/<run_id>_evidence.zip`；`runs/`、`delivery/` 与原始数据不进 Git。Streamlit 四页界面已在 v2 提交、v3 实测并加了状态徽标。
+
+---
+
+## For judges: what this is and how to check it
+
+A bank's model-risk team documents a legacy model estate, migrates one model from R to Python, and validates the result. **Everything here is a competition prototype**: not production-ready, not independently validated, not a regulatory certification, and the data is a 2005 Taiwan credit-card sample, not a UK portfolio.
+
+**What is actually implemented and demonstrated**
+
+1. **Inventory with gaps preserved** — three team-built R models documented by an Agent from their real code and real (deliberately stale) notes; every fact carries path, line range, verbatim excerpt and SHA-256; `owner` and `training date` stay `Unknown`; the 0.35-vs-0.50 threshold conflict is kept, never normalised. Gate A approves the artifact hash.
+2. **R → Python migration** — the Agent writes the candidate from the exported R coefficients/medians/feature order and the 0.35 threshold (no retraining). Gate B approves the exact 64-hex source hash *before* execution. Record-by-record parity against the R baseline: max |Δp| 2.220e-16 on 6,000 dev and 6,000 holdout rows, 0 classification mismatches, tolerance 1e-8/1e-10 (historical UCI run, seed 46).
+3. **Validation and monitoring** — performance with a decile calibration table, PSI drift with configurable attention/review lines, TPR/FPR fairness audit with small-sample states; deterministic Python computes, the Agent only explains, Gate C re-renders and compares every table cell.
+4. **Evidence and release discipline** — every number in the report resolves to a JSON path; one-time Holdout consumption; whitelisted evidence ZIP; `release-check` re-runs the full suite on the tag tree and refuses to approve evidence that does not belong to the released commit.
+
+**Reproduce it (new environment, ~5 minutes plus dependency download)**
+
+```bash
+git clone <repo> && cd model-risk-factory
+python3 -m venv .venv && source .venv/bin/activate
+python -m pip install -r requirements.txt      # locked versions
+python -m pytest -q                            # 8 UCI-dependent tests skip without the verified ZIP
+export MRF_RUNS_ROOT=dev_runs                  # synthetic drill stays out of runs/
+RUN_ID=$(python -m src.cli init-run --mode synthetic | python -c 'import json,sys;print(json.load(sys.stdin)["run_id"])')
+SEED=$(python -c 'import json;from pathlib import Path;print(json.loads(Path("config/data_config.json").read_text())["seed"])')
+python -m src.cli prepare --run-id "$RUN_ID" --synthetic --seed "$SEED"
+for step in baseline reference-parity fixture-parity mutation-check docker-boundary; do
+  python -m src.cli $step --run-id "$RUN_ID" || break
+done
+```
+
+Needs Docker running (images `rocker/r-ver:4.4.2` and `model-risk-factory-runner:v1`). The Agent stages additionally need gateway credentials (`LLM_*` environment variables); without them the pipeline still runs the deterministic parts and the UI clearly labels stored results as `REPLAY`.
+
+```bash
+python -m pip install -r requirements-ui.txt
+streamlit run app.py        # four pages: Inventory · Model detail · Migration · Validation report
+```
+
+**Full end-to-end drill and UI check**: [docs/v3/02_new_environment.md](docs/v3/02_new_environment.md) (clean worktree, fresh venv, real gateway, 29-step run, screenshots in [docs/v3/ui_screens/](docs/v3/ui_screens/)).
+
+**Deliverables** (see [materials/submission_checklist.md](materials/submission_checklist.md) for length, links and status)
+
+| Material | File |
+| --- | --- |
+| Solution deck (10 slides) | [materials/solution_deck.md](materials/solution_deck.md) · `.pptx` · `.pdf` |
+| Demo video (1:51, synthetic replay) | [MP4](materials/demo_video.mp4) · [transcript](materials/demo_video_script.md) |
+| Architecture diagram (1 page) | [materials/architecture.svg](materials/architecture.svg) · [.md](materials/architecture.md) |
+| Responsible AI note (1 page) | [one-page PDF](materials/responsible_ai_note.pdf) · [source](materials/responsible_ai_note.md) |
+| Business value measurements | [materials/impact_measurements.csv](materials/impact_measurements.csv) · [protocol](materials/impact_measurements_README.md) |
+
+**Data licence**: UCI Default of Credit Card Clients (ID 350), CC BY 4.0. Written organiser confirmation for this competition entry is **still outstanding**; `config/data_config.json` records `uci_competition_use_approved=false` and every formal run needs an explicit `--approve-uci-use` declaration from an authorised operator. The raw file is not committed; a download step verifies its SHA-256.
+
+**AI tools used**: Claude Code and Kimi Code CLI for implementation, tests and documentation; this delivery Agent for the v3 audit, fixes and materials. In the product, the gateway `https://sa.kaiwen.dev/v1` (`openai_chat_completions`) with model **`deepseek-v4.1-flash:1017`** performs inventory extraction, candidate generation and report explanation (the v1 candidate was generated by `kimi-k2.7-code`). The trusted Python reference predictor and all fixed tests are human-written, not Agent output.
+
+**Frozen scope**: three model inventories, one migration, four metric families, three gates, evidence export, four UI pages. Out of scope and not implemented: SAS ingestion, arbitrary model upload, MLflow/Azure ML, React/FastAPI, cloud deployment, automatic PDF generation.
 
 ## 工作目录
 
@@ -76,7 +131,7 @@ docker build -t model-risk-factory-runner:v1 docker
 
 ## 合成开发验证记录
 
-以下是历史合成 run `v1-20261109T160955Z-c4e69c96` 的开发结果。当前 v1 测试结果为 **103 passed, 7 subtests passed**。合成数据、mock 和人工参考实现用于开发验证，正式结果见下方的逐项验收表。
+以下是历史合成 run `v1-20261109T160955Z-c4e69c96` 的开发结果。原 V3 候选测试为 **339 passed, 7 subtests passed**；审核修复后的测试见 [V3 审核修复记录](docs/v3/10_audit_followup.md)。合成数据、mock 和人工参考实现用于开发验证，正式结果见下方的逐项验收表。
 
 - 合成数据：30,000 行；train/dev/holdout/shift_pool 分别为 15,000/6,000/6,000/3,000；ID 唯一且四集互斥；各集违约率与总体最大差约 0.00003333（比例），低于 0.01。
 - R 基准：真实 `glm` 拟合，导出双精度系数、特征顺序、训练集填补参数、预测和 `sessionInfo`；不使用 ID、标签或人口属性作为特征。
@@ -333,14 +388,14 @@ done
 .venv/bin/python -m src.cli report-status --run-id "$RUN_ID"
 .venv/bin/python -m src.cli failure-drills --run-id "$RUN_ID"
 .venv/bin/python -m src.cli export --run-id "$RUN_ID"
-.venv/bin/python -m src.cli acceptance --run-id "$RUN_ID"
+# Read delivery/${RUN_ID}_acceptance.json after export.
 ```
 
 开发、重试与故障演练用 `MRF_RUNS_ROOT=dev_runs` + `prepare --synthetic` 的独立 dry run（合成数据、独立账本），不触碰 `runs/` 与正式 Holdout。
 
 ## 发布状态与缺口
 
-2026-11-10 在临时检出复测 `main`（`92fa3a0`），使用锁定依赖及 SHA-256 与账本一致的 UCI ZIP。全量测试 **287 项通过、7 个子测试通过、0 失败、0 跳过**。本地和 `origin` 均未发现 `v2` 标签，当前检出也没有 seed 46 的运行目录和导出证据包。该次运行的发布判定沿用下文的历史记录。
+2026-11-10 在临时检出复测 `main`（`92fa3a0`），使用锁定依赖及 SHA-256 与账本一致的 UCI ZIP。全量测试 **287 项通过、7 个子测试通过、0 失败、0 跳过**。**该临时检出**当时没有任何标签：`origin` 至今没有任何标签，而主工作树后来出现了本地 `v1`（`70858cd`）与 `v2`（`9884e3a`）两个附注标签（见 [docs/v3/00_baseline_status.md](docs/v3/00_baseline_status.md) §1）。该次运行的发布判定沿用下文的历史记录。
 
 ### 已修复的 3 项阻断
 
@@ -452,10 +507,26 @@ v1 记录的 4 条与首个 v2 发布候选发现的 2 条均已在本次修复�
 - v2 受审来源与 `inventory_expectations`、`holdout_ledger` 已进新 run 的 context。旧 run 可按其原始清单和对应提交只读复核。
 - 证据必须来自"已提交且干净"的树：`worktree_clean_at_init` 记录 + `release-check` 强制。
 
-仍未修复（留待 v3）：
+仍未修复（v3 状态）：
 
-7. Agent 档案提取有随机性：本次 V2 首次提取把“0.3/0.3 一致”记成冲突，我按实质内容 REJECTED、归档该产物并重新提取后通过；报告解释文本也会偶发与指标不符的定位性判断，本次按预置规则拒绝并重新生成，所有请求都在 `provider/request_log.jsonl`。v3 应把这类校验做成确定性门禁而不是人工判断。
-8. 候选审查记录（不影响本次结果）：`--model` 在候选实现中可选并回退到与 artifact 相等的常量；十六进制字面量（如 `0x10`）被当作不可解析而拒绝，R 的 `as.numeric` 会接受。
+7. ~~Agent 档案提取有随机性~~ **v3 已修复（确定性门禁）**：`src/inventory.py::validate_conflicts()` 用 `config/inventory_expectations.json` 与可核验来源判定冲突——相同的代码/文档阈值永远不能算冲突（0.30/0.30 被拒），真实阈值冲突必须重述冻结数值，每条冲突必须有 identity 与 allowlisted 来源引用，同一 finding 不得重复凑数；Agent 摘要则必须有 `status_claims` 并与 `derive_facts()` 派生的事实逐项相等，报告另有一段由指标渲染的 Key conclusions 模板。回归 34 例（`tests/test_v3_gap_inventory_conflicts.py`、`tests/test_v3_gap_agent_summary.py`），修复前 8 failed / 导入即失败，修复后全绿。详见 [docs/v3/01_gap_fixes.md](docs/v3/01_gap_fixes.md)。
+8. 候选审查记录（不影响本次结果，v3 未改动）：`--model` 在候选实现中可选并回退到与 artifact 相等的常量；十六进制字面量（如 `0x10`）被当作不可解析而拒绝，R 的 `as.numeric` 会接受。
+
+### v3 交付说明（2026-11-10）
+
+**运行修复后的合成演练**。设置本地 `LLM_*` 环境并启动 Docker 后，在交互终端执行 `bash docs/v3/drill_v3.sh dev_runs-v3`。终端会显示 run ID、私有日志位置以及每道 Gate 的待审文件和哈希。逐项核对后输入审核人、决定和实际检查内容。没有交互终端时脚本会退出。
+
+
+| 项 | 状态 | 证据 |
+| --- | --- | --- |
+| V3-01 回归与固定数据复跑 | BLOCKED（测试通过，正式 V1-02 待完成） | [V3 审核修复记录](docs/v3/10_audit_followup.md) |
+| V3-02 新环境复现 | PASS | [docs/v3/02_new_environment.md](docs/v3/02_new_environment.md)、[docs/v3/ui_screens/](docs/v3/ui_screens/) |
+| V3-03 五件套交付 | BLOCKED（成片及材料已就绪，评委访问待验证） | [materials/submission_checklist.md](materials/submission_checklist.md) |
+| V3-04 业务价值证据 | BLOCKED（按团队指示暂缓配对实测） | [materials/impact_measurements.csv](materials/impact_measurements.csv) |
+| V3-05 最终审核 | BLOCKED（缺 A/B 两名成员签署） | [docs/v3/06_final_review.md](docs/v3/06_final_review.md) |
+| V3-06 版本冻结 | BLOCKED（正式 run 四项前置未齐备，未创建 `v3` 标签） | [docs/v3/07_release_checklist.md](docs/v3/07_release_checklist.md)、[docs/v3/03_release_readiness.md](docs/v3/03_release_readiness.md) |
+
+V3 保留现有架构和锁定依赖。报告的结论与审阅提示由模板渲染，演练在各 Gate 等待实际审核决定，导出后只读取交付 JSON。正式 run 与发布放行需要的四项前置（UCI 授权证据、账本确认、冻结提交、审批人与标签策略）逐项列在 [docs/v3/08_handoff.md](docs/v3/08_handoff.md)。
 
 ## 退出码与验收状态
 
@@ -499,6 +570,6 @@ shasum -a 256 "delivery/${RUN}_evidence.zip"   # 与 export_verified.json 的 ar
 - 开发使用 Kimi Code CLI 辅助实现代码、测试和文档。受控 Python 参考预测器是独立编写的确定性基准，不是 Agent 自动迁移；v1 的迁移候选由真实 API 生成（`kimi-k2.7-code`，记录在 `candidate.json` 与 `agent_audit_log.jsonl`）。
 - v2 的三份档案、迁移候选和报告解释均由真实网关 `deepseek-v4.1-flash:1017` 生成，分别记录在 `agent_audit_log.jsonl` 与 `provider/request_log.jsonl`；Gate A/B/C 由执行本任务的 Agent 按 SOP 7.4 以 `agent-delegated` 代理审核，审批备注写明授权来源与逐项核对内容。
 - 已发布版本的模型 ID 以正式 run 的能力检查与候选生成记录为准。
-- 使用 NumPy、pandas、Pydantic、pytest、xlrd、Docker、R base `glm` 与 `rpart`；v2 的指标计算只用 NumPy（未引入 scikit-learn）。Streamlit 界面留待 v3。
+- 使用 NumPy、pandas、Pydantic、pytest、xlrd、Docker、R base `glm` 与 `rpart`；指标计算只用 NumPy（未引入 scikit-learn）。Streamlit 四页界面（`app.py` + `src/ui_data.py` + `src/ui_charts.py`，依赖 `requirements-ui.txt`）已实现并在 v3 实测。
 - 验证口径：Holdout 为同期随机留出（样本外验证）；场景 A 漂移批次为加权抽样的敏感性分析；跨时间回测在本数据上不可得，报告中列为缺失证据。公平性结果为审计信号，不构成公平性或合规结论。
 - 设计主文件仍为 [docs/02_项目SOP.md](docs/02_项目SOP.md)；官方背景见 [docs/01_比赛背景与官方要求.md](docs/01_比赛背景与官方要求.md)。

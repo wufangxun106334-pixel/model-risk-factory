@@ -12,10 +12,12 @@ from __future__ import annotations
 import csv
 import re
 from pathlib import Path
+from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import ConfigDict, ValidationError
 
 from src.common import ContractError, GateError, append_jsonl, read_json, sha256_file, utc_now, write_json
+from src.contracts import StrictModel
 from src.review import current_decision
 
 NUMBER = re.compile(r"(?<![\w.])-?\d+(?:\.\d+)?(?:[eE][-+]?\d+)?(?![\w.])")
@@ -23,6 +25,12 @@ FORBIDDEN_CLAIMS = (
     "regulatory compliant",
     "regulator approved",
     "certified compliant",
+    "regulatory approval",
+    "independently validated",
+    "independent validation",
+    "production ready",
+    "production-ready",
+    "safe for production",
     "合规认证",
     "监管认证",
     "已通过监管",
@@ -168,32 +176,336 @@ def fairness_table(renderer: Renderer) -> str:
 
 
 def agent_summary_schema() -> dict:
+    return AgentInterpretation.model_json_schema()
+
+
+class SummaryClaims(StrictModel):
+    """Closed-enum statements that must equal the facts derived from the metrics."""
+
+    parity: Literal["MATCH", "MISMATCH"]
+    stability: Literal["STABLE", "ATTENTION", "REVALIDATION_REQUIRED", "NOT_ASSESSABLE"]
+    fairness: Literal["AUDIT_SIGNAL_ONLY"]
+    cross_time_backtest: Literal["UNAVAILABLE"]
+    degraded_checks: list[Literal["PARITY", "STABILITY", "FAIRNESS_LOW_SAMPLE", "PERFORMANCE_NOT_ASSESSABLE"]]
+
+
+class AgentInterpretation(StrictModel):
+    model_config = ConfigDict(hide_input_in_errors=True)
+
+    status_claims: SummaryClaims
+    focus: Literal["PARITY", "PERFORMANCE", "STABILITY", "FAIRNESS"]
+
+
+class RecordedInterpretation(AgentInterpretation):
+    schema_version: Literal["2"]
+    run_id: str
+    generated_at: str
+    model: str
+    request_id: str
+    request_event_id: str
+    audit_log: str
+    aggregate_input_sha256: str
+
+
+REVIEW_FOCUS = {
+    "PARITY": "Review row-level probability, classification and behaviour agreement before interpreting other results.",
+    "PERFORMANCE": "Review discrimination and calibration together, including the observed rate and predicted probability by decile.",
+    "STABILITY": "Review the feature and prediction PSI states against the configured attention and revalidation thresholds.",
+    "FAIRNESS": "Review the reported TPR and FPR by group together with sample-size limits and the comparison to each reference group.",
+}
+
+
+# --- Deterministic facts and status claims (V3 gap 2) ------------------------
+#
+# The Agent used to write free prose that nothing compared with the metrics, so a
+# summary could state the opposite of ``parity.status`` or of the PSI state and
+# still pass Gate C. The key conclusions are now (a) rendered from the metrics by
+# a trusted template that no model can influence, and (b) additionally required
+# from the model as closed-enum claims that must equal the facts derived here.
+
+STABILITY_CLAIMS = {
+    "OK": "STABLE",
+    "REVIEW_HIGHLIGHTED": "ATTENTION",
+    "REVALIDATION_REQUIRED": "REVALIDATION_REQUIRED",
+    "NOT_ASSESSABLE": "NOT_ASSESSABLE",
+}
+DEGRADED_PARITY = "PARITY"
+DEGRADED_STABILITY = "STABILITY"
+DEGRADED_FAIRNESS = "FAIRNESS_LOW_SAMPLE"
+DEGRADED_PERFORMANCE = "PERFORMANCE_NOT_ASSESSABLE"
+
+
+def derive_facts(metrics: dict) -> dict:
+    """Derive the checkable facts the summary has to agree with.
+
+    Nothing here reads the Agent text; every value comes from
+    ``validation_metrics.json``.
+    """
+
+    parity = metrics.get("parity") or {}
+    per_dataset = [parity.get(name) or {} for name in ("dev", "holdout")]
+    parity_match = bool(per_dataset) and all(entry.get("status") == "PASS" for entry in per_dataset) and all(
+        int(entry.get("classification_mismatch_count") or 0) == 0
+        and int(entry.get("behaviour_mismatch_count") or 0) == 0
+        and bool(entry.get("id_sets_match", True))
+        for entry in per_dataset
+    )
+    stability_status = (metrics.get("stability") or {}).get("status")
+    stability_claim = STABILITY_CLAIMS.get(str(stability_status), "NOT_ASSESSABLE")
+    fairness = metrics.get("fairness") or {}
+    low_sample = sorted(
+        f"{attribute}:{group}"
+        for attribute, payload in (fairness.get("attributes") or {}).items()
+        for group, entry in ((payload or {}).get("groups") or {}).items()
+        if (entry or {}).get("sample_status") == LOW_SAMPLE_LABEL
+    )
+    holdout = (metrics.get("performance") or {}).get("holdout") or {}
+    not_assessable = [
+        name for name in ("roc_auc", "brier_score") if (holdout.get(name) or {}).get("status") not in (None, "OK")
+    ]
+    degraded: list[str] = []
+    if not parity_match:
+        degraded.append(DEGRADED_PARITY)
+    if stability_claim != "STABLE":
+        degraded.append(DEGRADED_STABILITY)
+    if low_sample or fairness.get("status") not in (None, "OK"):
+        degraded.append(DEGRADED_FAIRNESS)
+    if not_assessable:
+        degraded.append(DEGRADED_PERFORMANCE)
     return {
-        "type": "object",
-        "additionalProperties": False,
-        "required": ["headline", "results", "limitations", "evidence_gaps"],
-        "properties": {
-            "headline": {"type": "string"},
-            "results": {"type": "array", "items": {"type": "string"}},
-            "limitations": {"type": "array", "items": {"type": "string"}},
-            "evidence_gaps": {"type": "array", "items": {"type": "string"}},
-        },
+        "parity": "MATCH" if parity_match else "MISMATCH",
+        "parity_status": parity.get("status"),
+        "stability": stability_claim,
+        "stability_status": stability_status,
+        "fairness": "AUDIT_SIGNAL_ONLY",
+        "fairness_status": fairness.get("status"),
+        "cross_time_backtest": "UNAVAILABLE",
+        "degraded_checks": degraded,
+        "fairness_low_sample_groups": low_sample,
+        "performance_not_assessable": not_assessable,
     }
 
 
-class AgentSummary(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-    headline: str = Field(min_length=1, max_length=400)
-    results: list[str] = Field(min_length=1, max_length=8)
-    limitations: list[str] = Field(min_length=1, max_length=8)
-    evidence_gaps: list[str] = Field(min_length=1, max_length=8)
+# Phrases that state the opposite of the derived fact. They are only consulted
+# when the claim is *not* the true one, and they are deliberately narrow: a
+# sentence about discrimination is not a statement about PSI drift.
+CONTRADICTING_PHRASES: dict[tuple[str, str], tuple[str, ...]] = {
+    ("parity", "MATCH"): (
+        "parity fails",
+        "parity failed",
+        "parity check failed",
+        "does not reproduce",
+        "does not match the reference",
+        "classification mismatches are present",
+        "classification differences are present",
+        "predictions differ",
+        "probabilities differ",
+    ),
+    ("parity", "MISMATCH"): (
+        "parity passes",
+        "parity matches",
+        "no classification differences",
+        "no classification mismatches",
+        "identical predictions",
+        "exact match",
+        "perfect match",
+        "reproduces the reference probabilities",
+    ),
+    ("stability", "STABLE"): (
+        "drift exceeds",
+        "psi exceeds",
+        "revalidation is required",
+        "requires revalidation",
+        "drift batch is unstable",
+    ),
+    ("stability", "ATTENTION"): (
+        "no drift was detected",
+        "no drift is present",
+        "psi remains low",
+        "within the attention band",
+        "no attention is required",
+        "no revalidation is required",
+        "below the attention threshold",
+    ),
+    ("stability", "REVALIDATION_REQUIRED"): (
+        "no drift was detected",
+        "no drift is present",
+        "psi remains low",
+        "within the attention band",
+        "no attention is required",
+        "no revalidation is required",
+        "below the attention threshold",
+        "below the review threshold",
+        "stability is fine",
+    ),
+    ("stability", "NOT_ASSESSABLE"): (
+        "no drift was detected",
+        "no drift is present",
+        "psi remains low",
+        "within the attention band",
+        "no revalidation is required",
+    ),
+}
+# These are never acceptable, whatever the metrics say: fairness is an audit
+# signal, never a proof.
+ALWAYS_CONTRASTING_PHRASES = (
+    "the model is fair",
+    "fairness is proven",
+    "proven fair",
+    "groups are treated equally",
+    "all groups are comparable",
+    "no group is disadvantaged",
+    "the model is unbiased",
+)
+
+
+def _summary_text(summary: dict) -> str:
+    return " ".join(
+        str(item)
+        for item in [
+            summary.get("headline", ""),
+            *(summary.get("results") or []),
+            *(summary.get("limitations") or []),
+            *(summary.get("evidence_gaps") or []),
+        ]
+    )
+
+
+def claim_problems(claims, facts: dict) -> list[str]:
+    """Compare the Agent's closed-enum claims with the derived facts."""
+
+    try:
+        parsed = SummaryClaims.model_validate(claims)
+    except ValidationError as error:
+        return [f"status_claims are invalid: {str(error)[:200]}"]
+    problems: list[str] = []
+    for field in ("parity", "stability", "fairness", "cross_time_backtest"):
+        got, want = getattr(parsed, field), facts[field]
+        if got != want:
+            problems.append(f"status_claims.{field}={got!r} contradicts validation_metrics.json ({want!r})")
+    if sorted(parsed.degraded_checks) != sorted(facts["degraded_checks"]):
+        problems.append(
+            f"status_claims.degraded_checks={sorted(set(parsed.degraded_checks))!r} contradicts "
+            f"validation_metrics.json ({sorted(facts['degraded_checks'])!r})"
+        )
+    return problems
+
+
+def check_interpretation(interpretation: AgentInterpretation, metrics: dict) -> None:
+    problems = claim_problems(interpretation.status_claims.model_dump(), derive_facts(metrics))
+    if problems:
+        raise ContractError("Summary contradicts the metrics: " + "; ".join(problems[:4]))
+
+
+def contradiction_problems(summary: dict, facts: dict) -> list[str]:
+    lowered = _summary_text(summary).lower()
+    problems: list[str] = []
+    for field in ("parity", "stability"):
+        for phrase in CONTRADICTING_PHRASES.get((field, facts[field]), ()):
+            if phrase in lowered:
+                problems.append(
+                    f"report text says {phrase!r}, but validation_metrics.json records "
+                    f"{field}={facts[field]!r} ({facts[field + '_status']!r})"
+                )
+    for phrase in ALWAYS_CONTRASTING_PHRASES:
+        if phrase in lowered:
+            problems.append(f"report text says {phrase!r}; fairness results are audit signals, never a proof")
+    return problems
+
+
+def check_summary(summary: dict, metrics: dict, *, require_claims: bool = False) -> None:
+    """Reject a summary that is unsafe, restates numbers, or contradicts the facts.
+
+    ``require_claims`` is used on the generation path, so a new run cannot produce
+    a summary without the structured claims. Historical summaries (schema 1) stay
+    readable, but the phrase-level contradiction check still applies to them.
+    """
+
+    facts = derive_facts(metrics)
+    check_wording(_summary_text(summary))
+    restated = NUMBER.findall(_summary_text(summary))
+    if restated:
+        raise ContractError(
+            f"Summary must not restate numbers ({restated[:5]}); every figure is rendered from a metrics path"
+        )
+    claims = summary.get("status_claims")
+    if claims is None:
+        if require_claims:
+            raise ContractError(
+                "Summary is missing status_claims; parity, stability, fairness and back-test status must be "
+                "stated as closed-enum claims that match validation_metrics.json"
+            )
+    else:
+        problems = claim_problems(claims, facts)
+        if problems:
+            raise ContractError("Summary contradicts the metrics: " + "; ".join(problems[:4]))
+    problems = contradiction_problems(summary, facts)
+    if problems:
+        raise ContractError("Summary contradicts the metrics: " + "; ".join(problems[:4]))
+
+
+def _negated(prefix: str) -> bool:
+    """True when the words just before a claim say it does *not* hold.
+
+    A disclaimer such as "no independent validation, regulatory approval or
+    production readiness is claimed" is the correct wording, so the phrase list
+    must not fire on it.
+    """
+
+    words = re.split(r"[^\w']+", prefix.strip())
+    recent = [word for word in words if word][-4:]
+    negations = {"no", "not", "never", "without", "cannot", "can't", "neither", "nothing", "none", "nor", "未", "不", "无", "没有", "并非"}
+    return any(word.lower() in negations for word in recent)
+
+
+NEGATED_SUFFIXES = (
+    "is missing",
+    "are missing",
+    "remains missing",
+    "is unavailable",
+    "are unavailable",
+    "is absent",
+    "not established",
+    "not claimed",
+    "not inferred",
+)
+SUFFIX_WINDOW = 120
+
+
+def _negated_after(suffix: str) -> bool:
+    """True when the same clause reports the claim as missing or not claimed.
+
+    Two things count: one of the explicit "is missing / not established" markers, or
+    any negation particle inside the same clause. The second rule matters because a
+    correct disclaimer often puts the negation after the noun ("regulatory approval
+    was not given"), and refusing that wording burns the single retry on a sentence
+    that is actually right. The clause ends at the first sentence terminator, so a
+    later sentence about missing evidence cannot excuse an overclaim.
+    """
+
+    clause = re.split(r"[.!?\n]", suffix.lower(), maxsplit=1)[0]
+    if any(marker in clause for marker in NEGATED_SUFFIXES):
+        return True
+    return bool(re.search(r"(?:\bno\b|\bnot\b|\bnever\b|\bwithout\b|n't\b|未|不|无)", clause))
 
 
 def check_wording(text: str) -> None:
     lowered = text.lower()
     for claim in FORBIDDEN_CLAIMS:
-        if claim.lower() in lowered:
-            raise ContractError(f"Forbidden compliance claim in report text: {claim}")
+        needle = claim.lower()
+        start = 0
+        while True:
+            index = lowered.find(needle, start)
+            if index < 0:
+                break
+            prefix = lowered[max(0, index - 60) : index]
+            suffix = lowered[index + len(needle) : index + len(needle) + SUFFIX_WINDOW]
+            if not _negated(prefix) and not _negated_after(suffix):
+                raise ContractError(
+                    f"Forbidden compliance claim in report text: {claim}"
+                    " (stating the absence of approval is fine; asserting it is not)"
+                )
+            start = index + len(needle)
 
 
 def desensitized_summary(metrics: dict) -> dict:
@@ -224,6 +536,9 @@ def desensitized_summary(metrics: dict) -> dict:
         "rules": metrics["rules"],
         "threshold": metrics["threshold"],
         "dataset_rows": {name: entry["rows"] for name, entry in metrics["datasets"].items()},
+        # The checkable facts the claims must equal. Sending them keeps the task
+        # deterministic instead of asking the model to infer a direction.
+        "derived_facts": derive_facts(metrics),
     }
 
 
@@ -258,6 +573,34 @@ def _render_markdown(metrics: dict, run_id: str, agent_summary: dict | None, inv
         lines.append(f"- {model_id}: Gate A status `{artifact}`")
     lines.append(f"- Frozen candidate SHA256: `{renderer.raw('candidate_sha256', label='candidate hash', section='artifact')}`")
     lines.append(f"- Decision threshold: {renderer.path('threshold', label='threshold', section='artifact')}")
+    lines.append("")
+
+    lines.append("## Key conclusions (rendered from validation_metrics.json)")
+    lines.append("")
+    lines.append(
+        "Generated by the trusted renderer from the metrics file, never from Agent text: these "
+        "statements always match the recorded status, including after a re-render at Gate C."
+    )
+    lines.append("")
+    lines.append(
+        "- Row-level probability and classification parity: "
+        f"`{renderer.raw('parity.status', label='parity status', section='conclusions')}` "
+        f"(dev `{renderer.raw('parity.dev.status', label='parity dev status', section='conclusions')}`, "
+        f"holdout `{renderer.raw('parity.holdout.status', label='parity holdout status', section='conclusions')}`)."
+    )
+    lines.append(
+        "- Stability against the weighted drift batch: "
+        f"`{renderer.raw('stability.status', label='stability status', section='conclusions')}`; a flagged batch "
+        "only raises a revalidation task and is not a bank action."
+    )
+    lines.append(
+        "- Fairness on the Holdout: "
+        f"`{renderer.raw('fairness.status', label='fairness status', section='conclusions')}` — an audit signal "
+        "only; groups below the minimum sample size are labelled `LOW_SAMPLE` and their rates are not assessable."
+    )
+    lines.append(
+        "- Cross-time back-test: `UNAVAILABLE` from this dataset and kept on the missing-evidence list."
+    )
     lines.append("")
 
     lines.append("## Row-level equivalence (parity)")
@@ -343,12 +686,18 @@ def _render_markdown(metrics: dict, run_id: str, agent_summary: dict | None, inv
     lines.append("")
     if agent_summary is None:
         lines.append("No agent summary has been recorded for this run.")
+    elif agent_summary.get("schema_version") == "2" or "data_kind" in metrics:
+        summary = RecordedInterpretation.model_validate(agent_summary)
+        if summary.run_id != run_id:
+            raise ContractError("Agent summary belongs to another run")
+        check_interpretation(summary, metrics)
+        lines.append("The Agent selected a review focus from aggregate metrics. The report renders the guidance from a fixed template.")
+        lines.append("")
+        lines.append(REVIEW_FOCUS[summary.focus])
     else:
-        summary_text = " ".join([agent_summary.get("headline", "")] + agent_summary.get("results", []) + agent_summary.get("limitations", []) + agent_summary.get("evidence_gaps", []))
-        check_wording(summary_text)
-        restated = NUMBER.findall(summary_text)
-        if restated:
-            raise ContractError(f"Agent summary restates numbers without a metrics path: {restated[:5]}; regenerate it")
+        # Rejects forbidden claims, restated numbers, and any statement that is the
+        # opposite of the recorded parity direction, PSI state or fairness scope.
+        check_summary(agent_summary, metrics)
         lines.append("The Agent received aggregate metrics only: no data rows, no client identifiers and no Holdout inputs.")
         lines.append("")
         lines.append(agent_summary["headline"])
@@ -372,8 +721,11 @@ def _render_markdown(metrics: dict, run_id: str, agent_summary: dict | None, inv
 
     lines.append("## What these numbers do and do not show")
     lines.append("")
-    lines.append("- The Holdout result is a same-period random hold-out from the same UCI extract: sample-out validation, not a back-test.")
-    lines.append("- The weighted drift batch keeps real labels but changes the sample composition: a sensitivity analysis of stability, not a forecast of future performance.")
+    if metrics.get("data_kind") == "synthetic":
+        lines.append("- Holdout and the weighted drift batch use synthetic data and labels. The hold-out is same-period; the drift batch changes the sample composition. These are workflow checks, not a back-test or evidence of real-world performance.")
+    else:
+        lines.append("- The Holdout result is a same-period random hold-out from the same UCI extract: sample-out validation, not a back-test.")
+        lines.append("- The weighted drift batch keeps real labels but changes the sample composition: a sensitivity analysis of stability, not a forecast of future performance.")
     lines.append("- A cross-time back-test is not available from this dataset and stays listed as missing evidence.")
     lines.append("- Fairness results describe error rates of a default-prediction model for the audited groups; they are audit signals, not proof that the model is fair, and they do not transfer to other populations.")
     lines.append("- The legacy model documents are simulated assets; no claim of regulatory approval, independent validation or production suitability is made.")
