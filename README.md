@@ -5,11 +5,9 @@ EXL × UCD Data & AI Hackathon 2026 — Challenge 04 Agentic model risk factory�
 **v1 已验收，v2 工程实现已完成，正式发布仍为 BLOCKED。** CLI 将团队自建的信用违约模型 `MDL_CREDIT_V1` 从 R 迁移到 Python，对照 R 基准逐记录验证预测概率、分类和异常处理。v2 补齐另外两个旧模型的档案、容器边界实测、四类验证指标、三道审核门禁、端到端导出与报告数值溯源。
 
 - v1 正式 run `v1-20261109T181929Z-3fe1c7b5`：V1-01～07 全 PASS（Gate A/B 代理审核），标签 `v1`。
-- v2 正式 run **`v2-20261109T210903Z-3dcfab73`**（campaign seed 46）：V1-01～07 与 V2-01～07 共 14 项全 PASS，`release_approved=true`，Gate A（三份档案）/ Gate B / Gate C 均为 `agent-delegated` 代理审核。
+- v2 历史验收 run **`v2-20261109T210903Z-3dcfab73`**（campaign seed 46）：记录显示 V1-01～07 与 V2-01～07 共 14 项全 PASS，Gate A（三份档案）、Gate B 和 Gate C 均由 `agent-delegated` 代理审核。该结果仅用于历史回放。
 
-> **发布状态：BLOCKED（2026-11-10 复核）。** Gate C 已校验完整的报告正文、附表和数值索引。当前发布缺口是历史证据与提交不匹配，以及未消费的正式 Holdout 数据不足。
->
-> **原始判定（2026-11-09）：** 该 run 的证据内部自洽（63 个文件哈希、14/14 PASS、导出哈希全部复算一致），但**无法绑定到任何提交**：它的测试树在工作区未提交时被使用，`git_commit_at_init=ec6077f`，而 `v2` 标签指向 `9884e3a`，`config/data_config.json` 也在 run 之后才提交。UCI 数据只剩 **1,199** 行从未消费，无法再产生一份 6,000 行正式 Holdout。缺口与后续步骤见「发布状态与缺口」。`v2` 标签保持在 `9884e3a`，但**不得作为有效发布引用**。
+> **发布状态为 BLOCKED（2026-11-10 复核）。** seed 46 的证据生成时工作区有未提交改动，无法绑定到发布提交。UCI 数据只剩 **1,199 行**从未用于正式 Holdout，低于 **6,000 行**的要求。本地与 `origin` 均未发现 `v2` 标签。详见[发布状态与缺口](#发布状态与缺口)和[重新放行步骤](#v2-重新放行步骤)。
 
 交付物是本机的 `delivery/<run_id>_acceptance.json` 与 `delivery/<run_id>_evidence.zip`；`runs/`、`delivery/` 与原始数据不进 Git。Streamlit 界面按计划留给 v3。
 
@@ -252,7 +250,7 @@ Agent 只获得允许的模型资料、Schema 和不含原始行/基准答案的
 | --- | --- | --- | --- |
 | 1 | 42 | `v1-20261109T172051Z-a9bd4ef4` | V1-01～06 PASS；一次性 Holdout PASS（6000 行、分类差异 0、`max_abs_diff` 2.22e-16）；V1-07 FAIL（首个 `generate-candidate` 因输出被 8192 token 截断而 exit 2，重试成功后命令链仍留有该失败记录）；Holdout 已按账本消费 |
 | 2 | 43 | `v1-20261109T181929Z-3fe1c7b5` | 正式验收 run：命令链首轮全绿，V1-01～07 全 PASS，Holdout PASS，已导出证据包 |
-| v2 | 44 | `v2-20261109T203556Z-02f3834e` | 首个 v2 正式 run：14 项全 PASS。发布后复盘发现 5 项发布阻断（见下节），其证据作为历史保留、不再作为发布依据 |
+| v2 | 44 | `v2-20261109T203556Z-02f3834e` | 首次 v2 验收运行，14 项全 PASS。随后复盘发现发布阻断（见下节），证据仅供历史回放 |
 | v2-fix | 45 | `v2-20261109T210057Z-a715536f` | 阻断修复后的重跑：V2-01～07 与 V1-01～06 全 PASS，**V1-07 FAIL** —— 首次 `check-provider` 因网关返回不可解析短回复而失败，我在 `prepare`/`baseline` 之后才原地重试成功，命令链因此不再满足「按序成功」。保留为失败证据，不换 seed 追通过 |
 | v2 | 46 | `v2-20261109T210903Z-3dcfab73` | 14 项全 PASS（发布状态 BLOCKED，见下节：证据无法绑定提交），`check-provider` 首轮即通过（失败时立即原地重试再继续），Holdout 与 seed 42/43/44/45 四份已消费 Holdout 逐份重叠 0 行 |
 
@@ -269,7 +267,7 @@ git rev-parse v1^{commit}   # 应为被标记的发布提交
 
 ## v2 发布阻断修复（针对 `fd44496` 复盘）
 
-首个 v2 发布（`fd44496`，run `v2-20261109T203556Z-02f3834e`）之后复核发现 5 项会削弱证据强度的缺陷。全部已修复并有回归测试；正式验收在 campaign 46 上重跑。
+首个 v2 发布候选（`fd44496`，run `v2-20261109T203556Z-02f3834e`）复核时发现以下缺陷。修复均有回归测试，随后在 campaign 46 上重跑了验收。
 
 | 阻断 | 问题 | 修复 | 回归测试 |
 | --- | --- | --- | --- |
@@ -340,9 +338,9 @@ done
 
 开发、重试与故障演练用 `MRF_RUNS_ROOT=dev_runs` + `prepare --synthetic` 的独立 dry run（合成数据、独立账本），不触碰 `runs/` 与正式 Holdout。
 
-## 发布状态与缺口（2026-11-09）
+## 发布状态与缺口
 
-本轮修完 3 项发布阻断，并把"发布提交必须等于证据提交"变成可机检规则；结论是**发布仍被阻断**，原因是证据与提交不匹配且数据已耗尽。
+2026-11-10 在临时检出复测 `main`（`92fa3a0`），使用锁定依赖及 SHA-256 与账本一致的 UCI ZIP。全量测试 **287 项通过、7 个子测试通过、0 失败、0 跳过**。本地和 `origin` 均未发现 `v2` 标签，当前检出也没有 seed 46 的运行目录和导出证据包。该次运行的发布判定沿用下文的历史记录。
 
 ### 已修复的 3 项阻断
 
@@ -379,7 +377,7 @@ done
 
 ### 为什么仍然 BLOCKED
 
-`release-check --tag v2 --run-id v2-20261109T210903Z-3dcfab73 --zip data/raw/default_of_credit_card_clients.zip` 的输出（历史副本 `dev_runs/release_check_v2.json`；2026-11-10 在第三轮修复后的树上重跑，结论与缺口逐条相同，共 17 条）：
+历史发布校验以当时的 `v2` 引用（`9884e3a`）为目标。原运行环境的 `dev_runs/release_check_v2.json` 记录了 17 条缺口，第三轮修复后在该环境复核时结论一致。
 
 ```text
 status BLOCKED
@@ -389,13 +387,13 @@ status BLOCKED
 - V1-01 (v1) … V2-07 (v2): recorded commit ec6077f… does not match the released commit 9884e3a…   (14 条)
 ```
 
-标签树上的测试结果：**182 passed, 0 skipped, 0 failed** —— 因为 `release-check` 已把哈希匹配的本机 UCI ZIP 复制进隔离树，原先的 7 个跳过项现在真的执行了；这也是"全量通过"与"必需测试被跳过"分开统计的目的（若仍有跳过，会逐条列出用例名并计入缺口）。
+历史校验在 `9884e3a` 上执行了 **182 项测试，全部通过，0 跳过**。当时的 `release-check` 已把哈希匹配的 UCI ZIP 复制进隔离树，使 7 项依赖数据的测试得以执行。
 
 只读复核分别定位到两处不可同时满足的失配（`dev_runs/seed46_readonly_check.json`）：
 
 | 参考提交 | src/ | tests/ | 仓库资产 | 结论 |
 | --- | --- | --- | --- | --- |
-| `v2`（`9884e3a`） | 一致 | **不一致**（run 之后提交了测试修正） | 一致 | 不能代表证据树 |
+| `9884e3a`（历史发布校验目标） | 一致 | **不一致**（run 之后提交了测试修正） | 一致 | 不能代表证据树 |
 | `ec6077f`（`git_commit_at_init`） | 一致 | 一致 | **`config/data_config.json` 不一致**（seed 46 在 run 之后才提交） | 同上 |
 
 即：seed 46 的证据是在**脏工作区**上生成的，任何提交都不等于它的树。按规则不能改标签去"凑"，也不能为了对齐而回退测试。
@@ -421,19 +419,25 @@ fresh_holdout_available: false
 greedy_new_rows_per_campaign: seed-42 6000, seed-43 4801, seed-44 6000, seed-45 6000, seed-46 6000
 ```
 
-2026-11-10 复核：`verify-holdout-ledger` 五份重建全部 `verified`、`unique_excluded_rows=28801`；另以五个正式 run 磁盘上的 `holdout.csv`（哈希与账本一致）独立求并集，同为 28,801 行，`runs/holdout_consumption.jsonl` 五条均为 `CONSUMED`。仓库内除该 UCI ZIP 外没有任何其他获准数据。
+2026-11-10 在干净检出中，以哈希匹配的原始 ZIP 运行 `verify-holdout-ledger`，五份重建全部为 `verified`，`unique_excluded_rows=28801`。原运行环境的历史复核也从五份已消费的 `holdout.csv` 得到相同的并集。仓库当前只记录了该 UCI 数据源的批准与哈希。
 
-正式验收要求 6,000 行 Holdout，剩余 1,199 行不足；本仓库不使用 1,199 行冒充正式验收，也不再换 seed。因此**在新提交上重跑 6,000 行正式 Holdout 不可行**，发布保持 BLOCKED。
+现有 UCI 数据只剩 1,199 行可用于正式 Holdout，低于 6,000 行门槛。更换 seed 只改变抽样顺序，正式发布仍需获准的新数据。
 
-### 历史证据能支持什么、不能支持什么
+### 历史证据的用途
 
-- **能支持**：run `v2-20261109T210903Z-3dcfab73` 自身 14 项 PASS、63 个证据文件哈希与导出 ZIP 哈希、Gate A（三份档案，含一次 REJECTED 后重新提取）/ Gate B / Gate C 的代理审核记录、单一 Holdout 与四份历史 Holdout 0 重叠、191 个数值的逐格溯源。这些是**该 run 的有效记录**。
-- **不能支持**：把该 run 当作某个提交的发布证据（无法绑定）、在后续提交上宣称"已发布验收"。`v2` 标签因此不构成有效发布引用。
-- **解除阻断需要**（v3 或数据授权变更时）：在干净工作区、先提交后跑证据的流程下，用**未消费数据**（重新获批的原始数据或经批准的扩展数据）产生一份 6,000 行正式 Holdout，并让 `release-check --tag <发布提交>` 返回 APPROVED。
+seed 46 的 14 项 PASS、63 个证据文件与导出 ZIP 的哈希、三道代理审核记录、Holdout 重叠检查和报告数值溯源，均仅作为该次运行的历史证据归档。获取原始证据包后，可按[历史运行复核步骤](#复核-v2-历史验收-run)核验。
+
+### v2 重新放行步骤
+
+1. **确认数据与授权。** 获取足够的获准数据，构成 6,000 行独立 Holdout。核对特征与标签口径、年龄和性别审计字段，以及与训练、开发和已消费 Holdout 的重叠。现有数据准备、V1-02 和发布校验依赖原 UCI ZIP。接入新数据时，为新来源记录许可、使用批准和原始文件哈希，验证新划分，并保留历史账本供复核。
+2. **演练后冻结发布提交。** 在独立检出中使用 `dev_runs` 和合成数据演练网关、Docker、三道审核、报告和导出。正式运行前提交代码、测试和配置，确认工作区干净，再执行 `init-run`。候选通过开发测试并冻结后执行一次正式 Holdout，生成同一 run 的报告、验收记录和证据包。
+3. **先验提交，再打标签。** 对该次 run 执行 `release-check --tag <发布提交 SHA> --run-id <新 run_id>`。校验返回 `APPROVED` 后，为同一提交创建并推送 `v2` 标签。
+
+若目标日前数据仍未获批，按 [SOP 的范围变更规则](docs/02_项目SOP.md#缩减与范围变更)提交团队确认。可交付合成数据的工程演示，并将真实指标标为历史回放。原标准下的正式发布继续标记 `BLOCKED`。
 
 ## 已知工具缺陷
 
-v1 记录的 4 条与首个 v2 发布发现的 2 条均已在本次修复：
+v1 记录的 4 条与首个 v2 发布候选发现的 2 条均已在本次修复：
 
 1. `candidate-fixtures` FAIL 写出聚合诊断并授权下一轮修复。
 2. 命令链允许同 run 内重试：失败记录全部保留，成功步绑定同一 `run_id`、冻结 attempt、Gate B 哈希与 context 哈希。注意：**被重试的步骤必须在其后续步骤之前成功**，否则链路不再“按序成功”（campaign 45 就是这样失败的，见上表）。
@@ -445,14 +449,13 @@ v1 记录的 4 条与首个 v2 发布发现的 2 条均已在本次修复：
 本轮修复：
 
 - 报告表格改为逐单元格与指标重渲染比较（见上节），不再靠索引存在性判断。
-- v2 受审来源与 `inventory_expectations`、`holdout_ledger` 已进 context；旧 run 可按标签树只读复核。
+- v2 受审来源与 `inventory_expectations`、`holdout_ledger` 已进新 run 的 context。旧 run 可按其原始清单和对应提交只读复核。
 - 证据必须来自"已提交且干净"的树：`worktree_clean_at_init` 记录 + `release-check` 强制。
 
 仍未修复（留待 v3）：
 
-7. `context_manifest.json` 的 repository 资产清单只列 v1 资产（`legacy/credit_v1.R` 等），v2 新增的 R 资产与 `config/inventory_expectations.json`、`config/holdout_ledger.json` 不在 context 中；它们由三份档案记录的来源哈希、V2-01 校验与划分登记哈希固定。
-8. Agent 档案提取有随机性：本次 V2 首次提取把“0.3/0.3 一致”记成冲突，我按实质内容 REJECTED、归档该产物并重新提取后通过；报告解释文本也会偶发与指标不符的定位性判断，本次按预置规则拒绝并重新生成，所有请求都在 `provider/request_log.jsonl`。v3 应把这类校验做成确定性门禁而不是人工判断。
-9. 候选审查记录（不影响本次结果）：`--model` 在候选实现中可选并回退到与 artifact 相等的常量；十六进制字面量（如 `0x10`）被当作不可解析而拒绝，R 的 `as.numeric` 会接受。
+7. Agent 档案提取有随机性：本次 V2 首次提取把“0.3/0.3 一致”记成冲突，我按实质内容 REJECTED、归档该产物并重新提取后通过；报告解释文本也会偶发与指标不符的定位性判断，本次按预置规则拒绝并重新生成，所有请求都在 `provider/request_log.jsonl`。v3 应把这类校验做成确定性门禁而不是人工判断。
+8. 候选审查记录（不影响本次结果）：`--model` 在候选实现中可选并回退到与 artifact 相等的常量；十六进制字面量（如 `0x10`）被当作不可解析而拒绝，R 的 `as.numeric` 会接受。
 
 ## 退出码与验收状态
 
@@ -470,23 +473,24 @@ v1 记录的 4 条与首个 v2 发布发现的 2 条均已在本次修复：
 | V1-06 | PASS | 真实 API 候选 `906a9097…`（`generation_mode=REAL_API`）+ 代理 Gate A/B + 同 context + 冻结哈希 + Docker 开发 parity + 行为 fixtures + 一次性 Holdout PASS（6000 行、分类差异 0、`max_abs_diff` 2.22e-16） |
 | V1-07 | PASS | 同 run 命令链首轮 14 步全部 exit 0 且顺序合规；`evidence_manifest.json` 43 个文件哈希与磁盘一致；`export_verified.json` 的 manifest/ZIP 哈希未过期 |
 
-同一正式 run `v1-20261109T181929Z-3fe1c7b5` 的七项全部 PASS（`release_approved=true`），因此为对应本地提交创建了 `v1` 标签。v2 正式 run `v2-20261109T210903Z-3dcfab73` 的 14 项全部 PASS（`v1_release_approved=true`、`v2_release_approved=true`、`release_approved=true`），因此为合回 `main` 的发布提交创建了 `v2` 标签。`runs/` 与 `delivery/` 不进 Git，标签指向的是源码与文档提交；run 上下文由 `context_manifest.json` 的 `trusted_source_sha256` / `trusted_tests_sha256` 固定，tag 提交的 `src/`、`tests/`、`config/` 必须与之逐字节一致（验收后不得再改）。
+同一正式 run `v1-20261109T181929Z-3fe1c7b5` 的七项全部 PASS（`release_approved=true`），因此为对应本地提交创建了 `v1` 标签。对 v2，run 的 `release_approved=true` 表示该次运行的 14 项验收通过。正式发布还要求 `release-check` 对同一 run 和待发布提交返回 `APPROVED`。
 
-### 复核 v2 正式 run
+### 复核 v2 历史验收 run
+
+以下命令需要原始运行目录、导出证据包和哈希匹配的 UCI ZIP。使用历史提交 SHA 复核，无需依赖本地标签。
 
 ```bash
 RUN=v2-20261109T210903Z-3dcfab73
-PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -c "import pathlib;from src.context import verify_context;print(verify_context(pathlib.Path('.').resolve(), pathlib.Path('runs/$RUN'), '$RUN'))"   # True
-cat runs/$RUN/acceptance.json | .venv/bin/python -c 'import json,sys;d=json.load(sys.stdin);print(d["release_approved"], [(r["acceptance_id"], r["status"]) for r in d["records"]])'
-shasum -a 256 delivery/$RUN_evidence.zip runs/$RUN/export_verified.json   # 与 export_verified.json 的 archive_sha256 对照
-.venv/bin/python -m src.cli report-status --run-id $RUN                     # 当前树上为 DRAFT（Gate_C=INVALIDATED）：run 之后 src/tests 已变，context 不再匹配，这正是证据无法绑定提交的表现
-git rev-parse v2^{commit}
-.venv/bin/python -m src.cli verify-context --run-id $RUN --at v2            # 只读复核：src/tests/资产 分别判定
-.venv/bin/python -m src.cli release-check --run-id $RUN --tag v2 --zip data/raw/default_of_credit_card_clients.zip --output "$(mktemp -d)/release_check_v2.json"   # 发布结论：当前为 BLOCKED（17 条缺口）；输出只能是 runs/、dev_runs/、delivery/ 之外的新文件
-.venv/bin/python -m src.cli compare-command-log --run-id $RUN --save-copy "$(mktemp -d)/command_log_snapshot.copy.jsonl"   # 只读比对；副本只能独占新建在证据目录之外，已存在的目标（含硬链接）一律拒绝
+REF=9884e3a
+.venv/bin/python -c 'import json,sys;d=json.load(sys.stdin);print(d["release_approved"], [(r["acceptance_id"], r["status"]) for r in d["records"]])' < "runs/$RUN/acceptance.json"
+shasum -a 256 "delivery/${RUN}_evidence.zip"   # 与 export_verified.json 的 archive_sha256 对照
+.venv/bin/python -m src.cli verify-context --run-id "$RUN" --at "$REF"
+.venv/bin/python -m src.cli verify-context --run-id "$RUN" --at ec6077f
+.venv/bin/python -m src.cli release-check --run-id "$RUN" --tag "$REF" --zip data/raw/default_of_credit_card_clients.zip --output "$(mktemp -d)/release_check_v2.json"
+.venv/bin/python -m src.cli compare-command-log --run-id "$RUN" --save-copy "$(mktemp -d)/command_log_snapshot.copy.jsonl"
 ```
 
-`verify_context` 覆盖 `src/`、`tests/` 与 repo 资产：发布提交一旦改动这些文件，已封存 run 的 Gate 与冻结即失效（见已知缺陷 4）。因此 v2 标签指向的提交必须与 run 的 `context_manifest.json` 逐字节一致，验收之后不再改 `src/`、`tests/`、`config/`。
+`verify_context` 核对 `src/`、`tests/` 和受绑定的仓库资产。正式发布标签必须指向初始化正式 run 时的提交，且该提交的内容须与 `context_manifest.json` 一致。
 
 ## 声明与限制
 

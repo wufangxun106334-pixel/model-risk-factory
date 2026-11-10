@@ -1,13 +1,13 @@
 ---
 title: Challenge 04 银行模型风险管理项目 SOP
 created: 2026-11-05
-updated: 2026-11-09
+updated: 2026-11-10
 tags:
   - 黑客松
   - EXL-UCD
   - Model-Risk
   - Agentic-AI
-status: v1-accepted / v2-in-progress
+status: v1-accepted / v2-release-blocked
 release_plan: v1-prototype / v2-formal / v3-final
 ---
 
@@ -86,7 +86,7 @@ Docker Desktop、R 和 Python 需在开发机实际验证。依赖版本在接�
 | 版本 | 日期目标 | 必须完成 | 放行条件 |
 | --- | --- | --- | --- |
 | ~~**v1 Prototype**~~ ✅ 11-09 完成 | ~~11-10 结束前~~ | API 最小验证；UCI 数据加工与划分；一个 R 基准；人工参考 Python 实现与独立等价性工具；故意错误案例；待迁移模型的 Agent 档案通过 Gate A；**一次真实 Agent 迁移**（CLI + 最小 Docker + Gate B 审批） | V1-01 至 V1-07 全满足；从数据到 Holdout 等价性结论的迁移证据链可按 README 复现；已实现与占位功能清楚区分 |
-| **v2 正式版** | 11-11 结束前 | 三份 Agent 档案；三审核关卡；Docker 边界加固；四类验证（含校准表）与报告；完整运行证据与导出 | V2-01 至 V2-07 全满足；无阻断缺陷；所有 v1 验收继续通过。Streamlit 四页界面是演示目标，不是发布门槛 |
+| **v2 正式版** | 11-11 结束前 | 三份 Agent 档案；三审核关卡；Docker 边界加固；四类验证（含校准表）与报告；完整运行证据与导出 | V1-01 至 V1-07 和 V2-01 至 V2-07 全部通过，且 `release-check` 对同一 run 和待发布提交返回 `APPROVED`。Streamlit 四页界面为可选演示目标 |
 | **v3 最终版** | 11-12 结束前 | 集成复测、新环境复现、交付五件套（含 AI 工具声明）、三分钟视频、最终 Git 版本；不再新增功能 | V3-01 至 V3-06 全满足；全部必交文件可访问；冻结范围和已知限制写入 README |
 
 版本失败时不得创建对应通过标签，也不得在展示中说已经完成。修复后仍归属同一版本，不新增 v1.1/v4 等计划。未完成 v2 就不能把 v3 包装为"最终通过"。
@@ -121,9 +121,11 @@ Docker Desktop、R 和 Python 需在开发机实际验证。依赖版本在接�
 
 ### 4.2.1 v2 实现状态（2026-11-10 复核）
 
-**当前结论：工程修复已完成，正式发布 BLOCKED。** 2026-11-10 完成第三轮修复（报告表格按 GFM 渲染语义判定；`release-check --output` 与 `compare-command-log --save-copy` 只能在证据目录外独占新建文件），全量测试通过；`release-check --tag v2` 仍为 BLOCKED（17 条缺口不变），未消费 UCI 行经独立复核仍为 1,199 行。`v2` 标签保持指向 `9884e3a`，不构成有效发布引用。
+**CLI 功能已实现，正式发布为 `BLOCKED`。** 2026-11-10 在 `main`（`92fa3a0`）复测，全量测试 287 项通过，另有 7 个子测试通过，0 失败、0 跳过。seed 46 的历史记录显示 14 项验收均通过，但当时工作区有未提交改动，证据无法绑定到发布提交。本地和 `origin` 均未发现 `v2` 标签。账本复算确认 UCI 只剩 1,199 行未用于正式 Holdout，低于 6,000 行的要求。[发布状态与缺口](../README.md#发布状态与缺口)
 
-V2-01～V2-07 与 V1-01～V1-07 已在正式 run `v2-20261109T210903Z-3dcfab73`（campaign seed 46）上全部通过；**但该 run 的证据无法绑定到任何提交，且未消费的 UCI 行只剩 1,199 行（不足 6,000 行正式 Holdout），因此正式发布状态为 BLOCKED**，`v2` 标签不构成有效发布引用。缺口、解除条件与后续步骤见 [README](../README.md) 的「发布状态与缺口」一节；实际命令、证据路径与残留缺陷见同文件「v2 发布阻断修复」「v2 正式验收」「已知工具缺陷」三节。以下实现口径在此固定：
+重新放行须取得获准且独立的 6,000 行 Holdout，在干净的已提交版本上完成一次正式运行与证据导出，对同一提交 SHA 运行 `release-check` 并取得 `APPROVED`，再创建 `v2` 标签。数据未及时获批时，按 §13 提交范围变更供团队确认。[重新放行步骤](../README.md#v2-重新放行步骤)
+
+当前实现口径如下。
 
 - 三份档案的 Gate A 产物：`MDL_CREDIT_V1` 为 `model_inventory.json`，另外两个模型为 `inventories/<model_id>.json`；每个模型的内容期望（特征顺序、代码/文档阈值、必须保留的 Unknown、最少冲突数）由 `config/inventory_expectations.json` 冻结。
 - Gate C 的被审产物统一为 `report/review_manifest.json`：生成、审批（`approve --gate Gate_C`）与状态检查（`report-status`）使用同一路径；该清单绑定报告、`validation_metrics.json`、数值索引、表格与 Agent 摘要的哈希，任一被绑定文件缺失或变化即退回 DRAFT，`report/approval.json` 只在 Gate C 通过后生成。
@@ -295,7 +297,7 @@ Gate A/B/C 的判定标准不因执行方式而变，只区分由谁执行：
 
 数据划分的 campaign seed 由 `config/data_config.json` 的 `seed` 固定（总行数、四份行数、违约率容差、UCI URL 仍为不可变常量），写入 `data_manifest.json`，`prepare --seed` 必须与配置一致。一次性账本 `runs/holdout_consumption.jsonl` 以 `(model_id, campaign_id, dataset_sha256)` 记账：同一 campaign 的 Holdout 只能被消费一次，无论成功与否都不重跑、不用于调参。
 
-campaign seed 变更等同于换一份未被评估的划分，属于新 campaign，须在 README 与验收记录中写明原因；旧 campaign 的 Holdout 结果与账本记录原样保留，不得删除或改写。v1 实际记录：campaign 1（seed 42）因命令链记账缺陷 V1-07 FAIL，Holdout 已按账本消费且为 PASS；正式验收改用 campaign 2（seed 43），该 Holdout 从未被评估，单次消费且 PASS。
+seed 变更会创建新 campaign。正式 Holdout 还须通过历史排除校验，确保与已消费 Holdout 零重叠，并达到 6,000 行。变更原因写入 README 与验收记录，保留旧 campaign 的 Holdout 结果与账本。历史上 v1 的 seed 42 已消费 Holdout，V1-07 因命令链记账缺陷失败。随后 seed 43 的 Holdout 单次消费并通过，两份划分存在 1,199 行重叠，现均计入排除集。
 
 ## 8. 迁移与数值验收契约
 
@@ -551,10 +553,10 @@ python -m src.cli export --run-id "$RUN_ID"                 # 最后一步，之
 | `check-provider` 报 `LLM_*` 配置缺失（BLOCKED） | 新开了终端，或没有执行 `set -a; source .env` | 回到第 1 步 |
 | `prepare` 拒绝 seed | 手写了 `--seed 42` | 从 `config/data_config.json` 读取 seed |
 | 候选 `finish_reason=length` | `LLM_MAX_OUTPUT_TOKENS` 过小 | 设为 32768，并新建 run |
-| `accept` 拒绝重跑 | 该 campaign 的 Holdout 已被消费 | 保留结果；只有新 campaign（改 seed）才能重新验收，见 7.5 |
+| `accept` 拒绝重跑 | 该 campaign 的 Holdout 已被消费 | 保留结果。新 campaign 须有 6,000 行符合历史排除规则的 Holdout，见 §7.5 |
 | Gate 审批失效 | 修改了 `src/`、`tests/`、`config/` 或候选 | 对新哈希重新审批，必要时新建 run |
 
-Streamlit 界面（`streamlit run app.py`）属于 v2，目前尚未实现。
+v2 正式验收通过 CLI 执行。Streamlit 界面留待 v3 演示。
 
 ## 13. 分工与里程碑
 
@@ -599,7 +601,7 @@ A=用户本人（AI 工程主线），B=队友（建模验证主线）。两人�
 5. ~~**Freeze candidate（冻结候选）**：保存代码哈希；独立运行 Holdout；失败不泄露答案后反复修复；记录失败和后续处理。~~ ✅
 6. ~~**Accept v1（验收原型）**：逐项执行 V1 检查；记录实际结果、环境和差异；通过后创建 v1 标签。~~ ✅
 7. **Complete inventory, validate & review（补齐档案、验证与审阅）**：补齐其余两个模型的档案并经 Gate A，确认三份档案均已通过审核；计算四类指标、生成来源可追溯报告并经 Gate C；加固容器边界；测试超时、请求上限与无效输出。
-8. **Accept v2（验收正式版）**：端到端流程与导出完整，V2 全通过；创建 v2 标签。
+8. **Accept v2（验收正式版）**。完成一次性正式 Holdout、全部 v1 与 v2 验收和证据导出。对同一提交执行 `release-check`，返回 `APPROVED` 后创建 v2 标签。
 9. **Finalize（最终交付）**：新环境复现、实测业务价值、完善五件套、录屏、两人互审。
 10. **Accept v3（验收最终版）**：V3 全通过，保存最终 commit 与 v3 标签；冻结功能。11-13 核对链接和回执。
 
