@@ -93,8 +93,12 @@ def test_clean_checkout_reproduces_a_historical_split_from_the_ledger(tmp_path, 
     config = read_json(repo / "config" / "data_config.json")
     config["holdout_exclusion"]["campaigns"] = [campaign["campaign_id"] for campaign in consumed]
     config["seed"] = 46
+    # Seed 46 predates the 1,199-row scope change, so rebuild it with the legacy split contract.
+    config["split_sizes"] = dict(data.LEGACY_SPLIT_SIZES)
     (repo / "config" / "data_config.json").write_text(json.dumps(config), encoding="utf-8")
     monkeypatch.setattr(data, "_config_path", lambda: repo / "config" / "data_config.json")
+    monkeypatch.setattr(data, "SPLIT_SIZES", dict(data.LEGACY_SPLIT_SIZES))
+    monkeypatch.setattr(data, "SPLIT_ROWS_TOTAL", sum(data.LEGACY_SPLIT_SIZES.values()))
 
     manifest = data.prepare_uci(RAW_ZIP, tmp_path / "data", True, DATASET_SHA, run_id="clean-checkout")
     assert manifest["seed"] == 46
@@ -113,22 +117,40 @@ def test_clean_checkout_reproduces_a_historical_split_from_the_ledger(tmp_path, 
     assert not any("runs/" in json.dumps(source) for source in exclusion["sources"])
 
 
-def test_prepare_now_refuses_because_only_1199_rows_were_never_consumed(tmp_path, monkeypatch):
-    """Documents the data exhaustion: no further 6,000-row formal split is possible."""
+def test_seed_47_holdout_is_exactly_the_1199_never_consumed_rows_and_then_data_is_exhausted(tmp_path, monkeypatch):
+    """Scope change (2026-11-10): the formal Holdout shrinks to the 1,199 rows no earlier Holdout used."""
 
     repo = clean_repository(tmp_path)
     monkeypatch.setattr(data, "_config_path", lambda: repo / "config" / "data_config.json")
     ledger = load_ledger(repo / "config" / "holdout_ledger.json")
     consumed: set[str] = set()
-    from src.holdout_ledger import recover_historical_splits
-
     for campaign in recover_historical_splits(RAW_ZIP, ledger).values():
         consumed |= campaign["holdout_ids"]
     assert len(consumed) == 28801
-    assert 30000 - len(consumed) == 1199
+    assert data.SPLIT_SIZES["holdout"] == 30000 - len(consumed) == 1199
+
+    manifest = data.prepare_uci(RAW_ZIP, tmp_path / "data", True, DATASET_SHA, run_id="seed-47")
+    assert manifest["seed"] == 47
+    assert {name: entry["rows"] for name, entry in manifest["files"].items()} == {
+        "train.csv": 15000,
+        "dev.csv": 6000,
+        "holdout.csv": 1199,
+        "shift_pool.csv": 3000,
+    }
+    validation = manifest["split_validation"]
+    assert validation["valid"] is True
+    assert validation["total_rows"] == 25199
+    assert validation["unused_rows"] == 4801
+    holdout_ids = set(pd.read_csv(tmp_path / "data" / "holdout.csv", dtype={"client_id": str})["client_id"])
+    assert holdout_ids.isdisjoint(consumed)
+    assert manifest["holdout_exclusion"]["overlap_total"] == 0
+
+    # Once seed 47 is consumed nothing independent is left: any further campaign must refuse.
+    frame = data._transform_raw(data._read_uci(RAW_ZIP))
+    import numpy as np
+
     with pytest.raises(ValueError, match="Too few rows remain"):
-        data.prepare_uci(RAW_ZIP, tmp_path / "data2", True, DATASET_SHA, run_id="exhausted")
-    assert not (tmp_path / "data2" / "holdout.csv").exists()
+        data._split_frame(frame, np.random.default_rng(48), consumed | holdout_ids)
 
 
 def test_prepare_without_the_zip_cannot_apply_the_exclusion(tmp_path, monkeypatch):

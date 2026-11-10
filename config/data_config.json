@@ -1,12 +1,12 @@
 {
   "schema_version": "1",
   "model_id": "MDL_CREDIT_V1",
-  "seed": 46,
+  "seed": 47,
   "total_rows": 30000,
   "split_sizes": {
     "train": 15000,
     "dev": 6000,
-    "holdout": 6000,
+    "holdout": 1199,
     "shift_pool": 3000
   },
   "max_default_rate_difference": 0.01,
@@ -28,7 +28,7 @@
   },
   "shift_scenario_a": {
     "rows": 2000,
-    "seed": 46,
+    "seed": 47,
     "util_weight": 2.0,
     "limit_weight": 1.5
   }

@@ -112,7 +112,7 @@ def recover_historical_splits(raw_zip: Path, ledger: dict, ledger_path: Path | N
 
     import numpy as np
 
-    from src.data import SPLIT_SIZES, _load_config, _read_uci, _transform_raw
+    from src.data import LEGACY_SPLIT_SIZES, _load_config, _read_uci, _transform_raw
 
     raw_zip = Path(raw_zip)
     if not raw_zip.is_file():
@@ -133,9 +133,9 @@ def recover_historical_splits(raw_zip: Path, ledger: dict, ledger_path: Path | N
         rng = np.random.default_rng(int(campaign["seed"]))
         algorithm = _algorithm(campaign["algorithm"])
         if campaign["algorithm"] == "split-v1-sequential":
-            splits = algorithm(frame, rng, SPLIT_SIZES)
+            splits = algorithm(frame, rng, LEGACY_SPLIT_SIZES)
         else:
-            splits = algorithm(frame, rng, excluded)
+            splits = algorithm(frame, rng, excluded, LEGACY_SPLIT_SIZES)
         for name, expected in campaign["splits"].items():
             actual = hashlib.sha256(_serialize(splits[name.replace(".csv", "")])).hexdigest()
             if actual != expected:

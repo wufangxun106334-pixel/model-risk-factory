@@ -17,7 +17,12 @@ SCHEMA_VERSION = "1"
 MODEL_ID = "MDL_CREDIT_V1"
 DEFAULT_SEED = 42
 TOTAL_ROWS = 30000
-SPLIT_SIZES = {"train": 15000, "dev": 6000, "holdout": 6000, "shift_pool": 3000}
+# Campaigns up to seed 46 used a 6,000-row Holdout; the ledger rebuilds them with these sizes.
+LEGACY_SPLIT_SIZES = {"train": 15000, "dev": 6000, "holdout": 6000, "shift_pool": 3000}
+# From campaign seed 47 (2026-11-10 team scope change) the formal Holdout is the 1,199 UCI rows that no
+# earlier formal Holdout consumed. The other splits keep their sizes; the 4,801 remaining rows are unused.
+SPLIT_SIZES = {"train": 15000, "dev": 6000, "holdout": 1199, "shift_pool": 3000}
+SPLIT_ROWS_TOTAL = sum(SPLIT_SIZES.values())
 DEFAULT_RATE_TOLERANCE = 0.01
 UCI_LANDING_URL = "https://archive.ics.uci.edu/dataset/350/default+of+credit+card+clients"
 UCI_ZIP_URL = "https://archive.ics.uci.edu/static/public/350/default+of+credit+card+clients.zip"
@@ -289,13 +294,22 @@ def _holdout_exclusion_block(config: dict, frames: dict[str, pd.DataFrame], reco
     }
 
 
-def _split_frame(frame: pd.DataFrame, rng: np.random.Generator, excluded_client_ids=frozenset()) -> dict[str, pd.DataFrame]:
+def _split_frame(
+    frame: pd.DataFrame,
+    rng: np.random.Generator,
+    excluded_client_ids=frozenset(),
+    split_sizes: dict[str, int] | None = None,
+) -> dict[str, pd.DataFrame]:
     """Stratified split with an optional exclusion set for previously consumed Holdouts.
 
     The Holdout is drawn first, and only from rows that no earlier campaign has
     already consumed as a Holdout. The remaining split sizes are unchanged, so
     the exclusion changes which rows form the Holdout, not the split contract.
+    ``split_sizes`` defaults to the current contract; the ledger passes the legacy
+    sizes to rebuild campaigns that were consumed before the scope change.
     """
+
+    split_sizes = SPLIT_SIZES if split_sizes is None else split_sizes
 
     if len(frame) != TOTAL_ROWS:
         raise ValueError(f"Expected exactly {TOTAL_ROWS} rows, got {len(frame)}")
@@ -307,7 +321,7 @@ def _split_frame(frame: pd.DataFrame, rng: np.random.Generator, excluded_client_
     labels = frame["default_flag"].to_numpy()
     excluded_mask = frame["client_id"].astype(str).isin(excluded_client_ids).to_numpy()
     allowed_positions = np.flatnonzero(~excluded_mask)
-    if len(allowed_positions) < SPLIT_SIZES["holdout"]:
+    if len(allowed_positions) < split_sizes["holdout"]:
         raise ValueError("Too few rows remain once consumed Holdout rows are excluded")
 
     holdout_pools = {
@@ -315,7 +329,7 @@ def _split_frame(frame: pd.DataFrame, rng: np.random.Generator, excluded_client_
         for label in (0, 1)
     }
     holdout_counts = _stratified_counts(
-        {label: len(pool) for label, pool in holdout_pools.items()}, SPLIT_SIZES["holdout"]
+        {label: len(pool) for label, pool in holdout_pools.items()}, split_sizes["holdout"]
     )
     holdout_positions = np.concatenate(
         [holdout_pools[label][: holdout_counts[label]] for label in sorted(holdout_pools)]
@@ -336,7 +350,7 @@ def _split_frame(frame: pd.DataFrame, rng: np.random.Generator, excluded_client_
     }
     for split_name in ("train", "dev", "shift_pool"):
         available = {label: len(indices) for label, indices in remaining.items()}
-        counts = _stratified_counts(available, SPLIT_SIZES[split_name])
+        counts = _stratified_counts(available, split_sizes[split_name])
         selected = {label: remaining[label][: counts[label]] for label in remaining}
         remaining = {label: remaining[label][counts[label]:] for label in remaining}
         positions = np.concatenate([selected[label] for label in sorted(selected)])
@@ -345,7 +359,7 @@ def _split_frame(frame: pd.DataFrame, rng: np.random.Generator, excluded_client_
             .sort_values("client_id", kind="mergesort")
             .reset_index(drop=True)
         )
-    return {name: splits[name] for name in SPLIT_SIZES}
+    return {name: splits[name] for name in split_sizes}
 
 
 def validate_splits(frames: dict[str, pd.DataFrame]) -> dict:
@@ -396,8 +410,8 @@ def validate_splits(frames: dict[str, pd.DataFrame]) -> dict:
                 errors.append(f"Overlapping client_id values: {left}/{right}")
 
     total_rows = sum(row_counts.values())
-    if total_rows != TOTAL_ROWS:
-        errors.append(f"Expected {TOTAL_ROWS} total rows, got {total_rows}")
+    if total_rows != SPLIT_ROWS_TOTAL:
+        errors.append(f"Expected {SPLIT_ROWS_TOTAL} rows across the splits, got {total_rows}")
     rates_available = all(default_rates[name] is not None for name in names)
     if rates_available:
         combined = pd.concat([frames[name]["default_flag"] for name in names], ignore_index=True)
@@ -416,6 +430,8 @@ def validate_splits(frames: dict[str, pd.DataFrame]) -> dict:
         "errors": errors,
         "row_counts": row_counts,
         "total_rows": int(total_rows),
+        "source_rows": TOTAL_ROWS,
+        "unused_rows": int(TOTAL_ROWS - total_rows),
         "mutually_exclusive": mutually_exclusive,
         "default_rates": default_rates,
         "overall_default_rate": overall_default_rate,

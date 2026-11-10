@@ -10,7 +10,7 @@ from src.review import current_decision
 
 EXPECTED = {
     "V1-01": "Real configured gateway request, tool roundtrip and output parsing pass.",
-    "V1-02": "Approved UCI raw SHA-256 and exact 15000/6000/6000/3000 stratified mutually exclusive splits pass.",
+    "V1-02": "Approved UCI raw SHA-256 and exact 15000/6000/1199/3000 stratified mutually exclusive splits pass.",
     "V1-03": "MDL_CREDIT_V1 R glm baseline, preprocessing and predictions are reproducible.",
     "V1-04": "Trusted Python reference parity meets probability, classification and behavioural contracts.",
     "V1-05": "An isolated coefficient mutation is detected without changing baseline or test hashes.",
@@ -19,7 +19,7 @@ EXPECTED = {
 }
 
 HEX64 = re.compile(r"^[0-9a-f]{64}$")
-SPLIT_ROWS = {"train": 15000, "dev": 6000, "holdout": 6000, "shift_pool": 3000}
+SPLIT_ROWS = {"train": 15000, "dev": 6000, "holdout": 1199, "shift_pool": 3000}
 TOTAL_ROWS = sum(SPLIT_ROWS.values())
 FIXTURE_NAMES = (
     "behavior",

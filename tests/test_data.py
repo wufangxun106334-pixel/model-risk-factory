@@ -28,13 +28,13 @@ def _file_sha256(path: Path) -> str:
 def test_frozen_config():
     config = json.loads((Path(__file__).parents[1] / "config" / "data_config.json").read_text())
     assert config["model_id"] == "MDL_CREDIT_V1"
-    # Pinned to the released campaign (v2 formal run v2-20261109T210903Z-3dcfab73).
-    assert config["seed"] == 46
+    # Campaign seed 47: first campaign under the 1,199-row Holdout scope change (2026-11-10).
+    assert config["seed"] == 47
     assert config["total_rows"] == 30000
     assert config["split_sizes"] == {
         "train": 15000,
         "dev": 6000,
-        "holdout": 6000,
+        "holdout": 1199,
         "shift_pool": 3000,
     }
     assert config["max_default_rate_difference"] == 0.01
@@ -70,7 +70,7 @@ def test_campaign_seed_is_configurable_but_everything_else_is_frozen(tmp_path, m
 
 def test_synthetic_exact_unique_mutually_exclusive_splits(synthetic_run):
     output_dir, manifest, frames = synthetic_run
-    assert sum(len(frame) for frame in frames.values()) == 30000
+    assert sum(len(frame) for frame in frames.values()) == data.SPLIT_ROWS_TOTAL == 25199
     assert {name: len(frame) for name, frame in frames.items()} == data.SPLIT_SIZES
     assert set(data.RAW_COLUMNS) == {
         "ID", "LIMIT_BAL", "SEX", "EDUCATION", "MARRIAGE", "AGE",
@@ -95,8 +95,9 @@ def test_synthetic_exact_unique_mutually_exclusive_splits(synthetic_run):
     assert manifest["data_kind"] == "synthetic"
     assert manifest["synthetic"] is True
     assert manifest["formal_status"] == "BLOCKED"
-    assert manifest["overall"]["rows"] == 30000
-    assert manifest["overall"]["unique_client_ids"] == 30000
+    assert manifest["overall"]["rows"] == data.SPLIT_ROWS_TOTAL
+    assert manifest["overall"]["unique_client_ids"] == data.SPLIT_ROWS_TOTAL
+    assert manifest["split_validation"]["unused_rows"] == 4801
     assert "Data kind: **synthetic**" in (output_dir / "SOURCE.md").read_text()
 
 
