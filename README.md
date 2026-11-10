@@ -2,12 +2,12 @@
 
 EXL × UCD Data & AI Hackathon 2026 — Challenge 04 Agentic model risk factory。
 
-**v1 与 v2 均已完成本地验收。** CLI 将团队自建的信用违约模型 `MDL_CREDIT_V1` 从 R 迁移到 Python，对照 R 基准逐记录验证预测概率、分类和异常处理；v2 补齐另外两个旧模型的档案、容器边界实测、四类验证指标、三道审核门禁、端到端导出与报告数值溯源。
+**v1 已验收，v2 工程实现已完成，正式发布仍为 BLOCKED。** CLI 将团队自建的信用违约模型 `MDL_CREDIT_V1` 从 R 迁移到 Python，对照 R 基准逐记录验证预测概率、分类和异常处理。v2 补齐另外两个旧模型的档案、容器边界实测、四类验证指标、三道审核门禁、端到端导出与报告数值溯源。
 
 - v1 正式 run `v1-20261109T181929Z-3fe1c7b5`：V1-01～07 全 PASS（Gate A/B 代理审核），标签 `v1`。
 - v2 正式 run **`v2-20261109T210903Z-3dcfab73`**（campaign seed 46）：V1-01～07 与 V2-01～07 共 14 项全 PASS，`release_approved=true`，Gate A（三份档案）/ Gate B / Gate C 均为 `agent-delegated` 代理审核。
 
-> **发布状态：工程修复已完成，正式发布 BLOCKED（2026-11-10 复核）。** 第三轮修复（Gate C 表格按 GFM 渲染语义判定、只读命令输出只能在证据目录外独占新建）已提交，全量测试通过；阻断原因不变，均为外部数据与历史证据问题，无法在仓库内解决。
+> **发布状态：BLOCKED（2026-11-10 复核）。** Gate C 已校验完整的报告正文、附表和数值索引。当前发布缺口是历史证据与提交不匹配，以及未消费的正式 Holdout 数据不足。
 >
 > **原始判定（2026-11-09）：** 该 run 的证据内部自洽（63 个文件哈希、14/14 PASS、导出哈希全部复算一致），但**无法绑定到任何提交**：它的测试树在工作区未提交时被使用，`git_commit_at_init=ec6077f`，而 `v2` 标签指向 `9884e3a`，`config/data_config.json` 也在 run 之后才提交。UCI 数据只剩 **1,199** 行从未消费，无法再产生一份 6,000 行正式 Holdout。缺口与后续步骤见「发布状态与缺口」。`v2` 标签保持在 `9884e3a`，但**不得作为有效发布引用**。
 
@@ -372,6 +372,10 @@ done
 - 表格反例：在副本报告性能表末尾插入 `| holdout | 6000 | 1322 | 4678 | 0.1422 | 0.7529 | OK | reviewed |` 并重算 `report_sha256`，`values_index.csv` 不变。旧树（`a6da3fb`）的 `verify_report_cells` 返回空（漏检）；新树返回 `table 'dataset': duplicate row labels ['holdout']`，`report-status` 为 DRAFT 并列出该原因。
 - 输出反例：`release-check --output` 与 `compare-command-log --save-copy` 指向副本的 `acceptance.json`、另一个 run 的 `command_log.jsonl`、指向实时日志的 run 外硬链接、经符号链接指入 run 的父目录、`delivery/` 与 `dev_runs/` 下的新文件，全部 `OutputRefused`、退出码 2，目标逐字节不变、未新建文件；写到 run 外的新文件正常创建（副本 sha256 `d4ee54e0…` 与快照一致）。
 - 正式 `runs/`（2,855 个文件）、`delivery/` 与 `dev_runs/`（195 个文件）在本轮前后逐文件 sha256 完全一致。
+
+### Gate C 生成内容校验
+
+报告正文、附表和数值索引由同一渲染逻辑生成，Gate C 在内存中用绑定的输入重新生成三份内容并核对。表格首尾竖线等不改变单元格的写法仍可通过。额外表格、正文新增内容、附表改动和索引缺行会被拒绝，即使审核清单中的哈希已经更新。CLI 回归覆盖了加粗表头的冲突表、追加 HTML 表格和删减索引。
 
 ### 为什么仍然 BLOCKED
 

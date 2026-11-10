@@ -227,13 +227,10 @@ def desensitized_summary(metrics: dict) -> dict:
     }
 
 
-def render_report(run_dir: Path, run_id: str, *, agent_summary: dict | None, inventories: dict) -> dict:
-    metrics = read_json(run_dir / "validation_metrics.json")
+def _render_markdown(metrics: dict, run_id: str, agent_summary: dict | None, inventories: dict) -> tuple[str, str, list[dict]]:
     if metrics.get("run_id") != run_id:
         raise ContractError("validation_metrics.json belongs to another run")
     renderer = Renderer(metrics)
-    report_dir = run_dir / "report"
-    report_dir.mkdir(parents=True, exist_ok=True)
 
     performance = performance_table(renderer)
     calibration = calibration_table(renderer)
@@ -257,7 +254,7 @@ def render_report(run_dir: Path, run_id: str, *, agent_summary: dict | None, inv
     lines.append("")
 
     lines.append("## Artifact under validation")
-    for model_id, artifact in inventories.items():
+    for model_id, artifact in sorted(inventories.items()):
         lines.append(f"- {model_id}: Gate A status `{artifact}`")
     lines.append(f"- Frozen candidate SHA256: `{renderer.raw('candidate_sha256', label='candidate hash', section='artifact')}`")
     lines.append(f"- Decision threshold: {renderer.path('threshold', label='threshold', section='artifact')}")
@@ -387,28 +384,33 @@ def render_report(run_dir: Path, run_id: str, *, agent_summary: dict | None, inv
     lines.append("Every number above resolves to a path in `validation_metrics.json`; `report/values_index.csv` lists each one.")
     lines.append("")
 
-    report_path = report_dir / "validation_report.md"
-    report_text = "\n".join(lines)
-    report_path.write_text(report_text, encoding="utf-8")
-
-    index_path = report_dir / "values_index.csv"
-    rows = ["section,label,json_path,text"]
-    for entry in renderer.index:
-        text = str(entry["text"]).replace(",", ";")
-        rows.append(f"{entry['section']},{entry['label']},{entry['json_path']},{text}")
-    index_path.write_text("\n".join(rows) + "\n", encoding="utf-8")
-
-    tables_path = report_dir / "validation_tables.md"
-    tables_path.write_text("\n\n".join([
+    tables_text = "\n\n".join([
         "# Validation metrics tables",
         "## Performance", performance,
         "## Calibration (holdout)", calibration,
         "## Confusion matrix (holdout)", confusion,
         "## Stability (dev vs scenario A)", stability,
         "## Fairness (holdout)", fairness,
-    ]) + "\n", encoding="utf-8")
+    ]) + "\n"
+    return "\n".join(lines), tables_text, renderer.index
 
-    unresolved = verify_provenance(report_text, renderer.index)
+
+def render_report(run_dir: Path, run_id: str, *, agent_summary: dict | None, inventories: dict) -> dict:
+    metrics = read_json(run_dir / "validation_metrics.json")
+    report_text, tables_text, index = _render_markdown(metrics, run_id, agent_summary, inventories)
+    report_dir = run_dir / "report"
+    summary_sha = sha256_file(report_dir / "agent_summary.json") if agent_summary is not None else None
+    report_dir.mkdir(parents=True, exist_ok=True)
+    report_path = report_dir / "validation_report.md"
+    report_path.write_text(report_text, encoding="utf-8")
+
+    index_path = report_dir / "values_index.csv"
+    index_path.write_text(_render_index(index), encoding="utf-8")
+
+    tables_path = report_dir / "validation_tables.md"
+    tables_path.write_text(tables_text, encoding="utf-8")
+
+    unresolved = verify_provenance(report_text, index)
     manifest = {
         "schema_version": "1",
         "run_id": run_id,
@@ -421,14 +423,22 @@ def render_report(run_dir: Path, run_id: str, *, agent_summary: dict | None, inv
         "values_index_sha256": sha256_file(index_path),
         "tables": "report/validation_tables.md",
         "tables_sha256": sha256_file(tables_path),
-        "value_count": len(renderer.index),
+        "value_count": len(index),
         "unresolved_numbers": unresolved,
-        "agent_summary": "report/agent_summary.json" if (report_dir / "agent_summary.json").is_file() else None,
-        "agent_summary_sha256": sha256_file(report_dir / "agent_summary.json") if (report_dir / "agent_summary.json").is_file() else None,
+        "agent_summary": "report/agent_summary.json" if agent_summary is not None else None,
+        "agent_summary_sha256": summary_sha,
         "inventory_gate_a": inventories,
     }
     write_json(report_dir / "review_manifest.json", manifest)
-    return {"report": str(report_path), "manifest": str(report_dir / "review_manifest.json"), "unresolved_numbers": unresolved, "value_count": len(renderer.index)}
+    return {"report": str(report_path), "manifest": str(report_dir / "review_manifest.json"), "unresolved_numbers": unresolved, "value_count": len(index)}
+
+
+def _render_index(index: list[dict]) -> str:
+    rows = ["section,label,json_path,text"]
+    for entry in index:
+        text = str(entry["text"]).replace(",", ";")
+        rows.append(f"{entry['section']},{entry['label']},{entry['json_path']},{text}")
+    return "\n".join(rows) + "\n"
 
 
 TABLE_HEADERS = (
@@ -647,11 +657,12 @@ def verify_report_cells(run_dir: Path, metrics: dict | None = None) -> list[str]
         return problems
 
     occurrences: dict[tuple, list[dict]] = {}
-    expected_headers = set(expected_by_header)
     for table in parse_markdown_tables(report_path.read_text(encoding="utf-8")):
         key = tuple(table["header"])
-        if key in expected_headers:
+        if key in expected_by_header:
             occurrences.setdefault(key, []).append(table)
+        else:
+            problems.append(f"unexpected table with header {key!r}")
 
     for key, expected_table in expected_by_header.items():
         label = key[0] if key else str(key)
@@ -796,6 +807,22 @@ BOUND_REPORT_FILES = (
 )
 
 
+def _matches_rendered_markdown(actual: str, rendered: str) -> bool:
+    """Accept equivalent pipe framing on the generated table lines only."""
+
+    actual_lines, rendered_lines = actual.split("\n"), rendered.split("\n")
+    if len(actual_lines) != len(rendered_lines):
+        return False
+    for line, expected in zip(actual_lines, rendered_lines):
+        if line == expected:
+            continue
+        if not expected.startswith("|") or line.expandtabs(4).startswith("    "):
+            return False
+        if _split_cells(line) != _split_cells(expected):
+            return False
+    return True
+
+
 def report_content_problems(run_dir: Path, run_id: str) -> tuple[list[str], dict | None]:
     """Every check that must hold before a report may be reviewed or published.
 
@@ -814,8 +841,11 @@ def report_content_problems(run_dir: Path, run_id: str) -> tuple[list[str], dict
     if not manifest.get("value_count"):
         reasons.append("review manifest records no rendered values")
     bound = list(BOUND_REPORT_FILES)
-    if manifest.get("agent_summary"):
-        bound.append(("agent summary", manifest["agent_summary"], "agent_summary_sha256"))
+    summary = manifest.get("agent_summary")
+    if summary == "report/agent_summary.json":
+        bound.append(("agent summary", summary, "agent_summary_sha256"))
+    elif summary is not None:
+        reasons.append("review manifest has an unexpected agent summary path")
     for label, relative, key in bound:
         path = run_dir / relative
         recorded = manifest.get(key)
@@ -830,9 +860,30 @@ def report_content_problems(run_dir: Path, run_id: str) -> tuple[list[str], dict
     if manifest.get("unresolved_numbers"):
         reasons.append("report contains numbers without a metrics path")
     reasons.extend(f"report cell mismatch: {problem}" for problem in verify_report_cells(run_dir))
-    if (run_dir / "report" / "values_index.csv").is_file() and (run_dir / "validation_metrics.json").is_file():
+    index_path = run_dir / "report" / "values_index.csv"
+    metrics_path = run_dir / "validation_metrics.json"
+    report_text = report_path.read_text(encoding="utf-8")
+    if index_path.is_file() and metrics_path.is_file():
         reasons.extend(index_mismatches(run_dir))
-        reasons.extend(index_not_in_report(report_path.read_text(encoding="utf-8"), run_dir))
+        reasons.extend(index_not_in_report(report_text, run_dir))
+    if reasons:
+        return reasons, manifest
+
+    # The document is generated, so compare the whole output. Recognised table
+    # cells alone cannot account for markup or figures added elsewhere.
+    try:
+        rendered, tables, index = _render_markdown(
+            read_json(metrics_path), run_id, read_json(run_dir / summary) if summary else None,
+            manifest["inventory_gate_a"],
+        )
+    except (AttributeError, KeyError, IndexError, TypeError, ValueError) as error:
+        return [f"report cannot be re-rendered from its inputs: {error}"], manifest
+    if not _matches_rendered_markdown(report_text, rendered):
+        reasons.append("report Markdown differs from the generated report")
+    if not _matches_rendered_markdown((run_dir / "report" / "validation_tables.md").read_text(encoding="utf-8"), tables):
+        reasons.append("validation tables Markdown differs from the generated tables")
+    if manifest["value_count"] != len(index) or index_path.read_text(encoding="utf-8") != _render_index(index):
+        reasons.append("values index differs from the generated index")
     return reasons, manifest
 
 

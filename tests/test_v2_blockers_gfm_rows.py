@@ -18,6 +18,7 @@ import pytest
 
 from src import cli
 from src.acceptance_v2 import _v2_07
+from src.common import read_json, sha256_file, write_json
 from src.report import parse_markdown_tables, verify_report_cells
 
 from test_v2_blockers_markdown_tables import REPOSITORY, RUN_ID, build_run, refresh_manifest, report_path
@@ -54,8 +55,6 @@ def insert_after_performance_body(run: Path, *new_lines: str) -> None:
 
 
 def manifest_sha(run: Path) -> str:
-    from src.common import sha256_file
-
     return sha256_file(run / "report" / "review_manifest.json")
 
 
@@ -179,6 +178,51 @@ def test_duplicate_table_hidden_in_a_block_quote_is_counted(run, capsys):
     report_path(run).write_text("\n".join(lines) + "\n", encoding="utf-8")
     refresh_manifest(run)
     assert_rejected_by_every_gate(run, capsys, "appears 2 times")
+
+
+def test_duplicate_table_with_emphasised_header_is_rejected(run, capsys):
+    path = report_path(run)
+    original = path.read_text(encoding="utf-8")
+    header = PERFORMANCE_HEADER.replace("ROC-AUC", "**ROC-AUC**")
+    delimiter = "| --- | --- | --- | --- | --- | --- | --- |"
+    holdout = SWAPPED_WIDE_HOLDOUT.replace(" reviewed |", "")
+    path.write_text(f"{original}\n\n{header}\n{delimiter}\n{holdout}\n", encoding="utf-8")
+    refresh_manifest(run)
+    assert_rejected_by_every_gate(run, capsys, "unexpected table with header")
+
+
+@pytest.mark.parametrize(("filename", "digest", "reason"), [
+    ("validation_report.md", "report_sha256", "report Markdown differs"),
+    ("validation_tables.md", "tables_sha256", "validation tables Markdown differs"),
+    ("values_index.csv", "values_index_sha256", "values index differs"),
+])
+def test_gate_c_rejects_rehashed_changes_to_generated_artifacts(run, capsys, filename, digest, reason):
+    path = run / "report" / filename
+    original = path.read_text(encoding="utf-8")
+    if filename == "values_index.csv":
+        header, _removed, rest = original.split("\n", 2)
+        modified = f"{header}\n{rest}"
+    else:
+        modified = original + "\n<table><tr><td>Holdout ROC-AUC</td><td>0.1531</td></tr></table>\n"
+    path.write_text(modified, encoding="utf-8")
+    manifest_path = run / "report" / "review_manifest.json"
+    manifest = read_json(manifest_path)
+    manifest[digest] = sha256_file(path)
+    if filename == "values_index.csv":
+        manifest["value_count"] -= 1
+    write_json(manifest_path, manifest)
+
+    code, result = cli_json(capsys, [
+        "approve", "--run-id", RUN_ID, "--gate", "Gate_C", "--sha256", manifest_sha(run),
+        "--reviewer", "agent-delegated", "--comment", "review generated artifacts",
+    ])
+    assert code == 2
+    assert reason in result["error"]
+    assert cli.main(["approve-report", "--run-id", RUN_ID]) == 2
+    assert not (run / "report" / "approval.json").exists()
+    verdict, actual = _v2_07(REPOSITORY, run, RUN_ID)
+    assert verdict == "FAIL"
+    assert reason in actual
 
 
 def test_original_report_still_passes_the_cli_path(run, capsys):
