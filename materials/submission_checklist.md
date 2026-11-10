@@ -3,10 +3,9 @@
 Challenge 04 · EXL × UCD Data & AI Hackathon 2026
 Owner of the submission: the team (hand-off list in `docs/v3/08_handoff.md`).
 
-**Source commit**: the commit that contains this file (the V3 candidate). The frozen SHA is
-recorded in `docs/v3/08_handoff.md` §1 and, only if the release is authorised, in the `v3` tag.
-No file in the frozen commit is edited afterwards to "write the SHA back in", because that would
-change the tree the evidence was produced on.
+**Candidate**: the five deliverables reached the private repository's `main` branch in `7ffc672`
+on 10 November 2026. The team will record the final release SHA before the formal run. See
+[the release checklist](../docs/v3/07_release_checklist.md).
 
 Status legend: ✅ done and verifiable · ⏳ ready but needs a human/external action · ❌ not done. Judge access and paired measurements are deferred. The submission is still pending.
 
@@ -15,7 +14,7 @@ Status legend: ✅ done and verifiable · ⏳ ready but needs a human/external a
 | # | Deliverable | Official limit | Files in this repo | Length | Judge-accessible link | Source commit | Verified by | Status |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | 1 | Solution deck | ≤10 pages | `materials/solution_deck.md` (editable source), `materials/solution_deck.pptx` (editable deck), `materials/solution_deck.pdf` (print copy), builder `materials/build_deck.py` | **10 slides / 10 PDF pages** (checked with `pypdf`, `len(reader.pages)==10`) | repo only — needs upload or a shared link (H-06) | commit of this file | agent-delegated (content + build) | ✅ built, ⏳ link |
-| 2 | Demo video | ≤3 minutes | `materials/demo_video.mp4`, [transcript](demo_video_script.md) | **1:51**, H.264 + AAC | Local file; judge access pending | commit of this file | duration checked with ffprobe; five scenes visually inspected | ✅ built, ⏳ link (H-06) |
+| 2 | Demo video | ≤3 minutes | `materials/demo_video.mp4`, [transcript](demo_video_script.md) | **1:51**, H.264 + AAC | On `main`, judge access pending | `7ffc672` | duration checked with ffprobe; five scenes visually inspected | ✅ built, ⏳ link (H-06) |
 | 3 | Code repository + README | link + README + setup | whole repo; `README.md` (judge section + engineering notes) | — | https://github.com/wufangxun106334-pixel/model-risk-factory (**Private**) | commit of this file | agent-delegated | ⏳ access must be verified from a judge's account (H-06) |
 | 4 | Architecture diagram | 1 page | `materials/architecture.svg` (editable), `materials/architecture.png`, explanation `materials/architecture.md` | **1 page / 1 image** | repo only (H-06) | commit of this file | agent-delegated; layout checked geometrically (0 text overflow, 0 overlapping labels) | ✅ built, ⏳ link |
 | 5 | Responsible AI note | 1 page | `materials/responsible_ai_note.pdf` and its Markdown source | **1 PDF page** (data, privacy, bias, limitations, safeguards) | repo only (H-06) | commit of this file | agent-delegated | ✅ written, ⏳ link |
@@ -71,8 +70,7 @@ Status legend: ✅ done and verifiable · ⏳ ready but needs a human/external a
 | Deadline time zone / late policy | — | ⏳ confirm |
 | Format of the submission (email body vs portal upload) | — | ⏳ confirm |
 
-**Do not send anything until H-06 and the four items above are confirmed.** Sending is not part of
-this delivery; no email has been sent and no material has been uploaded.
+The competition submission is pending. Confirm judge access and the submission details above before sending.
 
 ## 7. Machine-checkable summary
 

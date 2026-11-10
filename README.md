@@ -2,11 +2,11 @@
 
 EXL × UCD Data & AI Hackathon 2026 — Challenge 04 Agentic model risk factory。
 
-**v1 已验收（标签 `v1` → 提交 `70858cd`）。v2 工程实现已完成，但正式发布仍为 BLOCKED。V3（最终版）代码与材料已交付到候选提交；正式 run 因四项前置未齐备而未执行。**
+**v1 已验收（标签 `v1` → 提交 `70858cd`）。v2 工程实现已完成，正式发布仍为 BLOCKED。V3 交付候选 `7ffc672` 已推送至 `main`，正式验收仍为 BLOCKED。**
 
 - v1 正式 run `v1-20261109T181929Z-3fe1c7b5`：V1-01～07 全 PASS（Gate A/B 代理审核），标签 `v1` 指向 `70858cd`。
 - v2 历史验收 run **`v2-20261109T210903Z-3dcfab73`**（campaign seed 46）：记录显示 14 项全 PASS，Gate A/B/C 均由 `agent-delegated` 代理审核。该结果仅用于历史回放：证据树不等于任何提交。
-- v3 候选已修复审核发现。真实网关生成了三份新合成档案，结构化报告用历史合成指标复核；本地演示成片已录制。正式 seed 47 运行待授权记录和审核人到位。详见 [V3 审核修复记录](docs/v3/10_audit_followup.md)。
+- V3 新环境回归通过 337 项及 7 个子测试。在干净候选提交上，真实网关合成演练完成 Gate A 前的检查并停在审核提示，`verify-context` 通过。五件套已在仓库准备齐全。详见 [V3 审核修复记录](docs/v3/10_audit_followup.md)。
 
 > **发布状态 BLOCKED（2026-11-10 V3 复核）。** `release-check --tag 9884e3a --run-id v2-20261109T210903Z-3dcfab73` 返回 **17 条缺口**：seed 46 的证据生成时工作区不干净、初始化提交 `ec6077f` 与发布提交 `9884e3a` 不一致，`verify-context` 在两条路径上都失败。本地存在 `v2` 标签（指向 `9884e3a`，且是在未放行的情况下创建的），`origin` 上没有任何标签（v1 也未推送）。UCI 只剩 **1,199 行**从未用于正式 Holdout。详见 [docs/v3/03_release_readiness.md](docs/v3/03_release_readiness.md)、[发布状态与缺口](#发布状态与缺口)与[重新放行步骤](#v2-重新放行步骤)。
 
@@ -507,15 +507,14 @@ v1 记录的 4 条与首个 v2 发布候选发现的 2 条均已在本次修复�
 - v2 受审来源与 `inventory_expectations`、`holdout_ledger` 已进新 run 的 context。旧 run 可按其原始清单和对应提交只读复核。
 - 证据必须来自"已提交且干净"的树：`worktree_clean_at_init` 记录 + `release-check` 强制。
 
-仍未修复（v3 状态）：
+V3 复核与遗留项
 
-7. ~~Agent 档案提取有随机性~~ **v3 已修复（确定性门禁）**：`src/inventory.py::validate_conflicts()` 用 `config/inventory_expectations.json` 与可核验来源判定冲突——相同的代码/文档阈值永远不能算冲突（0.30/0.30 被拒），真实阈值冲突必须重述冻结数值，每条冲突必须有 identity 与 allowlisted 来源引用，同一 finding 不得重复凑数；Agent 摘要则必须有 `status_claims` 并与 `derive_facts()` 派生的事实逐项相等，报告另有一段由指标渲染的 Key conclusions 模板。回归 34 例（`tests/test_v3_gap_inventory_conflicts.py`、`tests/test_v3_gap_agent_summary.py`），修复前 8 failed / 导入即失败，修复后全绿。详见 [docs/v3/01_gap_fixes.md](docs/v3/01_gap_fixes.md)。
+7. **V3 已修复档案冲突与摘要判定。** 档案冲突从 `config/inventory_expectations.json` 的已核实条目生成，逐条绑定 R 代码和旧文档的证据。Agent 摘要使用封闭结构，状态与 `derive_facts()` 派生的事实逐项核对。报告结论与审阅提示由模板渲染。[审核修复记录](docs/v3/10_audit_followup.md)
 8. 候选审查记录（不影响本次结果，v3 未改动）：`--model` 在候选实现中可选并回退到与 artifact 相等的常量；十六进制字面量（如 `0x10`）被当作不可解析而拒绝，R 的 `as.numeric` 会接受。
 
-### v3 交付说明（2026-11-10）
+### V3 进度与阻塞（2026-11-10）
 
 **运行修复后的合成演练**。设置本地 `LLM_*` 环境并启动 Docker 后，在交互终端执行 `bash docs/v3/drill_v3.sh dev_runs-v3`。终端会显示 run ID、私有日志位置以及每道 Gate 的待审文件和哈希。逐项核对后输入审核人、决定和实际检查内容。没有交互终端时脚本会退出。
-
 
 | 项 | 状态 | 证据 |
 | --- | --- | --- |
@@ -524,9 +523,9 @@ v1 记录的 4 条与首个 v2 发布候选发现的 2 条均已在本次修复�
 | V3-03 五件套交付 | BLOCKED（成片及材料已就绪，评委访问待验证） | [materials/submission_checklist.md](materials/submission_checklist.md) |
 | V3-04 业务价值证据 | BLOCKED（按团队指示暂缓配对实测） | [materials/impact_measurements.csv](materials/impact_measurements.csv) |
 | V3-05 最终审核 | BLOCKED（缺 A/B 两名成员签署） | [docs/v3/06_final_review.md](docs/v3/06_final_review.md) |
-| V3-06 版本冻结 | BLOCKED（正式 run 四项前置未齐备，未创建 `v3` 标签） | [docs/v3/07_release_checklist.md](docs/v3/07_release_checklist.md)、[docs/v3/03_release_readiness.md](docs/v3/03_release_readiness.md) |
+| V3-06 版本冻结 | BLOCKED（seed 47 正式 run 尚未启动，未创建 `v3` 标签） | [发布清单](docs/v3/07_release_checklist.md) |
 
-V3 保留现有架构和锁定依赖。报告的结论与审阅提示由模板渲染，演练在各 Gate 等待实际审核决定，导出后只读取交付 JSON。正式 run 与发布放行需要的四项前置（UCI 授权证据、账本确认、冻结提交、审批人与标签策略）逐项列在 [docs/v3/08_handoff.md](docs/v3/08_handoff.md)。
+团队计划先完成正式验收。启动前需记录主办方的 UCI 使用批准、团队权威账本对 seed 47 未消费的确认，以及 Gate A/B/C 审核人或明确代理授权。届时从干净的最终 SHA 启动，完成一次正式 Holdout 和发布校验。A/B 互审、手工与 Agent 加人工审核的配对计时、评委访问验证按团队安排暂缓，仍是最终发布的阻塞项。[交接与负责人](docs/v3/08_handoff.md)
 
 ## 退出码与验收状态
 

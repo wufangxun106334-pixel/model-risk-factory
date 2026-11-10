@@ -7,13 +7,13 @@ Owner: V3 交付执行 Agent（`agent-delegated`）。Reviewer 字段为真实�
 
 ## 1. V3 验收记录（逐条）
 
-`commit_sha` 记录**该条证据产出时所在提交**；最终冻结提交以本候选提交和后续正式 run 的初始化 SHA 为准。旧演练复核见 `docs/v3/09_verification_of_freeze.md`。
+交付候选 `7ffc672` 已推送至 `main`。下表记录该候选的验收状态，证据对应的运行 SHA 见引用记录。正式发布以日后选定的冻结 SHA 和同一 SHA 上的正式 run 为准。
 
 | acceptance_id | version | expected | actual | status | evidence_path | reviewer | timestamp | commit_sha |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | V3-01 | v3 | v1/v2 必测项全通过，固定输入数值在容差内复现 | 审核修复后测试通过。旧合成 run V1-02 为 BLOCKED，seed 47 正式验收待运行 | BLOCKED | `docs/v3/10_audit_followup.md` | Codex（技术复核） | 2026-11-10T20:09Z | 本候选提交 |
-| V3-02 | v3 | 新环境与容器可复现，真实 Agent 与历史回放来源清楚 | 新环境测试与合成复现有记录。新版三份档案用真实网关生成，摘要在独立合成回放复核 | PASS | `docs/v3/02_new_environment.md；docs/v3/10_audit_followup.md` | Codex（技术复核） | 2026-11-10T20:09Z | 本候选提交 |
-| V3-03 | v3 | 五件套齐全，评委可访问 | 10 页 Deck、1:51 本地回放视频、一页架构图、一页 RAI 和 README 就绪。评委访问暂缓 | BLOCKED | `materials/submission_checklist.md` | Codex（技术复核） | 2026-11-10T20:09Z | 本候选提交 |
+| V3-02 | v3 | 新环境与容器可复现，真实 Agent 与历史回放来源清楚 | 新环境全量回归通过。候选树上的真实网关合成演练停在 Gate A 待审，26 项资产复核通过。完整合成链路为历史回放 | PASS | [新环境记录](02_new_environment.md)、[审核修复记录](10_audit_followup.md) | Codex（技术复核） | 2026-11-10T20:09Z | `7ffc672` |
+| V3-03 | v3 | 五件套齐全，评委可访问 | 10 页 Deck、1:51 回放视频、一页架构图、一页 RAI 和 README 已入库。评委访问暂缓 | BLOCKED | `materials/submission_checklist.md` | Codex（技术复核） | 2026-11-10T20:09Z | `7ffc672` |
 | V3-04 | v3 | 同任务手工与 Agent 加人工复核配对实测 | 自动化计时可查。0 组有效配对，人工实测暂缓 | BLOCKED | `materials/impact_measurements.csv` | Codex（技术复核） | 2026-11-10T20:09Z | 本候选提交 |
 | V3-05 | v3 | 无阻断缺陷且 A/B 互审关键结果 | 审核修复已落在候选树，双人签核暂缓 | BLOCKED | `本文件 §3；docs/v3/10_audit_followup.md` | Codex（技术复核） | 2026-11-10T20:09Z | 本候选提交 |
 | V3-06 | v3 | 同一冻结提交通过正式发布检查，工作区干净且创建 v3 标签 | 旧正式证据 BLOCKED。等批准证据与审核人记录后，在最终 SHA 上跑 seed 47。未创建标签 | BLOCKED | `docs/v3/07_release_checklist.md；docs/v3/10_audit_followup.md` | Codex（技术复核） | 2026-11-10T20:09Z | 本候选提交 |
@@ -100,16 +100,15 @@ Owner: V3 交付执行 Agent（`agent-delegated`）。Reviewer 字段为真实�
 **阻断缺陷（存在即不得宣称已发布）**
 
 1. v2 正式发布 BLOCKED：seed 46 证据的树不等于任何提交，`release-check` 17 条缺口（`docs/v3/03_release_readiness.md`）。
-2. 没有 seed 47 正式 run：四项前置中 UCI 授权证据、权威账本确认、审批人与标签策略未齐备（同上 §5）。
-3. 视频本地成片已就绪。评委访问、A/B 互审和配对计时按团队当前安排暂缓。
-4. 人工配对业务价值测量未执行（协议已就绪）。
+2. seed 47 正式 run 待启动。还需记录 UCI 使用批准、权威账本未消费确认和 Gate A/B/C 审核人或代理授权，再确认正式运行 SHA。
+3. 五件套已入库。评委访问、A/B 互审和配对计时按团队当前安排暂缓，分别阻塞 V3-03、V3-05 和 V3-04。
 
 **清楚记录的性质与限制**
 
 - 数据：UCI 2005 年台湾信用卡样本，CC BY 4.0，含人口属性（仅审计）；比赛使用授权仍待书面确认。
 - 模型：三个旧模型与旧文档为团队自建模拟资产；只迁移 `MDL_CREDIT_V1`；迁移复用 R 系数、不重新训练。
 - 指标：holdout 为同期随机留出（样本外验证）；漂移为加权抽样敏感性分析；**无跨时间回测**；公平性是审计信号，不是合规结论。
-- Agent：摘要与解释由模型生成，可能出错；关键结论由指标渲染并经门禁复核；请求与重试上限、审计日志均可核对。
+- Agent 选择审阅重点并返回结构化状态。代码对照指标校验状态，并用模板生成报告结论与审阅提示。请求、重试和审核都有日志。
 - 未完成可选项：SAS 解析、MLflow/Azure ML、批量化调度、跨时间回测数据、MLOps 部署。
 
 **不得写入任何材料的表述**：生产可用、独立验证、监管认证、公平性已被证明、约 250 个模型与 8–12 周为本项目实测成果。

@@ -5,14 +5,14 @@ Owner of this list: V3 交付执行 Agent（`agent-delegated`）。每条都写�
 
 ---
 
-## 0. 冻结提交（先看这一条）
+## 0. 交付候选与正式发布状态
 
 | 项 | 值 |
 | --- | --- |
-| 冻结提交 SHA | 见 `docs/v3/09_verification_of_freeze.md` §1（该文件只记录对冻结提交的只读复核） |
-| 候选分支 | `codex/v3-final`（未推送，未合并到 `main`） |
+| 已交付候选 | `7ffc672` 已于 2026-11-10 快进至远端 `main`，含代码与五件套 |
+| 正式运行 SHA | 待正式运行前确认。旧合成演练的 SHA 单独记在 `docs/v3/09_verification_of_freeze.md` |
 | `v3` 标签 | **未创建** |
-| 正式 run | **未启动**（账本无 seed 47 记录） |
+| 正式 run | **未启动**。本机账本无 seed 47 记录，团队权威账本确认待补 |
 
 ## 1. 必须由人处理的事项
 
@@ -72,7 +72,7 @@ Owner of this list: V3 交付执行 Agent（`agent-delegated`）。每条都写�
 | --- | --- |
 | 负责人 | 仓库所有者（GitHub `wufangxun106334-pixel/model-risk-factory`） |
 | 所需输入 | ① 仓库是否对评委可见（当前 Private）；② deck/视频/架构图的分享链接；③ 是否需要邀请评委账号 |
-| 现状 | 仓库私有；`origin` 无标签；材料只在本地 |
+| 现状 | 仓库私有，材料已在远端 `main`，评委视角暂未核验 |
 | 下一条可执行动作 | 用一个非团队账号打开仓库与全部链接验证可访问，把结果填进 `materials/submission_checklist.md` §5 的勾选项 |
 | 阻塞 | V3-03 的"全部必交文件可访问"、V3-06 |
 
@@ -81,8 +81,8 @@ Owner of this list: V3 交付执行 Agent（`agent-delegated`）。每条都写�
 | 字段 | 内容 |
 | --- | --- |
 | 负责人 | 成员 B 主责（SOP §13），成员 A 协作 |
-| 所需输入 | 可录屏的机器（Docker 已启动、`dev_runs` 内有演练 run）、英文口播、`materials/demo_video_script.md`、可选的真实网关 key |
-| 现状 | 本地成片已就绪（1:51，H.264 + AAC），为历史合成回放 |
+| 所需输入 | 评委可访问的仓库或视频分享链接 |
+| 现状 | 成片已随 `main` 入库（1:51，H.264 + AAC），为历史合成回放 |
 | 下一条可执行动作 | 恢复评委访问核验后，共享 `materials/demo_video.mp4`，从评委侧验证链接可播放，并记录在提交清单 |
 | 阻塞 | V3-03 完成判定、提交清单 |
 
@@ -94,16 +94,16 @@ Owner of this list: V3 交付执行 Agent（`agent-delegated`）。每条都写�
 | 所需输入 | 干净检出、`legacy/*.R` 与 `legacy/notes/*.md`、`config/inventory_schema.json`、秒表 |
 | 现状 | 6 条 Agent 行已实测，5 条人工行为 `pending` |
 | 下一条可执行动作 | 按 `materials/impact_measurements_README.md` §3–§4 执行 T11–T15（至少 3 对），替换 `pending` 行并记录顺序 |
-| 阻塞 | "节省 X%" 类结论（当前**不允许**出现） |
+| 阻塞 | V3-04；现有记录仅支持报告自动化耗时 |
 
 ## 2. 已由我完成、无需人工的部分
 
 - 基线与标签事实、正式账本与本机状态记录（`docs/v3/00_baseline_status.md`）。
 - 两个判定缺口的复现、最小修复与 34 条定向回归（`docs/v3/01_gap_fixes.md`）。
-- 全量测试（改动前 299 / 改动后 339，0 failed / 0 skipped）、固定数据复跑与数值对照（`docs/v3/test_summary.md`）。
+- 审核修复后全量测试 337 项和 7 个子测试通过。固定数据复跑和新候选的 Gate A 前演练见 `docs/v3/test_summary.md` 与 `docs/v3/10_audit_followup.md`。
 - 新环境复现 + 端到端合成演练 + 四页界面实测（`docs/v3/02_new_environment.md`、`docs/v3/ui_screens/`）。
 - 正式证据只读复核、`release-check` BLOCKED 与 seed 47 四项前置核验（`docs/v3/03_release_readiness.md`）。
-- 五件套（除视频成片）、提交清单、impact CSV 与协议、README 更新、验收与审核材料。
+- 五件套（含 1:51 视频成片）、提交清单、impact CSV 与协议、README、验收与审核材料已推送至 `main`。
 - 冻结提交的确定与只读复核（`docs/v3/09_verification_of_freeze.md`）。
 
 **没有做、也不会在未授权时做**：启动正式 run、消费 seed 47、创建或移动任何标签、推送、上传材料、发送邮件。
