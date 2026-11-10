@@ -117,7 +117,9 @@ Docker Desktop、R 和 Python 需在开发机实际验证。依赖版本在接�
 | V2-06 | 故障处理 | API 请求失败、解析失败、超时、请求上限和修复耗尽均保留失败记录 | 故障测试和请求日志 |
 | V2-07 | 报告来源与限制 | 每个数值引用指标 JSON 路径；引用存在不等于语义真实，关键事实需人工复核；无合规认证措辞 | 报告、审核意见 |
 
-### 4.2.1 v2 实现状态（2026-11-09）
+### 4.2.1 v2 实现状态（2026-11-10 复核）
+
+**当前结论：工程修复已完成，正式发布 BLOCKED。** 2026-11-10 完成第三轮修复（报告表格按 GFM 渲染语义判定；`release-check --output` 与 `compare-command-log --save-copy` 只能在证据目录外独占新建文件），全量测试通过；`release-check --tag v2` 仍为 BLOCKED（17 条缺口不变），未消费 UCI 行经独立复核仍为 1,199 行。`v2` 标签保持指向 `9884e3a`，不构成有效发布引用。
 
 V2-01～V2-07 与 V1-01～V1-07 已在正式 run `v2-20261109T210903Z-3dcfab73`（campaign seed 46）上全部通过；**但该 run 的证据无法绑定到任何提交，且未消费的 UCI 行只剩 1,199 行（不足 6,000 行正式 Holdout），因此正式发布状态为 BLOCKED**，`v2` 标签不构成有效发布引用。缺口、解除条件与后续步骤见 [README](../README.md) 的「发布状态与缺口」一节；实际命令、证据路径与残留缺陷见同文件「v2 发布阻断修复」「v2 正式验收」「已知工具缺陷」三节。以下实现口径在此固定：
 
@@ -125,7 +127,7 @@ V2-01～V2-07 与 V1-01～V1-07 已在正式 run `v2-20261109T210903Z-3dcfab73`�
 - Gate C 的被审产物统一为 `report/review_manifest.json`：生成、审批（`approve --gate Gate_C`）与状态检查（`report-status`）使用同一路径；该清单绑定报告、`validation_metrics.json`、数值索引、表格与 Agent 摘要的哈希，任一被绑定文件缺失或变化即退回 DRAFT，`report/approval.json` 只在 Gate C 通过后生成。
 - `validation-metrics` 在执行或复用漂移批次结果前，必须先校验 context、冻结源码哈希、当前 Gate A/B 决定、frozen attempt 的开发验证与行为 fixtures、四个划分输入哈希，以及缓存执行记录的 candidate/model/input/output 哈希。
 - 数据划分：历史排除集由 `config/holdout_ledger.json` 记录的 seed、算法与划分哈希，配合已获准的 UCI 原始 ZIP **可重建校验**；正式 Holdout 只从历史已消费 Holdout 未覆盖的行中抽取。五份已消费 Holdout 共占 28,801 行，剩余 1,199 行不足以构成任何新的 6,000 行正式 Holdout。
-- 报告与发布：报告表格必须能由 `validation_metrics.json` 逐单元格重建并一致（`verify_report_cells`），且每张表（表头签名）与每个行身份（前导标签列）必须唯一，Gate C 审批前强制执行；证据只能来自"已提交且工作区干净"的树，`worktree_clean_at_init` 必须为真、`git_commit_at_init` 必须等于被发布提交，并由 `release-check` 在标签树上复算 `verify_context` 与全量测试（先用 ledger 哈希校验并复制本机已获准 UCI ZIP，再以 junit 结果区分 passed/failed/skipped；pytest 退出码非零、存在失败或存在跳过都算缺口）。`acceptance.json` 必须恰好包含 V1-01～07 与 V2-01～07 各一次、全部 PASS、绑定同一 run 与发布提交，导出 ZIP 必须逐个成员核对内容哈希。`verify-context`、`release-check`、`report-status`、`verify-holdout-ledger`、`compare-command-log` 为只读命令，不写 run 目录；不提供任何截断或改写审计日志的命令，查看快照只能比对或把副本另存到 run 之外。
+- 报告与发布：报告表格必须能由 `validation_metrics.json` 逐单元格重建并一致（`verify_report_cells`），且每张表（表头签名）与每个行身份（前导标签列）必须唯一，Gate C 审批前强制执行；表格按 GFM 渲染语义解析（表体读到空行或其他块开始为止，短行补空、宽行截断，转义竖线不切分，引用块与列表内的表也计入），解析结果必须是渲染结果的超集；证据只能来自"已提交且工作区干净"的树，`worktree_clean_at_init` 必须为真、`git_commit_at_init` 必须等于被发布提交，并由 `release-check` 在标签树上复算 `verify_context` 与全量测试（先用 ledger 哈希校验并复制本机已获准 UCI ZIP，再以 junit 结果区分 passed/failed/skipped；pytest 退出码非零、存在失败或存在跳过都算缺口）。`acceptance.json` 必须恰好包含 V1-01～07 与 V2-01～07 各一次、全部 PASS、绑定同一 run 与发布提交，导出 ZIP 必须逐个成员核对内容哈希。`verify-context`、`release-check`、`report-status`、`verify-holdout-ledger`、`compare-command-log` 为只读命令，不写 run 目录；不提供任何截断或改写审计日志的命令，查看快照只能比对或把副本另存到 run 之外。只读命令的输出文件（`release-check --output`、`compare-command-log --save-copy`）只能以 `O_EXCL` 独占新建在 `runs/`、`dev_runs/`、`delivery/`、当前 runs 根目录与被检查 run 之外：父目录先解析符号链接，再按 inode 复核已打开目录的祖先；任何已存在的目标（含硬链接、符号链接）一律拒绝。
 
 ### 4.3 v3 验收标准
 

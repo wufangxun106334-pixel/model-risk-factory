@@ -15,6 +15,7 @@ from src.boundary import run_boundary_suite
 from src.context import create_context, verify_context_at
 from src.common import (
     ContractError,
+    canonical_json_bytes,
     append_jsonl,
     create_run,
     current_git_commit,
@@ -35,7 +36,8 @@ from src.fixtures import write_fixtures
 from src.local_checks import run_mutation_check, run_reference_parity
 from src.inventory import expected_model_ids, inventory_path
 from src.migration import candidate_dir, freeze_candidate, load_candidate
-from src.release import compare_command_log, release_check
+from src.outputs import check_output_destination, create_new_output
+from src.release import compare_command_log, release_check, run_protected_roots
 from src.report import render_report, report_content_problems, report_status, write_approval
 from src.review import artifact_digest, current_decision, record_review
 from src.validation import compute_validation_metrics
@@ -164,6 +166,18 @@ def _status(repository: Path, run_dir: Path, run_id: str) -> dict:
     return {"run_id": run_id, "manifest": read_json(run_dir / "run_manifest.json"), "inventory": inventory, "candidates": candidates}
 
 
+def evidence_roots(run_dir: Path) -> list[tuple[Path, str]]:
+    """Directories a read-only command must never write into."""
+
+    return [
+        (REPOSITORY / "runs", "the formal runs directory"),
+        (REPOSITORY / "dev_runs", "the dev runs directory"),
+        (REPOSITORY / "delivery", "the delivery directory (sealed evidence packages)"),
+        (RUNS_ROOT, "the active runs root"),
+        (run_dir, "the run directory"),
+    ]
+
+
 def _dispatch(arguments: argparse.Namespace) -> dict[str, Any]:
     command = arguments.command
     if command == "init-run":
@@ -178,11 +192,15 @@ def _dispatch(arguments: argparse.Namespace) -> dict[str, Any]:
     run_dir, manifest = load_run(RUNS_ROOT, arguments.run_id)
     run_id = arguments.run_id
     if command == "compare-command-log":
-        return compare_command_log(run_dir, arguments.save_copy)
+        return compare_command_log(run_dir, arguments.save_copy, evidence_roots(run_dir))
     if command == "release-check":
+        roots = [*run_protected_roots(run_dir), *evidence_roots(run_dir)]
+        if arguments.output:
+            # Refuse a protected or existing destination before the long check runs.
+            check_output_destination(arguments.output, roots)
         result = release_check(REPOSITORY, arguments.tag, run_dir, run_id, zip_path=arguments.zip)
         if arguments.output:
-            write_json(arguments.output, result)
+            result["output"] = str(create_new_output(arguments.output, canonical_json_bytes(result), roots))
         return result
     if command == "check-provider":
         return check_provider(run_dir, run_id)

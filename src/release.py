@@ -18,11 +18,13 @@ import subprocess
 import sys
 import zipfile
 from pathlib import Path
+from typing import Iterable
 from xml.etree import ElementTree
 
 import json
 
 from src.common import read_json, sha256_file
+from src.outputs import check_output_destination, create_new_output
 from src.context import materialize_tree, verify_context_at
 
 
@@ -97,12 +99,13 @@ def _provision_approved_zip(repository: Path, tree: Path, run_dir: Path, zip_pat
     return []
 
 
-def compare_command_log(run_dir: Path, save_copy: Path | None = None) -> dict:
+def compare_command_log(run_dir: Path, save_copy: Path | None = None, protected_roots: Iterable[Path | tuple[Path, str]] = ()) -> dict:
     """Compare the live command log with the export snapshot without writing the run.
 
     The snapshot is the sealed record and the live log may have grown after export.
     Besides reading it, the only supported inspection is saving a copy of the
-    snapshot outside the run directory.
+    snapshot as a new file outside every protected directory (see src/outputs.py):
+    an existing destination, including a hard link to a live log, is refused.
     """
 
     live_path = run_dir / "command_log.jsonl"
@@ -145,16 +148,20 @@ def compare_command_log(run_dir: Path, save_copy: Path | None = None) -> dict:
         "live_sha256": sha256_file(live_path) if live_path.is_file() else None,
     }
     if save_copy is not None:
-        destination = Path(save_copy).expanduser()
-        run_root = run_dir.resolve()
-        resolved = destination.resolve()
-        if resolved == run_root or run_root in resolved.parents:
-            raise ValueError("refusing to write inside the run directory; choose a path outside it")
-        destination.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copyfile(snapshot_path, destination)
+        roots = [*run_protected_roots(run_dir), *protected_roots]
+        check_output_destination(save_copy, roots)
+        payload = snapshot_path.read_bytes()
+        destination = create_new_output(save_copy, payload, roots)
         result["saved_copy"] = str(destination)
-        result["saved_copy_sha256"] = sha256_file(destination)
+        result["saved_copy_sha256"] = hashlib.sha256(payload).hexdigest()
     return result
+
+
+def run_protected_roots(run_dir: Path) -> list[tuple[Path, str]]:
+    """The inspected run and its sibling runs are always protected."""
+
+    run_dir = Path(run_dir)
+    return [(run_dir, "the run directory"), (run_dir.parent, "the runs root (other runs)")]
 
 
 REQUIRED_RECORDS = tuple(

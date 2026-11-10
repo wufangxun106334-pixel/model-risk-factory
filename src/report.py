@@ -443,49 +443,137 @@ TABLE_HEADERS = (
 DELIMITER_CELL = re.compile(r"^:?-+:?$")
 
 
-def _split_table_row(line: str) -> list[str] | None:
-    """Split a Markdown table row; the leading and trailing pipes are optional."""
+BLOCKQUOTE_MARKER = re.compile(r"^ {0,3}> ?")
+LIST_MARKER = re.compile(r"^ {0,3}(?:[-+*]|\d{1,9}[.)])(?: +|$)")
+ATX_HEADING = re.compile(r"^ {0,3}#{1,6}(?:[ \t]|$)")
+CODE_FENCE = re.compile(r"^ {0,3}(?:`{3,}|~{3,})")
+THEMATIC_BREAK = re.compile(r"^ {0,3}(?:(?:\*[ \t]*){3,}|(?:-[ \t]*){3,}|(?:_[ \t]*){3,})$")
 
-    stripped = line.strip()
-    if "|" not in stripped:
-        return None
+
+def _split_cells(content: str) -> list[str]:
+    """Split one table line into cells the way GFM does.
+
+    A pipe preceded by a backslash is part of the cell (and renders as ``|``), the
+    leading and trailing pipes are optional, and a line without any pipe is a
+    single cell.
+    """
+
+    stripped = content.strip()
+    parts: list[str] = []
+    current: list[str] = []
+    previous = ""
+    for character in stripped:
+        if character == "|" and previous != "\\":
+            parts.append("".join(current))
+            current = []
+        else:
+            current.append(character)
+        previous = character
+    parts.append("".join(current))
     if stripped.startswith("|"):
-        stripped = stripped[1:]
-    if stripped.endswith("|"):
-        stripped = stripped[:-1]
-    return [cell.strip() for cell in stripped.split("|")]
+        parts = parts[1:]
+    if len(stripped) > 1 and stripped.endswith("|") and stripped[-2] != "\\" and parts:
+        parts = parts[:-1]
+    elif stripped == "|":
+        parts = []
+    return [part.replace("\\|", "|").strip() for part in parts]
+
+
+def _line_variants(line: str) -> tuple[str, str]:
+    """Return the line without block-quote markers, and without any container marker.
+
+    The cell check must see at least every table a GFM renderer would show; a
+    table inside a block quote or list item is still rendered, so hiding a second
+    copy there must not make it invisible. Seeing a superset only ever makes the
+    check stricter (an extra copy is reported as a duplicate), so a line that a
+    renderer could read either as a list item or as table text is tried both ways.
+    """
+
+    content = line.expandtabs(4)
+    quoted_only: str | None = None
+    while True:
+        quoted = BLOCKQUOTE_MARKER.match(content)
+        if quoted:
+            content = content[quoted.end():]
+            continue
+        if quoted_only is None:
+            quoted_only = content.strip()
+        if THEMATIC_BREAK.match(content):
+            return quoted_only, content.strip()
+        listed = LIST_MARKER.match(content)
+        if listed:
+            content = content[listed.end():]
+            continue
+        return quoted_only, content.strip()
+
+
+def _ends_table_body(content: str) -> bool:
+    """True when a line certainly closes a GFM table body.
+
+    GFM keeps every following line as a table row until a blank line or the start
+    of another block. Only the starts that cannot themselves be rows are treated as
+    terminators here; anything else is kept as a row, so a forged row can never be
+    dropped by the parser while a renderer still shows it.
+    """
+
+    return (
+        content == ""
+        or bool(ATX_HEADING.match(content))
+        or bool(CODE_FENCE.match(content))
+        or bool(THEMATIC_BREAK.match(content))
+    )
+
+
+def _delimiter_row(content: str) -> list[str] | None:
+    if "|" not in content:
+        return None
+    cells = _split_cells(content)
+    if cells and all(DELIMITER_CELL.match(cell) for cell in cells):
+        return cells
+    return None
+
+
+def _table_header(header_line: tuple[str, str], delimiter_line: tuple[str, str]) -> list[str] | None:
+    """The header cells when the two lines open a table under any reading."""
+
+    for header_content in dict.fromkeys(header_line):
+        if header_content == "" or _ends_table_body(header_content):
+            continue
+        header = _split_cells(header_content)
+        for delimiter_content in dict.fromkeys(delimiter_line):
+            delimiter = _delimiter_row(delimiter_content)
+            if delimiter is not None and len(delimiter) == len(header):
+                return header
+    return None
 
 
 def parse_markdown_tables(text: str) -> list[dict]:
-    """Return every GFM table: pipes separate cells and outer pipes are optional.
+    """Return every table as a GitHub Flavored Markdown renderer would show it.
 
-    A table is a header row whose next line is a delimiter row with the same
-    number of cells, so a table rendered without outer pipes is still a table and
-    cannot be appended as if it were prose.
+    * A table starts at a header line followed by a delimiter row with the same
+      number of cells; outer pipes are optional and ``\\|`` does not split cells.
+    * The body runs until a blank line or another block start. A body row with
+      fewer cells than the header is padded with empty cells, and excess cells are
+      dropped, exactly as GFM renders them; a row is never discarded for having the
+      "wrong" width.
+    * Tables nested in block quotes or list items are reported as well.
     """
 
-    lines = text.splitlines()
+    variants = [_line_variants(line) for line in text.splitlines()]
+    contents = [stripped for _quoted, stripped in variants]
     tables: list[dict] = []
     index = 0
-    while index < len(lines) - 1:
-        header = _split_table_row(lines[index])
-        delimiter = _split_table_row(lines[index + 1])
-        if not (
-            header is not None
-            and delimiter is not None
-            and delimiter
-            and len(header) == len(delimiter)
-            and all(DELIMITER_CELL.match(cell) for cell in delimiter)
-        ):
+    while index < len(contents) - 1:
+        header = _table_header(variants[index], variants[index + 1])
+        if header is None:
             index += 1
             continue
+        width = len(header)
         rows: list[list[str]] = []
         cursor = index + 2
-        while cursor < len(lines):
-            row = _split_table_row(lines[cursor])
-            if row is None or len(row) != len(header) or all(DELIMITER_CELL.match(cell) for cell in row):
-                break
-            rows.append(row)
+        while cursor < len(contents) and not _ends_table_body(contents[cursor]):
+            cells = _split_cells(contents[cursor])
+            rows.append((cells + [""] * width)[:width])
             cursor += 1
         tables.append({"header": header, "rows": rows})
         index = cursor

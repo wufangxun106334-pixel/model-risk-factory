@@ -7,7 +7,9 @@ EXL × UCD Data & AI Hackathon 2026 — Challenge 04 Agentic model risk factory�
 - v1 正式 run `v1-20261109T181929Z-3fe1c7b5`：V1-01～07 全 PASS（Gate A/B 代理审核），标签 `v1`。
 - v2 正式 run **`v2-20261109T210903Z-3dcfab73`**（campaign seed 46）：V1-01～07 与 V2-01～07 共 14 项全 PASS，`release_approved=true`，Gate A（三份档案）/ Gate B / Gate C 均为 `agent-delegated` 代理审核。
 
-> **发布状态：BLOCKED（2026-11-09）。** 该 run 的证据内部自洽（63 个文件哈希、14/14 PASS、导出哈希全部复算一致），但**无法绑定到任何提交**：它的测试树在工作区未提交时被使用，`git_commit_at_init=ec6077f`，而 `v2` 标签指向 `9884e3a`，`config/data_config.json` 也在 run 之后才提交。UCI 数据只剩 **1,199** 行从未消费，无法再产生一份 6,000 行正式 Holdout。缺口与后续步骤见「发布状态与缺口」。`v2` 标签保持在 `9884e3a`，但**不得作为有效发布引用**。
+> **发布状态：工程修复已完成，正式发布 BLOCKED（2026-11-10 复核）。** 第三轮修复（Gate C 表格按 GFM 渲染语义判定、只读命令输出只能在证据目录外独占新建）已提交，全量测试通过；阻断原因不变，均为外部数据与历史证据问题，无法在仓库内解决。
+>
+> **原始判定（2026-11-09）：** 该 run 的证据内部自洽（63 个文件哈希、14/14 PASS、导出哈希全部复算一致），但**无法绑定到任何提交**：它的测试树在工作区未提交时被使用，`git_commit_at_init=ec6077f`，而 `v2` 标签指向 `9884e3a`，`config/data_config.json` 也在 run 之后才提交。UCI 数据只剩 **1,199** 行从未消费，无法再产生一份 6,000 行正式 Holdout。缺口与后续步骤见「发布状态与缺口」。`v2` 标签保持在 `9884e3a`，但**不得作为有效发布引用**。
 
 交付物是本机的 `delivery/<run_id>_acceptance.json` 与 `delivery/<run_id>_evidence.zip`；`runs/`、`delivery/` 与原始数据不进 Git。Streamlit 界面按计划留给 v3。
 
@@ -358,9 +360,22 @@ done
 | 验收记录与导出完整性 | 只检查 `release_approved` 与"失败清单"，不看记录是否齐全/唯一、是否绑定同一 run 与发布提交，也不打开 ZIP | `acceptance.json` 必须恰好 V1-01～07（v1）与 V2-01～07（v2）各一次、全 PASS、`commit_sha` 等于发布提交、取证路径在该 run 内；导出记录须 `verified`、清单哈希与磁盘一致，并用 `zipfile` 校验成员集合与每个成员内容哈希 | `2ed9955`，`tests/test_v2_blockers_release.py`（14 例：真实 ZIP + 14 条记录的正向，缺项/重复/错误 run_id/错误提交/路径越界/伪 ZIP/成员缺失/成员被改/多余成员等负向） |
 | 测试口径与只读 | 退出码 0 + 若干 skip 被当成"全量通过"；`verify-context`/`release-check` 会向 run 的 `command_log.jsonl` 追加行 | 在隔离标签树中先用 ledger 哈希校验本机已获准 UCI ZIP 并复制进树，再用 junit 报告区分 passed/failed/skipped 并列出被跳过用例名；有 fail、有 skip 或零收集都算发布缺口。只读命令集合不再写 run；日志只做比对或把快照副本另存到 run 之外（`compare-command-log`），不再提供任何截断/改写命令 | `ae6108b`，`tests/test_v2_blockers_readonly.py`（9 例，含字节级 run 目录不变与日志恢复） |
 
+### 第三轮修复（2026-11-10：表格渲染语义与只读输出路径）
+
+| 阻断 | 问题 | 修复 | 测试 |
+| --- | --- | --- | --- |
+| 表体按 GFM 渲染读取 | 解析器遇到列数与表头不同的表体行就停止读取，但 GFM 会渲染短行（补空单元格）并丢弃超宽行的多余单元格。保留正确性能表、在表体末尾加一行把 Holdout 的 ROC-AUC 与 Brier 对调并多一列，`values_index.csv` 不动、重算报告哈希后，Gate C、`approve-report` 与 V2-07 全部通过 | `parse_markdown_tables()` 按 GFM 语义读表：表头与分隔行列数相等才成表；表体一直读到空行或标题/代码围栏/分隔线，短行补空、宽行截断，不因列数丢行；反斜杠转义的竖线不切分单元格；引用块与列表项内的表也计入。只在确定会结束表格的块处停止，其余行一律当表行读入，因此解析结果是渲染结果的超集，多出的行只会让校验更严格（重复行或意外行），不会被漏掉。没有针对单个输入的特判 | `tests/test_v2_blockers_gfm_rows.py`（12 例，走 `approve --gate Gate_C`、`approve-report`、`report-status` 与 V2-07；旧解析器上 10 例失败）；原有无首尾竖线、重复表、重复行回归保持通过 |
+| 只读命令的输出路径 | `release-check --output` 可覆盖本 run 的 `acceptance.json`；`compare-command-log --save-copy` 可覆盖其他 run 的命令日志，也可通过 run 外已有的硬链接覆盖当前 run 的实时日志 | 新增 `src/outputs.py`，两个选项共用：先解析父目录（含符号链接），拒绝落在正式 run 目录、开发 run 目录（`dev_runs/`）、交付与封存包目录（`delivery/`）、当前生效的 runs 根目录及被检查的 run 内；拒绝任何已存在的目标（含硬链接与符号链接）；打开父目录后再按设备号与 inode 沿 `..` 复核祖先，并用 `O_CREAT\|O_EXCL\|O_NOFOLLOW` 相对该目录独占创建，检查与写入之间出现的文件或被替换的父目录也无法被利用。`release-check` 在长时间校验前先拒绝非法目标 | `tests/test_v2_blockers_output_paths.py`（31 例：9 类受保护目标 × 两个选项、硬链接、父目录符号链接、目标符号链接、检查后植入硬链接、检查后替换父目录、合法新文件创建与二次写入被拒） |
+
+修复后在历史 run 的**临时副本**上用实际 CLI 复核（`MRF_RUNS_ROOT` 指向副本，正式 `runs/` 不动）：
+
+- 表格反例：在副本报告性能表末尾插入 `| holdout | 6000 | 1322 | 4678 | 0.1422 | 0.7529 | OK | reviewed |` 并重算 `report_sha256`，`values_index.csv` 不变。旧树（`a6da3fb`）的 `verify_report_cells` 返回空（漏检）；新树返回 `table 'dataset': duplicate row labels ['holdout']`，`report-status` 为 DRAFT 并列出该原因。
+- 输出反例：`release-check --output` 与 `compare-command-log --save-copy` 指向副本的 `acceptance.json`、另一个 run 的 `command_log.jsonl`、指向实时日志的 run 外硬链接、经符号链接指入 run 的父目录、`delivery/` 与 `dev_runs/` 下的新文件，全部 `OutputRefused`、退出码 2，目标逐字节不变、未新建文件；写到 run 外的新文件正常创建（副本 sha256 `d4ee54e0…` 与快照一致）。
+- 正式 `runs/`（2,855 个文件）、`delivery/` 与 `dev_runs/`（195 个文件）在本轮前后逐文件 sha256 完全一致。
+
 ### 为什么仍然 BLOCKED
 
-`release-check --tag v2 --run-id v2-20261109T210903Z-3dcfab73 --zip data/raw/default_of_credit_card_clients.zip` 的输出（`dev_runs/release_check_v2.json`，共 17 条缺口）：
+`release-check --tag v2 --run-id v2-20261109T210903Z-3dcfab73 --zip data/raw/default_of_credit_card_clients.zip` 的输出（历史副本 `dev_runs/release_check_v2.json`；2026-11-10 在第三轮修复后的树上重跑，结论与缺口逐条相同，共 17 条）：
 
 ```text
 status BLOCKED
@@ -401,6 +416,8 @@ status BLOCKED
 fresh_holdout_available: false
 greedy_new_rows_per_campaign: seed-42 6000, seed-43 4801, seed-44 6000, seed-45 6000, seed-46 6000
 ```
+
+2026-11-10 复核：`verify-holdout-ledger` 五份重建全部 `verified`、`unique_excluded_rows=28801`；另以五个正式 run 磁盘上的 `holdout.csv`（哈希与账本一致）独立求并集，同为 28,801 行，`runs/holdout_consumption.jsonl` 五条均为 `CONSUMED`。仓库内除该 UCI ZIP 外没有任何其他获准数据。
 
 正式验收要求 6,000 行 Holdout，剩余 1,199 行不足；本仓库不使用 1,199 行冒充正式验收，也不再换 seed。因此**在新提交上重跑 6,000 行正式 Holdout 不可行**，发布保持 BLOCKED。
 
@@ -458,11 +475,11 @@ RUN=v2-20261109T210903Z-3dcfab73
 PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -c "import pathlib;from src.context import verify_context;print(verify_context(pathlib.Path('.').resolve(), pathlib.Path('runs/$RUN'), '$RUN'))"   # True
 cat runs/$RUN/acceptance.json | .venv/bin/python -c 'import json,sys;d=json.load(sys.stdin);print(d["release_approved"], [(r["acceptance_id"], r["status"]) for r in d["records"]])'
 shasum -a 256 delivery/$RUN_evidence.zip runs/$RUN/export_verified.json   # 与 export_verified.json 的 archive_sha256 对照
-.venv/bin/python -m src.cli report-status --run-id $RUN                     # status: APPROVED
+.venv/bin/python -m src.cli report-status --run-id $RUN                     # 当前树上为 DRAFT（Gate_C=INVALIDATED）：run 之后 src/tests 已变，context 不再匹配，这正是证据无法绑定提交的表现
 git rev-parse v2^{commit}
 .venv/bin/python -m src.cli verify-context --run-id $RUN --at v2            # 只读复核：src/tests/资产 分别判定
-.venv/bin/python -m src.cli release-check --run-id $RUN --tag v2 --zip data/raw/default_of_credit_card_clients.zip --output dev_runs/release_check_v2.json   # 发布结论：当前为 BLOCKED（17 条缺口）
-.venv/bin/python -m src.cli compare-command-log --run-id $RUN --save-copy /tmp/command_log_snapshot.copy.jsonl   # 只读比对；副本只能写到 run 之外
+.venv/bin/python -m src.cli release-check --run-id $RUN --tag v2 --zip data/raw/default_of_credit_card_clients.zip --output "$(mktemp -d)/release_check_v2.json"   # 发布结论：当前为 BLOCKED（17 条缺口）；输出只能是 runs/、dev_runs/、delivery/ 之外的新文件
+.venv/bin/python -m src.cli compare-command-log --run-id $RUN --save-copy "$(mktemp -d)/command_log_snapshot.copy.jsonl"   # 只读比对；副本只能独占新建在证据目录之外，已存在的目标（含硬链接）一律拒绝
 ```
 
 `verify_context` 覆盖 `src/`、`tests/` 与 repo 资产：发布提交一旦改动这些文件，已封存 run 的 Gate 与冻结即失效（见已知缺陷 4）。因此 v2 标签指向的提交必须与 run 的 `context_manifest.json` 逐字节一致，验收之后不再改 `src/`、`tests/`、`config/`。
