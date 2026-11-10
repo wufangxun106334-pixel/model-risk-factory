@@ -12,7 +12,7 @@ from pathlib import Path
 
 import pytest
 
-from src.common import sha256_file, tree_records, write_json
+from src.common import read_json, sha256_file, tree_records, write_json
 from src.context import REPOSITORY_ASSETS, _combined, materialize_tree, verify_context, verify_context_at
 
 RUN_ID = "v2-context"
@@ -109,20 +109,29 @@ def test_git_archive_materialization_is_a_real_tree(tmp_path):
         tree.cleanup()
 
 
-@pytest.mark.skipif(
-    not (REPOSITORY / "runs" / "v2-20261109T210903Z-3dcfab73" / "context_manifest.json").is_file(),
-    reason="the seed 46 run is not on this machine",
-)
-def test_seed_46_run_binds_to_no_single_commit():
-    """Documents the release-binding defect the tag decision depends on."""
+def test_context_frozen_with_uncommitted_asset_matches_neither_release_tree(tmp_path):
+    repo, run = make_repo(tmp_path)
+    at_init_commit = git(repo, "rev-parse", "HEAD")
+    asset = repo / "legacy" / "a.md"
+    asset.write_text("asset reviewed in the worktree\n", encoding="utf-8")
+    context_path = run / "context_manifest.json"
+    context = read_json(context_path)
+    context["assets"][0]["sha256"] = sha256_file(asset)
+    write_json(context_path, context)
+    assert verify_context(repo, run, RUN_ID) is True
 
-    run = REPOSITORY / "runs" / "v2-20261109T210903Z-3dcfab73"
-    at_tag = verify_context_at(REPOSITORY, run, "v2-20261109T210903Z-3dcfab73", "v2")
+    test_path = repo / "tests" / "test_module.py"
+    test_path.write_text(test_path.read_text(encoding="utf-8") + "\n# added after the run\n", encoding="utf-8")
+    git(repo, "add", "-A")
+    git(repo, "commit", "-q", "-m", "release tree")
+
+    at_tag = verify_context_at(repo, run, RUN_ID, "HEAD")
     assert at_tag["verified"] is False
     assert at_tag["source_matches"] is True
-    assert at_tag["tests_matches"] is False or at_tag["asset_mismatches"]
+    assert at_tag["tests_matches"] is False
+    assert at_tag["asset_mismatches"] == []
 
-    at_init = verify_context_at(REPOSITORY, run, "v2-20261109T210903Z-3dcfab73", "ec6077f")
+    at_init = verify_context_at(repo, run, RUN_ID, at_init_commit)
     assert at_init["verified"] is False
     assert at_init["source_matches"] is True and at_init["tests_matches"] is True
-    assert at_init["asset_mismatches"] == ["config/data_config.json"]
+    assert at_init["asset_mismatches"] == ["legacy/a.md"]
