@@ -55,6 +55,25 @@ class Slide:
     images: list[Path] = field(default_factory=list)
     source: str = ""
 
+    @property
+    def image_height_in(self) -> float:
+        """Image band height: taller when the slide carries few bullets."""
+
+        if not self.images:
+            return 0.0
+        return 3.5 if len(self.bullets) <= 3 else 2.6
+
+
+def _aspect(path: Path) -> float:
+    """Width / height of a PNG, read from its IHDR chunk (no imaging dependency)."""
+
+    header = path.read_bytes()[:24]
+    if header[:8] != b"\x89PNG\r\n\x1a\n":
+        raise SystemExit(f"only PNG images are supported: {path}")
+    width = int.from_bytes(header[16:20], "big")
+    height = int.from_bytes(header[20:24], "big")
+    return width / height
+
 
 def plain(text: str) -> str:
     """Drop Markdown emphasis but keep the words (both outputs use the same text)."""
@@ -136,8 +155,21 @@ def build_pptx(slides: list[Slide]) -> None:
                 run.font.name = "Helvetica Neue"
             cursor += Inches(0.35) + Inches(0.32) * len(slide.subtitle)
 
-        image_height = Inches(2.5) if slide.images else Inches(0)
-        bullets_height = SLIDE_HEIGHT - cursor - Inches(0.78) - (image_height + Inches(0.2) if slide.images else Inches(0))
+        bullet_points = 13 if slide.images else 15
+        bullets_height = SLIDE_HEIGHT - cursor - Inches(0.78)
+        if slide.images:
+            # Estimate where the bullets end (Helvetica averages ~0.5 em per character),
+            # then fit the image band between that and the footer so nothing overlaps.
+            chars_per_line = max(1, int(width / Emu(int(Pt(bullet_points)) * 0.5)))
+            lines = sum(-(-len("•  " + bullet) // chars_per_line) for bullet in slide.bullets)
+            text_height = Emu(int(Pt(bullet_points) * 1.2 * lines + Pt(9) * len(slide.bullets)))
+            available = SLIDE_HEIGHT - Inches(0.78) - (cursor + text_height) - Inches(0.2)
+            image_height = Emu(min(int(Inches(slide.image_height_in)), int(available)))
+            if image_height < Inches(1.5):
+                raise SystemExit(f"slide {slide.number}: too much text to fit its image")
+            bullets_height = text_height
+        else:
+            image_height = Emu(0)
         if slide.bullets:
             box = page.shapes.add_textbox(left, cursor, width, bullets_height)
             frame = box.text_frame
@@ -147,7 +179,7 @@ def build_pptx(slides: list[Slide]) -> None:
                 paragraph.space_after = Pt(9)
                 run = paragraph.add_run()
                 run.text = "•  " + bullet
-                run.font.size = Pt(15)
+                run.font.size = Pt(bullet_points)
                 run.font.color.rgb = INK
                 run.font.name = "Helvetica Neue"
 
@@ -155,8 +187,16 @@ def build_pptx(slides: list[Slide]) -> None:
             gap = Inches(0.22)
             share = int((width - gap * (len(slide.images) - 1)) / len(slide.images))
             top = SLIDE_HEIGHT - Inches(0.78) - image_height
+            bottom = SLIDE_HEIGHT - Inches(0.78)
             for index, image in enumerate(slide.images):
-                page.shapes.add_picture(str(image), left + (share + gap) * index, top, width=Emu(share))
+                # Fit inside the band, keep the aspect ratio, centre in its share.
+                height = int(image_height)
+                picture_width = int(height * _aspect(image))
+                if picture_width > share:
+                    picture_width = share
+                    height = int(share / _aspect(image))
+                x = left + (share + gap) * index + (share - picture_width) // 2
+                page.shapes.add_picture(str(image), x, bottom - height, width=Emu(picture_width), height=Emu(height))
 
         if slide.source:
             box = page.shapes.add_textbox(left, SLIDE_HEIGHT - Inches(0.62), width, Inches(0.5))
@@ -185,7 +225,8 @@ def render_html(slides: list[Slide]) -> str:
         bullets = "".join(f"<li>{html.escape(bullet)}</li>" for bullet in slide.bullets)
         subtitle = "".join(f"<p class=sub>{html.escape(line)}</p>" for line in slide.subtitle)
         images = "".join(
-            f'<figure><img src="{image.as_uri()}"></figure>' for image in slide.images
+            f'<figure><img src="{image.as_uri()}" style="max-height:{slide.image_height_in}in"></figure>'
+            for image in slide.images
         )
         blocks.append(
             f'<section class="slide"><div class="num">{slide.number}/{len(slides)}</div>'
@@ -209,8 +250,8 @@ def render_html(slides: list[Slide]) -> str:
   ul.bullets {{ margin: 10pt 0 0; padding-left: 16pt; }}
   ul.bullets li {{ font-size: 11pt; line-height: 1.38; margin-bottom: 6pt; }}
   .images {{ display: flex; gap: 0.2in; margin-top: auto; padding-bottom: 0.45in; }}
-  .images figure {{ margin: 0; flex: 1; }}
-  .images img {{ width: 100%; border: 1px solid #{RULE}; }}
+  .images figure {{ margin: 0; flex: 1; display: flex; justify-content: center; align-items: flex-end; }}
+  .images img {{ max-width: 100%; width: auto; border: 1px solid #{RULE}; }}
   .source {{ position: absolute; bottom: 0.42in; left: 0.62in; right: 0.62in;
              font-size: 7.5pt; font-style: italic; color: #{MUTED}; margin: 0; }}
 </style></head><body>{''.join(blocks)}</body></html>"""

@@ -16,14 +16,15 @@ The recorded deliberate-error result is from the same run's `mutation/mutation_s
 
 ## Earlier storyboard
 
+> **Superseded pre-recording plan, kept for reference.** The recorded video above is 1:51 and replays synthetic run `v2-20261110T191501Z-fed1c652` only (1,199 synthetic Holdout rows). It does not show the HIST-UCI clips, the 6,000-row parity or the 61-file ZIP planned below. Approvals in the recorded runs were scripted `agent-delegated` records, not a person at each gate.
 
 Deliverable for V3-03. Target length **2:55**, hard limit 3:00.
 Recorded material must be **real screen captures** of this repository. Any step that was
 pre-computed (the Agent calls take ~1–2 minutes) is shown from its recorded run and labelled
 `REPLAY` on screen — a live call is never faked.
 
-Recording status: **not recorded yet** (see `docs/v3/08_handoff.md` H-07 for the recording
-owner and inputs). This script is the final, read-aloud version; the timings below are the
+Recording status at planning time: not recorded yet. The video has since been recorded; see the
+transcript at the top of this file. This script is the final, read-aloud version; the timings below are the
 edit plan, and the narration is written to be spoken at a normal pace.
 
 ## What to record, once
@@ -42,7 +43,7 @@ edit plan, and the narration is written to be spoken at a normal pace.
 
 | Time | On screen | Narration (read this) | Source label to show |
 | --- | --- | --- | --- |
-| 0:00–0:12 | Title card: "Model Risk Factory — Challenge 04". Then the Inventory page with three models listed. | "A bank runs roughly two hundred and fifty models. Documentation drifts away from code, and a review can take eight to twelve weeks. This is Model Risk Factory: it documents a legacy estate, migrates one model, and validates it — with a human in front of every gate." | `CLIENT CONTEXT` (brief figures) |
+| 0:00–0:12 | Title card: "Model Risk Factory — Challenge 04". Then the Inventory page with three models listed. | "A bank runs roughly two hundred and fifty models. Documentation drifts away from code, and a review can take eight to twelve weeks. This is Model Risk Factory: it documents a legacy estate, migrates one model, and validates it — with a recorded reviewer decision at every gate." | `CLIENT CONTEXT` (brief figures) |
 | 0:12–0:25 | Page 1 · Inventory, then click into Model detail for `MDL_CREDIT_V1`. | "Three legacy R models, documented from their actual code and their actual old notes. Every fact carries a file path, a line range and a SHA-256. What the notes never said stays `Unknown`." | `SYNTHETIC DRILL · seed 47` badge visible |
 | 0:25–1:00 | Page 2 · Model detail. Highlight `Code threshold 0.35` vs `Documented threshold 0.5`, the Unknowns, then the conflicts table. Then the Gate A line. | "Here is the disagreement that matters: the code scores at zero point three five, the note says zero point five zero. The system keeps that conflict — it never quietly normalises it. The Agent also cannot invent an agreement: an entry claiming a conflict between two equal thresholds is rejected by a deterministic rule, not by a reviewer's opinion. Gate A approves the inventory artifact by hash, and that approval dies the moment the inventory or the source code changes." | `Gate A: ✅ APPROVED` + inventory hash |
 | 1:00–1:20 | Page 3 · Migration: candidate source, then the 64-hex hash and the Gate B form. | "Gate B approves the exact candidate source hash before anything runs. The candidate reuses the R coefficients, medians, feature order and the zero point three five threshold. Nothing is retrained." | `REPLAY — recorded run` overlay |
