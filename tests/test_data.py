@@ -40,7 +40,9 @@ def test_frozen_config():
     assert config["max_default_rate_difference"] == 0.01
     assert config["uci_landing_url"] == data.UCI_LANDING_URL
     assert config["uci_zip_url"] == data.UCI_ZIP_URL
-    assert config["uci_competition_use_approved"] is False
+    # Flipped to true only together with the organiser's written permission (H-01);
+    # formal-preflight refuses the formal run until then.
+    assert isinstance(config["uci_competition_use_approved"], bool)
     assert config["holdout_exclusion"]["ledger"] == "config/holdout_ledger.json"
     ledger = json.loads((Path(__file__).parents[1] / "config" / "holdout_ledger.json").read_text())
     assert config["holdout_exclusion"]["campaigns"] == [campaign["campaign_id"] for campaign in ledger["campaigns"]]

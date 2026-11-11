@@ -37,6 +37,7 @@ from src.local_checks import run_mutation_check, run_reference_parity
 from src.inventory import expected_model_ids, inventory_path
 from src.migration import candidate_dir, freeze_candidate, load_candidate
 from src.outputs import check_output_destination, create_new_output
+from src.preflight import run_preflight
 from src.release import compare_command_log, release_check, run_protected_roots
 from src.report import render_report, report_content_problems, report_status, write_approval
 from src.review import artifact_digest, current_decision, record_review
@@ -44,7 +45,7 @@ from src.validation import compute_validation_metrics
 from src.workflow import run_candidate_fixtures, run_development, run_holdout
 
 # Commands that only read a run must never mutate it, so they skip the command log.
-READ_ONLY_COMMANDS = frozenset({"verify-context", "release-check", "verify-holdout-ledger", "report-status", "compare-command-log"})
+READ_ONLY_COMMANDS = frozenset({"verify-context", "release-check", "verify-holdout-ledger", "report-status", "compare-command-log", "formal-preflight"})
 
 REPOSITORY = Path(__file__).resolve().parents[1]
 # Dev dry runs can point at a sibling directory so the sealed runs/ artifacts and
@@ -94,6 +95,10 @@ def _parser() -> argparse.ArgumentParser:
 
     ledger = subparsers.add_parser("verify-holdout-ledger")
     ledger.add_argument("--raw-uci", type=Path, required=True)
+
+    preflight = subparsers.add_parser("formal-preflight", help="read-only readiness check before the formal UCI run")
+    preflight.add_argument("--expected-sha", help="commit the formal run must start from")
+    preflight.add_argument("--raw-uci", type=Path, default=REPOSITORY / "data" / "raw" / "default_of_credit_card_clients.zip")
 
     download = subparsers.add_parser("download-uci")
     download.add_argument("--run-id", required=True)
@@ -185,6 +190,8 @@ def _dispatch(arguments: argparse.Namespace) -> dict[str, Any]:
         return {"run_id": manifest["run_id"], "status": "INITIALIZED", "manifest": manifest}
     if command == "verify-holdout-ledger":
         return verify_holdout_ledger(REPOSITORY, arguments.raw_uci)
+    if command == "formal-preflight":
+        return run_preflight(REPOSITORY, RUNS_ROOT, expected_sha=arguments.expected_sha, raw_zip=arguments.raw_uci)
     if command == "verify-context":
         run_dir, _manifest = load_run(RUNS_ROOT, arguments.run_id)
         result = verify_context_at(REPOSITORY, run_dir, arguments.run_id, arguments.at)

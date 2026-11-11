@@ -22,25 +22,29 @@ Owner: V3 交付执行 Agent（`agent-delegated`）。本文件是「能不能�
 
 ## 2. 冻结步骤（在授权后执行，一步不多）
 
-```bash
-# 0. 确认工作区干净，HEAD 即冻结提交
-git status --porcelain               # 必须为空
-FROZEN=$(git rev-parse HEAD)
+前提：[决策记录](11_formal_run_decisions.md) 的 H-01～H-04 已签署并提交，工作区干净，HEAD 就是冻结提交。
 
-# 1. 在同一 SHA 上、干净树里初始化正式 run（只做一次）
+```bash
+# 0. 只读前置检查：不创建 run、不写日志、不碰 Holdout。任何一项 FAIL 都不得继续
+.venv/bin/python -m src.cli formal-preflight --expected-sha "$(git rev-parse HEAD)"
+
+# 1. 设置网关变量（API key 不回显）
 export LLM_BASE_URL=... LLM_CHAT_COMPLETIONS_URL=... LLM_PROTOCOL=openai_chat_completions \
        LLM_MODEL=deepseek-v4.1-flash:1017 LLM_TIMEOUT_SECONDS=300 LLM_MAX_OUTPUT_TOKENS=32768
 read -rs LLM_API_KEY; export LLM_API_KEY
-RUN_ID=$(python -m src.cli init-run --mode uci | python -c 'import json,sys;print(json.load(sys.stdin)["run_id"])')
-python -m src.cli check-provider --run-id "$RUN_ID"
-python -m src.cli download-uci  --run-id "$RUN_ID" --expected-sha256 56c885f84457f6680f8438f02bfcdac9579323d8a94465ee5f26e32baa727602 --approve-uci-use
-python -m src.cli prepare --run-id "$RUN_ID" --uci data/raw/default_of_credit_card_clients.zip \
-       --expected-sha256 56c885f84457f6680f8438f02bfcdac9579323d8a94465ee5f26e32baa727602 --approve-uci-use
-# 2. 后续步骤完全按 README「v2 正式 run 的实际命令」顺序，唯一一次 accept，最后 export；随后只读取 delivery 的验收 JSON
-# 3. 发布校验（输出必须写到 run/与 delivery 之外）
-python -m src.cli release-check --run-id "$RUN_ID" --tag "$FROZEN" \
-       --zip data/raw/default_of_credit_card_clients.zip --output ~/release_check_v3.json
+
+# 2. 唯一一次正式 run：脚本先重跑 formal-preflight，再按正式顺序执行到 export，最后跑 release-check
+bash docs/v3/formal_run.sh
 ```
+
+`docs/v3/formal_run.sh` 的保护：
+
+- 拒绝 `runs/` 以外的根目录，也拒绝没有交互终端的会话。
+- Gate A/B/C 在终端上逐个等待审核人、决定和核对说明。
+- 开发失败最多修复两次，每个新候选重新过 Gate B。
+- `accept` 前要求输入 run id 确认，因为这一步不可逆地消费 seed 47 Holdout。
+- `release-check` 的输出写到 `~/release_check_v3_<run_id>.json`，在 run 和 delivery 之外。
+- 结果为 APPROVED 时，脚本只打印打标签命令，不会自己打标签或推送。
 
 放行判定（全部满足才可打标签）：
 
