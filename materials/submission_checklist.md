@@ -53,6 +53,12 @@ Status legend: ✅ done and verifiable · ⏳ ready but needs a human/external a
 
 ## 5. Access checks (must be done from the judge's side)
 
+Fallback while the repository is private: `.venv/bin/python scripts/build_submission.py` builds
+`dist/model-risk-factory-submission-<sha>.zip` (all five deliverables, README, evidence tables and a
+MANIFEST with SHA-256 per file). It refuses to build from uncommitted files, or if a packaged text
+file contains a local absolute path or something shaped like a key. Upload or attach that zip if
+judges cannot be given repository access (H-06).
+
 - [ ] Repository is visible to the judges, or they were given an explicit invite. Private repo today.
 - [ ] All links in this checklist open **without** a team account.
 - [ ] Video link (or attached file) plays; duration shown as ≤3:00.

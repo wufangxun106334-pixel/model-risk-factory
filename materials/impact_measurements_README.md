@@ -37,8 +37,10 @@ bar: dev parity + fixtures PASS for the port, and a full Gate C check for the re
 
 1. Create a clean checkout of the frozen commit and do **not** open the Agent's artifacts.
 2. Start a stopwatch when you first open the R file. Stop it when the JSON passes the validator
-   locally (`.venv/bin/python -c "from src.inventory import build_inventory; ..."` or the
-   validator helper your branch provides).
+   locally:
+   `.venv/bin/python scripts/validate_inventory.py my_inventory.json` (exit 0 = PASS; it applies
+   exactly the Gate A rules of `src/inventory.py::build_inventory` and writes nothing into `runs/`).
+   Write `conflicts` as `[{"field": "<finding>"}]`; the validator names any missing or invented one.
 3. Record three numbers separately:
    - `automation_seconds` = 0 for a manual row (nothing was automated);
    - `manual_review_seconds` = time spent checking your own or the other arm's output;
