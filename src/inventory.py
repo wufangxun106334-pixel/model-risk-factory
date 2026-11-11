@@ -7,7 +7,6 @@ from src.common import ContractError, read_json, sha256_file, write_json
 from src.contracts import InventoryPayload, InventorySource, ModelInventory
 
 EXPECTATIONS_PATH = Path("config") / "inventory_expectations.json"
-SCHEMA_PATH = "config/inventory_schema.json"
 THRESHOLD_VALUE_TOLERANCE = 1e-12
 
 def load_expectations(repository: Path) -> dict:
@@ -38,10 +37,6 @@ def inventory_path(run_dir: Path, model_id: str) -> Path:
     if model_id == "MDL_CREDIT_V1":
         return run_dir / "model_inventory.json"
     return run_dir / "inventories" / f"{model_id}.json"
-
-
-def allowed_inventory_sources(repository: Path, model_id: str) -> set[str]:
-    return set(model_expectation(repository, model_id)["sources"])
 
 
 def validate_sources(sources, repository: Path, allowed: set[str]) -> None:

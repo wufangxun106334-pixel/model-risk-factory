@@ -37,10 +37,6 @@ def _inside(path: Path, root: Path) -> bool:
     return path == root or root in path.parents
 
 
-def _describe(root: Path, labels: dict[Path, str]) -> str:
-    return labels.get(root, str(root))
-
-
 def _protected(roots: Iterable[Path | tuple[Path, str]]) -> dict[Path, str]:
     resolved: dict[Path, str] = {}
     for entry in roots:

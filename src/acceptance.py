@@ -415,6 +415,21 @@ def _frozen_candidate_sha256(run_dir: Path) -> str | None:
     return value if isinstance(value, str) else None
 
 
+def _chain_context(run_dir: Path) -> tuple[int | None, str | None, str | None]:
+    """Expected attempt, context-manifest hash and frozen candidate hash every chain record binds to."""
+
+    context_path = run_dir / "context_manifest.json"
+    context_sha256 = sha256_file(context_path) if context_path.is_file() else None
+    return _expected_attempt(run_dir), context_sha256, _frozen_candidate_sha256(run_dir)
+
+
+def _cli_command(event: dict) -> str | None:
+    """The ``src.cli`` subcommand a command-log event ran, or None for anything else."""
+
+    argv = event.get("argv") or []
+    return argv[3] if len(argv) > 3 and argv[:3] == ["python", "-m", "src.cli"] else None
+
+
 ATTEMPT_SCOPED = {"generate-candidate", "run-dev", "candidate-fixtures", "freeze"}
 
 
@@ -461,10 +476,7 @@ def _command_chain(run_dir: Path, run_id: str) -> list[str]:
     events = [event for event in read_jsonl(path) if event.get("run_id") == run_id]
     if not events:
         return ["command_log has no record for this run"]
-    expected_attempt = _expected_attempt(run_dir)
-    context_path = run_dir / "context_manifest.json"
-    context_sha256 = sha256_file(context_path) if context_path.is_file() else None
-    frozen_sha256 = _frozen_candidate_sha256(run_dir)
+    expected_attempt, context_sha256, frozen_sha256 = _chain_context(run_dir)
     if expected_attempt is not None and context_sha256 is None:
         return ["context_manifest missing for a run that produced a candidate"]
     problems: list[str] = []
@@ -479,8 +491,7 @@ def _command_chain(run_dir: Path, run_id: str) -> list[str]:
             event = events[position]
             position += 1
             argv = event.get("argv") or []
-            name = argv[3] if len(argv) > 3 and argv[:3] == ["python", "-m", "src.cli"] else None
-            if name != command:
+            if _cli_command(event) != command:
                 continue
             if command == "approve" and _argv_option(argv, "--gate") != gate:
                 continue

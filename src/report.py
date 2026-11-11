@@ -88,7 +88,7 @@ def _table(header: list[str], rows: list[list[str]]) -> str:
     return "\n".join(lines)
 
 
-def _value(renderer: Renderer, metrics: dict, dotted: str, *, label: str, section: str, pattern: str = "{:.4f}") -> str:
+def _value(renderer: Renderer, dotted: str, *, label: str, section: str, pattern: str = "{:.4f}") -> str:
     return renderer.path(dotted, label=label, section=section, pattern=pattern, empty="—")
 
 
@@ -98,11 +98,11 @@ def performance_table(renderer: Renderer) -> str:
         base = f"performance.{dataset}"
         rows.append([
             dataset,
-            _value(renderer, None, f"{base}.rows", label=f"{dataset} rows", section="performance", pattern="{}"),
-            _value(renderer, None, f"{base}.positive_rows", label=f"{dataset} positives", section="performance", pattern="{}"),
-            _value(renderer, None, f"{base}.negative_rows", label=f"{dataset} negatives", section="performance", pattern="{}"),
-            _value(renderer, None, f"{base}.roc_auc.value", label=f"{dataset} ROC-AUC", section="performance"),
-            _value(renderer, None, f"{base}.brier_score.value", label=f"{dataset} Brier", section="performance"),
+            _value(renderer, f"{base}.rows", label=f"{dataset} rows", section="performance", pattern="{}"),
+            _value(renderer, f"{base}.positive_rows", label=f"{dataset} positives", section="performance", pattern="{}"),
+            _value(renderer, f"{base}.negative_rows", label=f"{dataset} negatives", section="performance", pattern="{}"),
+            _value(renderer, f"{base}.roc_auc.value", label=f"{dataset} ROC-AUC", section="performance"),
+            _value(renderer, f"{base}.brier_score.value", label=f"{dataset} Brier", section="performance"),
             renderer.raw(f"{base}.roc_auc.status", label=f"{dataset} ROC-AUC status", section="performance"),
         ])
     return _table(["dataset", "rows", "positives", "negatives", "ROC-AUC", "Brier", "AUC status"], rows)
@@ -113,11 +113,11 @@ def calibration_table(renderer: Renderer) -> str:
     for index in range(10):
         base = f"performance.holdout.calibration.value.{index}"
         rows.append([
-            _value(renderer, None, f"{base}.decile", label=f"decile row {index} label", section="calibration", pattern="{}"),
-            _value(renderer, None, f"{base}.rows", label=f"decile row {index} rows", section="calibration", pattern="{}"),
-            _value(renderer, None, f"{base}.mean_probability", label=f"decile row {index} mean probability", section="calibration"),
-            _value(renderer, None, f"{base}.observed_default_rate", label=f"decile row {index} observed rate", section="calibration"),
-            _value(renderer, None, f"{base}.absolute_gap", label=f"decile row {index} gap", section="calibration"),
+            _value(renderer, f"{base}.decile", label=f"decile row {index} label", section="calibration", pattern="{}"),
+            _value(renderer, f"{base}.rows", label=f"decile row {index} rows", section="calibration", pattern="{}"),
+            _value(renderer, f"{base}.mean_probability", label=f"decile row {index} mean probability", section="calibration"),
+            _value(renderer, f"{base}.observed_default_rate", label=f"decile row {index} observed rate", section="calibration"),
+            _value(renderer, f"{base}.absolute_gap", label=f"decile row {index} gap", section="calibration"),
         ])
     return _table(["decile", "rows", "mean predicted", "observed default rate", "absolute gap"], rows)
 
@@ -127,13 +127,13 @@ def confusion_table(renderer: Renderer) -> str:
     rows = [
         [
             "predicted default",
-            _value(renderer, None, f"{base}.true_positive", label="holdout true positives", section="confusion", pattern="{}"),
-            _value(renderer, None, f"{base}.false_positive", label="holdout false positives", section="confusion", pattern="{}"),
+            _value(renderer, f"{base}.true_positive", label="holdout true positives", section="confusion", pattern="{}"),
+            _value(renderer, f"{base}.false_positive", label="holdout false positives", section="confusion", pattern="{}"),
         ],
         [
             "predicted no default",
-            _value(renderer, None, f"{base}.false_negative", label="holdout false negatives", section="confusion", pattern="{}"),
-            _value(renderer, None, f"{base}.true_negative", label="holdout true negatives", section="confusion", pattern="{}"),
+            _value(renderer, f"{base}.false_negative", label="holdout false negatives", section="confusion", pattern="{}"),
+            _value(renderer, f"{base}.true_negative", label="holdout true negatives", section="confusion", pattern="{}"),
         ],
     ]
     return _table(["", "actual default", "actual no default"], rows)
@@ -144,12 +144,12 @@ def stability_table(renderer: Renderer) -> str:
     for name in renderer.metrics["stability"]["features"]:
         rows.append([
             name,
-            _value(renderer, None, f"stability.features.{name}.value", label=f"{name} PSI", section="stability"),
+            _value(renderer, f"stability.features.{name}.value", label=f"{name} PSI", section="stability"),
             renderer.raw(f"stability.features.{name}.state", label=f"{name} PSI state", section="stability"),
         ])
     rows.append([
         "predicted probability",
-        _value(renderer, None, "stability.prediction.value", label="prediction PSI", section="stability"),
+        _value(renderer, "stability.prediction.value", label="prediction PSI", section="stability"),
         renderer.raw("stability.prediction.state", label="prediction PSI state", section="stability"),
     ])
     return _table(["signal", "PSI", "state"], rows)
@@ -165,11 +165,11 @@ def fairness_table(renderer: Renderer) -> str:
             rows.append([
                 attribute,
                 group,
-                _value(renderer, None, f"{base}.rows", label=f"{attribute} {group} rows", section="fairness", pattern="{}"),
-                _value(renderer, None, f"{base}.positive_rows", label=f"{attribute} {group} positives", section="fairness", pattern="{}"),
-                _value(renderer, None, f"{base}.tpr.value", label=f"{attribute} {group} TPR", section="fairness"),
+                _value(renderer, f"{base}.rows", label=f"{attribute} {group} rows", section="fairness", pattern="{}"),
+                _value(renderer, f"{base}.positive_rows", label=f"{attribute} {group} positives", section="fairness", pattern="{}"),
+                _value(renderer, f"{base}.tpr.value", label=f"{attribute} {group} TPR", section="fairness"),
                 renderer.raw(f"{base}.tpr.status", label=f"{attribute} {group} TPR status", section="fairness"),
-                _value(renderer, None, f"{base}.fpr.value", label=f"{attribute} {group} FPR", section="fairness"),
+                _value(renderer, f"{base}.fpr.value", label=f"{attribute} {group} FPR", section="fairness"),
                 renderer.raw(f"{base}.fpr.status", label=f"{attribute} {group} FPR status", section="fairness"),
             ])
     return _table(["attribute", "group", "rows", "positives", "TPR", "TPR status", "FPR", "FPR status"], rows)
@@ -793,15 +793,6 @@ def _render_index(index: list[dict]) -> str:
     return "\n".join(rows) + "\n"
 
 
-TABLE_HEADERS = (
-    ("dataset", "rows", "positives", "negatives", "ROC-AUC", "Brier", "AUC status"),
-    ("decile", "rows", "mean predicted", "observed default rate", "absolute gap"),
-    ("", "actual default", "actual no default"),
-    ("signal", "PSI", "state"),
-    ("attribute", "group", "rows", "positives", "TPR", "TPR status", "FPR", "FPR status"),
-)
-
-
 DELIMITER_CELL = re.compile(r"^:?-+:?$")
 
 
@@ -1052,12 +1043,6 @@ def verify_report_cells(run_dir: Path, metrics: dict | None = None) -> list[str]
             if row_label not in expected_rows:
                 problems.append(f"table {label!r}: unexpected row {format_row_key(row_label)!r}")
     return problems
-
-
-def require_report_cells(run_dir: Path) -> None:
-    problems = verify_report_cells(run_dir)
-    if problems:
-        raise ContractError("Report cells do not match validation_metrics.json: " + "; ".join(problems[:5]))
 
 
 def text_matches_value(value, text: str) -> bool:

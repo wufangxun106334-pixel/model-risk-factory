@@ -320,8 +320,6 @@ def test_command_chain_requires_same_run_ordered_successes(tmp_path):
 
 
 def _manifest_and_export(run: Path, delivery: Path) -> None:
-    from src import evidence
-
     files = []
     for relative in ("provider/capability_check.json", "data/data_manifest.json"):
         files.append({"path": relative, "sha256": sha256_file(run / relative), "bytes": (run / relative).stat().st_size})
@@ -333,7 +331,7 @@ def _manifest_and_export(run: Path, delivery: Path) -> None:
         "run_id": RUN_ID,
         "verified": True,
         "archive": str(archive),
-        "archive_sha256": evidence._archive_digest(archive),
+        "archive_sha256": sha256_file(archive),
         "manifest_sha256": sha256_file(run / "evidence_manifest.json"),
         "file_count": len(files),
     })

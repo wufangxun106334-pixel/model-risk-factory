@@ -14,13 +14,11 @@ import time
 from pathlib import Path
 from typing import Any, Callable
 
-from src.common import ContractError, read_json, read_jsonl, utc_now, write_json
+from src.common import ContractError, read_jsonl, utc_now, write_json
 from src.provider import (
     Provider,
     ProviderConfig,
-    ProviderRequestLimitError,
     ProviderTransportError,
-    UrllibTransport,
 )
 
 PROBE_MESSAGES = [{"role": "user", "content": "Reply with exactly: DRILL_OK"}]

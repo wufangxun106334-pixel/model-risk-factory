@@ -1,12 +1,11 @@
 from __future__ import annotations
 
-import hashlib
 import os
 import stat
 import zipfile
 from pathlib import Path, PurePosixPath
 
-from src.common import file_record, sha256_file, utc_now, write_json
+from src.common import file_record, sha256_bytes, sha256_file, utc_now, write_json
 
 _ALLOWED_EXTENSIONS = {
     ".csv",
@@ -137,14 +136,6 @@ def _evidence_files(root: Path, manifest_path: Path) -> list[Path]:
     return sorted(files, key=lambda path: path.relative_to(root).as_posix())
 
 
-def _archive_digest(archive: Path) -> str:
-    digest = hashlib.sha256()
-    with archive.open("rb") as handle:
-        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
-            digest.update(chunk)
-    return digest.hexdigest()
-
-
 def _verify_archive(archive: Path, run_id: str, files: list[dict], manifest_path: Path) -> None:
     expected = {f"{run_id}/{record['path']}" for record in files}
     expected.add(f"{run_id}/{_EVIDENCE_MANIFEST}")
@@ -159,10 +150,10 @@ def _verify_archive(archive: Path, run_id: str, files: list[dict], manifest_path
             payload = bundle.read(name)
             relative = name.split("/", 1)[1]
             if relative == _EVIDENCE_MANIFEST:
-                if hashlib.sha256(payload).hexdigest() != sha256_file(manifest_path):
+                if sha256_bytes(payload) != sha256_file(manifest_path):
                     raise ValueError("evidence archive manifest does not match the exported manifest")
                 continue
-            if hashlib.sha256(payload).hexdigest() != recorded[relative]["sha256"]:
+            if sha256_bytes(payload) != recorded[relative]["sha256"]:
                 raise ValueError(f"evidence archive hash mismatch: {relative}")
 
 
@@ -217,7 +208,7 @@ def export_evidence(run_dir: Path, run_id: str, delivery_dir: Path) -> dict:
         "verified": True,
         "verified_at": utc_now(),
         "archive": str(archive),
-        "archive_sha256": _archive_digest(archive),
+        "archive_sha256": sha256_file(archive),
         "manifest_sha256": sha256_file(manifest_path),
         "file_count": len(files),
     }

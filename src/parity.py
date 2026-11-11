@@ -262,7 +262,6 @@ def _validate_record(
     differences: list[dict[str, str]],
 ) -> float | None:
     prefix = side.upper()
-    other = "candidate" if side == "baseline" else "baseline"
 
     def value(field: str) -> Any:
         return row.get(field, "")

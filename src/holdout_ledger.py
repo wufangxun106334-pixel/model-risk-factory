@@ -12,12 +12,10 @@ machine.
 
 from __future__ import annotations
 
-import hashlib
 import io
-import json
 from pathlib import Path
 
-from src.common import ContractError, read_json
+from src.common import ContractError, read_json, sha256_bytes, sha256_file
 
 LEDGER_PATH = Path("config") / "holdout_ledger.json"
 SPLIT_NAMES = ("train", "dev", "holdout", "shift_pool")
@@ -117,7 +115,7 @@ def recover_historical_splits(raw_zip: Path, ledger: dict, ledger_path: Path | N
     raw_zip = Path(raw_zip)
     if not raw_zip.is_file():
         raise ContractError(f"Approved UCI ZIP is missing: {raw_zip}")
-    digest = hashlib.sha256(raw_zip.read_bytes()).hexdigest()
+    digest = sha256_file(raw_zip)
     if digest != ledger["dataset"]["zip_sha256"]:
         raise ContractError("The UCI ZIP does not match the approved dataset hash in the Holdout ledger")
 
@@ -137,7 +135,7 @@ def recover_historical_splits(raw_zip: Path, ledger: dict, ledger_path: Path | N
         else:
             splits = algorithm(frame, rng, excluded, LEGACY_SPLIT_SIZES)
         for name, expected in campaign["splits"].items():
-            actual = hashlib.sha256(_serialize(splits[name.replace(".csv", "")])).hexdigest()
+            actual = sha256_bytes(_serialize(splits[name.replace(".csv", "")]))
             if actual != expected:
                 raise ContractError(
                     f"{campaign['campaign_id']} {name} rebuilt to {actual} but the ledger records {expected}; "

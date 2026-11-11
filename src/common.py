@@ -156,14 +156,6 @@ def load_run(runs_root: str | Path, run_id: str) -> tuple[Path, dict[str, Any]]:
     return directory, read_json(manifest_path)
 
 
-def register_artifact(directory: Path, name: str, path: str | Path) -> None:
-    manifest_path = directory / "run_manifest.json"
-    manifest = read_json(manifest_path)
-    manifest.setdefault("artifacts", {})[name] = file_record(path, base=directory)
-    manifest["updated_at"] = utc_now()
-    write_json(manifest_path, manifest)
-
-
 def update_run_state(directory: Path, state: str) -> None:
     manifest_path = directory / "run_manifest.json"
     manifest = read_json(manifest_path)

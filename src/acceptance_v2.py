@@ -11,12 +11,11 @@ import csv
 from pathlib import Path
 
 from src.acceptance import (
-    COMMAND_CHAIN,
     _argv_option,
     _chain_binding_problems,
-    _expected_attempt,
+    _chain_context,
+    _cli_command,
     _export_evidence,
-    _frozen_candidate_sha256,
     _valid_execution,
 )
 from src.common import current_git_commit, read_json, read_jsonl, sha256_file, utc_now
@@ -36,18 +35,6 @@ EXPECTED_V2 = {
     "V2-07": "Every reported number resolves to a metrics JSON path and limitations are stated without compliance claims.",
 }
 
-V2_CHAIN = (
-    ("docker-boundary", None),
-    ("extract-inventory", "MDL_CREDIT_V2"),
-    ("extract-inventory", "MDL_CREDIT_TREE"),
-    ("approve", "Gate_A"),
-    ("validation-metrics", None),
-    ("agent-summary", None),
-    ("report", None),
-    ("approve", "Gate_C"),
-    ("approve-report", None),
-)
-
 BOUNDARY_CHECKS = (
     "read_only_root_and_inputs",
     "no_host_or_baseline_mount",
@@ -60,10 +47,6 @@ BOUNDARY_CHECKS = (
 )
 
 DRILL_NAMES = ("api_error", "parse_failure", "timeout", "request_limit", "repair_exhausted")
-
-
-def _status(ok: bool) -> str:
-    return "PASS" if ok else "FAIL"
 
 
 def _v2_01(repository: Path, run_dir: Path, run_id: str) -> tuple[str, str]:
@@ -210,16 +193,14 @@ def _v2_chain(run_dir: Path, run_id: str) -> list[str]:
     if not path.is_file():
         return ["command_log missing"]
     events = [event for event in read_jsonl(path) if event.get("run_id") == run_id]
-    expected_attempt = _expected_attempt(run_dir)
-    context_path = run_dir / "context_manifest.json"
-    context_sha256 = sha256_file(context_path) if context_path.is_file() else None
-    frozen_sha256 = _frozen_candidate_sha256(run_dir)
+    expected_attempt, context_sha256, frozen_sha256 = _chain_context(run_dir)
+    binding = (run_id, expected_attempt, context_sha256, frozen_sha256)
 
     def successful(command: str, **options) -> list[tuple[int, dict]]:
         found = []
         for index, event in enumerate(events):
             argv = event.get("argv") or []
-            if len(argv) < 4 or argv[:3] != ["python", "-m", "src.cli"] or argv[3] != command:
+            if _cli_command(event) != command:
                 continue
             if event.get("exit_code") != 0:
                 continue
@@ -242,9 +223,9 @@ def _v2_chain(run_dir: Path, run_id: str) -> list[str]:
         if extractions:
             first[f"extract {model}"] = extractions[0][0]
         for index, event in approvals:
-            problems.extend(_chain_binding_problems(event, f"approve Gate_A {model}", "approve", run_id, expected_attempt, context_sha256, frozen_sha256))
+            problems.extend(_chain_binding_problems(event, f"approve Gate_A {model}", "approve", *binding))
     for index, event in successful("docker-boundary"):
-        problems.extend(_chain_binding_problems(event, "docker-boundary", "docker-boundary", run_id, expected_attempt, context_sha256, frozen_sha256))
+        problems.extend(_chain_binding_problems(event, "docker-boundary", "docker-boundary", *binding))
     if not successful("docker-boundary"):
         problems.append("docker-boundary has no successful attempt")
 
@@ -267,7 +248,7 @@ def _v2_chain(run_dir: Path, run_id: str) -> list[str]:
             continue
         index, event = matches[0]
         position = index
-        problems.extend(_chain_binding_problems(event, label, command, run_id, expected_attempt, context_sha256, frozen_sha256))
+        problems.extend(_chain_binding_problems(event, label, command, *binding))
     return problems
 
 

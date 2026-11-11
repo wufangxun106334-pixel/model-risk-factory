@@ -8,7 +8,6 @@ observed.
 
 from __future__ import annotations
 
-import json
 import os
 import subprocess
 import time
@@ -19,8 +18,6 @@ from src.common import ContractError, read_json, sha256_file, utc_now, write_jso
 from src.runner import hardening_flags, run_candidate
 
 PROBE_TIMEOUT_SECONDS = 60
-CPU_BURN_SECONDS = 3.0
-CPU_THREADS = 2
 MEMORY_ATTEMPT_MB = 800
 PID_ATTEMPT_COUNT = 120
 

@@ -177,7 +177,7 @@ def test_export_whitelists_summaries_and_keeps_line_level_evidence_local(tmp_pat
     assert record["run_id"] == "run-test"
     assert record["file_count"] == len(allowed)
     assert record["manifest_sha256"] == sha256_file(run_dir / "evidence_manifest.json")
-    assert record["archive_sha256"] == evidence._archive_digest(Path(result["archive"]))
+    assert record["archive_sha256"] == sha256_file(Path(result["archive"]))
 
 
 def test_export_manifest_hash_matches_every_exported_file(tmp_path, monkeypatch):

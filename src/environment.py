@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import importlib.metadata
-import json
 import platform
 import shutil
 import subprocess
