@@ -18,6 +18,8 @@ Owner of this list: V3 交付执行 Agent（`agent-delegated`）。每条都写�
 
 ### H-01 UCI 数据使用授权证据（阻塞 V3-06、阻塞正式 run）
 
+> **状态：✅ 11-12 已关闭：依据官方规则原文，见 [决策记录](11_formal_run_decisions.md)**
+
 | 字段 | 内容 |
 | --- | --- |
 | 负责人 | 团队负责对外沟通的成员（建议：提出主办方询问的那位） |
@@ -27,6 +29,8 @@ Owner of this list: V3 交付执行 Agent（`agent-delegated`）。每条都写�
 | 阻塞 | seed 47 正式 run、`release-check` 的 APPROVED、`v3` 标签、README/Deck 的许可表述从"待确认"改为"已确认" |
 
 ### H-02 权威账本与团队记录确认 seed 47 未消费（阻塞正式 run）
+
+> **状态：⏳ 11-12：正式 run 改在 A 本机执行，仍待 B 书面确认 seed 47 未消费，见 [决策记录](11_formal_run_decisions.md)**
 
 | 字段 | 内容 |
 | --- | --- |
@@ -38,6 +42,8 @@ Owner of this list: V3 交付执行 Agent（`agent-delegated`）。每条都写�
 
 ### H-03 正式 run 的审批人、运行权限与标签策略（阻塞正式 run 与标签）
 
+> **状态：✅ 11-12 已决：A 在 UI 人工审核 Gate A/B/C；只打 v3 标签，推送前再确认，见 [决策记录](11_formal_run_decisions.md)**
+
 | 字段 | 内容 |
 | --- | --- |
 | 负责人 | 团队成员 A + B（共同决定，一人执行） |
@@ -47,6 +53,8 @@ Owner of this list: V3 交付执行 Agent（`agent-delegated`）。每条都写�
 | 阻塞 | 正式 run、`v3` 标签、V3-06 |
 
 ### H-04 团队对"一次正式 run 同时承载 v2 与 v3 证据"的策略确认（阻塞正式 run）
+
+> **状态：✅ 11-12 已决：v2 永久 BLOCKED，只发 v3；只跑一次正式 run，见 [决策记录](11_formal_run_decisions.md)**
 
 | 字段 | 内容 |
 | --- | --- |

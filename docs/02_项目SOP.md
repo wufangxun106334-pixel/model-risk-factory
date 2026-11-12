@@ -41,7 +41,7 @@ release_plan: v1-prototype / v2-formal / v3-final
 - 开发日期：2026-11-08 至 11-12，11-12 Feature freeze（功能冻结）；11-13 只处理提交事项及必要阻断缺陷。
 - 运行：单机本地演示，录屏备用；无公网部署、多用户认证、独立后端或云数据库。
 - 模型：三个预置 R 模型建档，只迁移一个；不承诺任意 SAS/R 模型转换。
-- 数据：UCI 公开数据（无直接标识，含人口属性；官方 PDF 允许 "public or synthetic data only"，UCI 为 CC BY 4.0 公开数据，符合该要求，是否需要书面确认待定）+ 少量合成样例；结果不代表真实英国银行模型表现。
+- 数据：UCI 公开数据（无直接标识，含人口属性；官方 PDF 允许 "public or synthetic data only"，UCI 为 CC BY 4.0 公开数据，符合该要求；11-12 团队以官方原文关闭 H-01，见 `docs/official/2026-11-12_uci_permission.md`）+ 少量合成样例；结果不代表真实英国银行模型表现。
 - Agent：单 Agent、固定阶段、Tool calling（工具调用）、最多两轮代码修复。
 - 生成代码：仅在受限 Docker container（容器）内运行；不开放任意外部代码上传。
 - API：用户指定 https://sa.kaiwen.dev ，具体协议、模型和工具调用能力待接入验证（备选方案见 16.2）。
@@ -86,7 +86,7 @@ Docker Desktop、R 和 Python 需在开发机实际验证。依赖版本在接�
 | 版本 | 日期目标 | 必须完成 | 放行条件 |
 | --- | --- | --- | --- |
 | ~~**v1 Prototype**~~ ✅ 11-09 完成 | ~~11-10 结束前~~ | API 最小验证；UCI 数据加工与划分；一个 R 基准；人工参考 Python 实现与独立等价性工具；故意错误案例；待迁移模型的 Agent 档案通过 Gate A；**一次真实 Agent 迁移**（CLI + 最小 Docker + Gate B 审批） | V1-01 至 V1-07 全满足；从数据到 Holdout 等价性结论的迁移证据链可按 README 复现；已实现与占位功能清楚区分 |
-| **v2 正式版** | 11-11 结束前 | 三份 Agent 档案；三审核关卡；Docker 边界加固；四类验证（含校准表）与报告；完整运行证据与导出 | V1-01 至 V1-07 和 V2-01 至 V2-07 全部通过，且 `release-check` 对同一 run 和待发布提交返回 `APPROVED`。Streamlit 四页界面已实现（`app.py`，11-10），仍为可选演示目标，不是发布门槛 |
+| ~~**v2 正式版**~~ ⛔ 11-12 团队决定永久 BLOCKED，只发布 v3（见 `docs/v3/11_formal_run_decisions.md`） | ~~11-11 结束前~~ | 三份 Agent 档案；三审核关卡；Docker 边界加固；四类验证（含校准表）与报告；完整运行证据与导出 | V1-01 至 V1-07 和 V2-01 至 V2-07 全部通过，且 `release-check` 对同一 run 和待发布提交返回 `APPROVED`。Streamlit 四页界面已实现（`app.py`，11-10），仍为可选演示目标，不是发布门槛 |
 | **v3 最终版** | 11-12 结束前 | 集成复测、新环境复现、交付五件套（含 AI 工具声明）、三分钟视频、最终 Git 版本；不再新增功能 | V3-01 至 V3-06 全满足；全部必交文件可访问；冻结范围和已知限制写入 README |
 
 版本失败时不得创建对应通过标签，也不得在展示中说已经完成。修复后仍归属同一版本，不新增 v1.1/v4 等计划。未完成 v2 就不能把 v3 包装为"最终通过"。
@@ -138,9 +138,9 @@ Docker Desktop、R 和 Python 需在开发机实际验证。依赖版本在接�
 - ~~`dev_runs` 演练：Gate A/B（人工）→ Holdout → 指标 → 报告~~ ✅
 - 演练 Gate C 人工审核 → `approve-report` → `failure-drills` → `export` → `acceptance`
 - ~~提交并推送本轮改动~~ ✅
-- 更新 README（6,000 行口径、UI 启动方式）
-- 在干净提交上执行 seed 47 正式 run（Holdout 仅消费一次）→ `release-check` 返回 APPROVED → 创建并推送 `v2` 标签
-- 推送 `v1` 标签（16.6）
+- ~~更新 README（6,000 行口径、UI 启动方式）~~ ✅ 队友在 `7ffc672` 中完成
+- ~~创建并推送 `v2` 标签~~ ⛔ 11-12 决定 v2 永久 BLOCKED。改为：在干净提交上执行 seed 47 正式 run（Holdout 只消费一次），作为 v3 证据 → `release-check` 返回 APPROVED → 创建 `v3` 标签（推送前再确认）
+- ~~推送 `v1` 标签（16.6）~~ 11-12 决定：本机不创建、不推送 `v1`/`v2` 标签
 
 当前实现口径如下。
 
@@ -736,7 +736,7 @@ README 与 Deck 中列出：
 | 16.3 | EXL 示例模型代码 | 向主办方确认是否发放；若发放，评估替换或追加为第 4 个模型，评委认可度更高 | 待询问 |
 | 16.4 | MLflow / Azure ML | 官方偏好但非强制；时间允许时用本地 MLflow 记录运行，否则列入 Roadmap | 可选 |
 | ~~16.5~~ | ~~v2 正式 Holdout 数据不足（UCI 只剩 1,199 行未消费，要求 6,000 行）~~ | 11-11 是 v2 截止日。二选一：① 取得获准的独立数据，按 README「v2 重新放行步骤」重跑；② 按 §13 提交范围变更（例如明确 v2 未通过，或经团队确认后改变 Holdout 规则），并写入 §17。不得悄悄降低 6,000 行门槛 | **11-10 A 决定：走方案 ①**。待办：(a) 寻找 ≥6,000 行的独立数据，至少要有 V1 的 4 个输入字段（`limit_bal`、`pay_status_1`、`bill_amt_1`、`pay_amt_1`，见 `config/model_config.json`），加上 `default_flag` 和审计字段 `sex`、`age`；编码与币种须与 UCI 一致，或能有文档依据地映射过去，向主办方取得使用批准；(b) `src/data.py` 目前只支持 UCI ZIP 和 synthetic，需新增数据来源入口，记录许可、批准和原始哈希，保留历史账本；(c) 在干净提交上执行 init-run → 正式 Holdout → export → `release-check` → `v2` 标签。风险：UCI 本身的比赛使用批准仍未确认（`uci_competition_use_approved=false`），且公开数据中很难找到同口径数据。**若 11-11 中午前 (a) 无结果，回到方案 ② 请团队确认**。11-10 联网检索结果：公开渠道没有同口径的独立数据，Kaggle 上的同名数据都是 UCI 的镜像；Home Credit、Amex、Give Me Some Credit、Lending Club 的字段、编码或标签定义都不一致。因此 (a) 只能依赖主办方提供数据。11-10 核对官方 PDF（Challenge 04，第 9 页）：主办方**未指定数据集**，只写 "Public credit-risk datasets (for example on Kaggle)" 和 "students work with public or synthetic data only"。所以主办方大概率不会提供真实数据，6,000 行独立 Holdout 是团队自定规则，不是官方要求。**11-10 A 改为方案 ②，B 已确认，代码已实现：剩余 1,199 行作为新的小 Holdout（seed 47），见 §4.2.1、§17** ✅ |
-| 16.6 | `v1` 标签未推送到 `origin` | 由创建者执行 `git push origin v1`，并核对标签指向 v1 正式 run 的提交 | 待处理 |
+| 16.6 | `v1` 标签未推送到 `origin` | 由创建者执行 `git push origin v1`，并核对标签指向 v1 正式 run 的提交 | 11-12 H-03 决定：本机不创建、不推送历史标签，只发 `v3`；是否由 B 推送 `v1` 留给 B 决定 |
 
 ## 17. Git、落盘与设计决策记录
 
@@ -756,6 +756,7 @@ README 与 Deck 中列出：
 | Q25 | 交付须含 AI 工具声明、架构图数据流与 AI 模型、RAI 隐私；校准表必做；规划决赛演示 |
 | 审核执行方式（v1 实现） | 允许代理审核（`reviewer=agent-delegated`）；与人工审核共用哈希校验、审批顺序、失效与重审规则，备注须记录授权来源与核对内容；V1 判定标准不变（见 7.4） |
 | v2 Holdout 范围变更（11-10，A 提出，**B 已确认**，已实现） | 官方未指定数据集，也不要求 6,000 行。v2 正式 Holdout 改为历史从未消费过的 1,199 行，是一次新的、更小的单次 Holdout：违约率 22.02%（总体 22.12%），违约 264 行；age 51+ 组只有 83 行、违约 24 行。train/dev/shift_pool 仍为 15,000/6,000/3,000，另有 4,801 行不使用。消费完后 UCI 不再有可用的独立 Holdout。报告必须说明样本小、置信区间宽、小组公平性结论有限。V1-02 和 §6.3 中的「6,000 行 Holdout」相应改为 1,199 行 |
+| H-01～H-04（11-12，A 决定，B 待确认 H-02） | H-01 以官方规则原文关闭 UCI 授权（`uci_competition_use_approved=true`）；H-02 正式 run 在 A 本机执行，待 B 确认 seed 47 未消费；H-03 Gate A/B/C 由 A 在 UI 人工审核，只打 `v3` 标签，推送前再确认；H-04 v2 永久 BLOCKED，只跑一次 seed 47 正式 run 作为 v3 证据。详见 `docs/v3/11_formal_run_decisions.md` |
 | campaign seed（v1 实现） | seed 由 `config/data_config.json` 固定，`prepare --seed` 必须一致；变更即新 campaign，Holdout 每 campaign 单次消费（见 7.5） |
 
 ## 18. 来源与待核实事项

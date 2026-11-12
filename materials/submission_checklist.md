@@ -27,7 +27,7 @@ Status legend: ✅ done and verifiable · ⏳ ready but needs a human/external a
 | In-product LLM model ID | `deepseek-v4.1-flash:1017` (v1 candidate: `kimi-k2.7-code`) — README, deck slide 3/10, `materials/architecture.md` | ✅ |
 | Existing code and data | R `glm`/`rpart`/`jsonlite`, Python NumPy/pandas/Pydantic/pytest/Docker/Streamlit, UCI dataset, team-built R models and notes | ✅ |
 | Human reference implementation vs Agent candidate | README and deck slide 5 distinguish them explicitly | ✅ |
-| Data licence and pending permission | README §Data licence; RAI note §1; `config/data_config.json` `uci_competition_use_approved=false` | ✅ stated as pending |
+| Data licence and permission basis | README §Data licence; [official-rules record](../docs/official/2026-11-12_uci_permission.md); `config/data_config.json` `uci_competition_use_approved=true` | ✅ based on the official rules (not a separate organiser e-mail) |
 | Frozen scope and known limitations | README §Release status and §Declarations; RAI note §4 | ✅ |
 
 ## 3. Business-value evidence (V3-04)

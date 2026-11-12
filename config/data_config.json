@@ -12,7 +12,7 @@
   "max_default_rate_difference": 0.01,
   "uci_landing_url": "https://archive.ics.uci.edu/dataset/350/default+of+credit+card+clients",
   "uci_zip_url": "https://archive.ics.uci.edu/static/public/350/default+of+credit+card+clients.zip",
-  "uci_competition_use_approved": false,
+  "uci_competition_use_approved": true,
   "uci_expected_sha256": null,
   "holdout_exclusion": {
     "enabled": true,

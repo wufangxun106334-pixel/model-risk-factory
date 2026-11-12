@@ -40,7 +40,8 @@ def test_frozen_config():
     assert config["max_default_rate_difference"] == 0.01
     assert config["uci_landing_url"] == data.UCI_LANDING_URL
     assert config["uci_zip_url"] == data.UCI_ZIP_URL
-    assert config["uci_competition_use_approved"] is False
+    # H-01 closed on the official rules: docs/official/2026-11-12_uci_permission.md
+    assert config["uci_competition_use_approved"] is True
     assert config["holdout_exclusion"]["ledger"] == "config/holdout_ledger.json"
     ledger = json.loads((Path(__file__).parents[1] / "config" / "holdout_ledger.json").read_text())
     assert config["holdout_exclusion"]["campaigns"] == [campaign["campaign_id"] for campaign in ledger["campaigns"]]
