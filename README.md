@@ -8,6 +8,8 @@ EXL × UCD Data & AI Hackathon 2026 — Challenge 04 Agentic model risk factory�
 - v2 历史验收 run **`v2-20261109T210903Z-3dcfab73`**（campaign seed 46）：记录显示 14 项全 PASS，Gate A/B/C 均由 `agent-delegated` 代理审核。该结果仅用于历史回放：证据树不等于任何提交。
 - V3 新环境回归通过 337 项及 7 个子测试。在干净候选提交上，真实网关合成演练完成 Gate A 前的检查并停在审核提示，`verify-context` 通过。五件套已在仓库准备齐全。详见 [V3 审核修复记录](docs/v3/10_audit_followup.md)。
 
+> **v3 正式 run（2026-11-12）：** seed 47 在冻结提交 `21c3235` 上完成，1,199 行 Holdout 已单次消费；parity 最大差值 2.22e-16，holdout ROC-AUC 0.699。14 项验收 13 项 PASS，V1-07 因命令链检查器缺陷 FAIL，`release-check` 仍为 **BLOCKED**，未创建 `v3` 标签。详见 [docs/v3/12_formal_run_seed47.md](docs/v3/12_formal_run_seed47.md)。
+>
 > **发布状态 BLOCKED（2026-11-10 V3 复核）。** `release-check --tag 9884e3a --run-id v2-20261109T210903Z-3dcfab73` 返回 **17 条缺口**：seed 46 的证据生成时工作区不干净、初始化提交 `ec6077f` 与发布提交 `9884e3a` 不一致，`verify-context` 在两条路径上都失败。本地存在 `v2` 标签（指向 `9884e3a`，且是在未放行的情况下创建的），`origin` 上没有任何标签（v1 也未推送）。UCI 只剩 **1,199 行**从未用于正式 Holdout。详见 [docs/v3/03_release_readiness.md](docs/v3/03_release_readiness.md)、[发布状态与缺口](#发布状态与缺口)与[重新放行步骤](#v2-重新放行步骤)。
 
 交付物是 `delivery/<run_id>_acceptance.json` 与 `delivery/<run_id>_evidence.zip`；`runs/`、`delivery/` 与原始数据不进 Git。Streamlit 四页界面已在 v2 提交、v3 实测并加了状态徽标。

@@ -153,11 +153,11 @@ def build() -> Path:
     for frame_id, text_id, name in ((9, 10, "01_inventory.png"), (11, 12, "03_migration.png"), (13, 14, "04_validation_report.png")):
         picture_in(s5, SCREENS / name, frame_id, text_id, pad=0.06)
     set_text(s5, 17, "2.2e-16", size=20)
-    set_text(s5, 18, "Max |R − Python| probability gap, 6,000 Holdout rows, 0 class mismatches (HIST-UCI)", size=8.5)
+    set_text(s5, 18, "Max |R − Python| probability gap on the formal 1,199-row UCI Holdout (seed 47), 0 class mismatches", size=8.5)
     set_text(s5, 20, "3.5 min", size=20)
     set_text(s5, 21, "Full Agent pipeline, synthetic drill (SYN-SEED47); manual baseline PENDING, so no % saved is claimed", size=8.5)
-    set_text(s5, 23, "196", size=20)
-    set_text(s5, 24, "Report values traced to metrics JSON, 0 unresolved; Holdout ROC-AUC 0.753 (HIST-UCI)", size=8.5)
+    set_text(s5, 23, "0.699", size=20)
+    set_text(s5, 24, "Holdout ROC-AUC, formal seed 47 run (small sample, wide CI); 13/14 checks pass, release BLOCKED", size=8.5)
 
     # ---- Slide 6: links, AI tools, roadmap
     values = [
@@ -169,7 +169,7 @@ def build() -> Path:
     for top, text in values:
         add_text(s6, 3.45, top - 0.06, 2.45, 0.34, text, like_id=10, size=7.5)
     set_text(s6, 19, [
-        "Next: formal seed-47 run (1,199-row Holdout) with human Gate A/B/C sign-off; then SAS inputs, a batch queue for ~250 models, MLflow/Azure ML evidence sink.",
+        "Done: formal seed-47 run with human Gate A/B/C. Next: fix the chain-checker defect, SAS inputs, a batch queue for ~250 models, MLflow/Azure ML evidence sink.",
         "Constraints: 2005 Taiwan public data, not a UK portfolio; prototype only.",
     ], size=8)
     set_text(s6, 26, "EXL Hackathon | [Team name] | Challenge 04", size=None)

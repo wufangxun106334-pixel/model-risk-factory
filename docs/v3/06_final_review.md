@@ -15,8 +15,8 @@ Owner: V3 交付执行 Agent（`agent-delegated`）。Reviewer 字段为真实�
 | V3-02 | v3 | 新环境与容器可复现，真实 Agent 与历史回放来源清楚 | 新环境全量回归通过。候选树上的真实网关合成演练停在 Gate A 待审，26 项资产复核通过。完整合成链路为历史回放 | PASS | [新环境记录](02_new_environment.md)、[审核修复记录](10_audit_followup.md) | Codex（技术复核） | 2026-11-10T20:09Z | `7ffc672` |
 | V3-03 | v3 | 五件套齐全，评委可访问 | 10 页 Deck、1:51 回放视频、一页架构图、一页 RAI 和 README 已入库。评委访问暂缓 | BLOCKED | `materials/submission_checklist.md` | Codex（技术复核） | 2026-11-10T20:09Z | `7ffc672` |
 | V3-04 | v3 | 同任务手工与 Agent 加人工复核配对实测 | 自动化计时可查。0 组有效配对，人工实测暂缓 | BLOCKED | `materials/impact_measurements.csv` | Codex（技术复核） | 2026-11-10T20:09Z | 本候选提交 |
-| V3-05 | v3 | 无阻断缺陷且关键结果经人工复核（11-12 改为单人操作，见 §3 披露） | 待 seed 47 正式 run 中 fangxunwu 完成 Gate A/B/C 人工审核 | BLOCKED | `本文件 §3；docs/v3/10_audit_followup.md` | Codex（技术复核） | 2026-11-10T20:09Z | 本候选提交 |
-| V3-06 | v3 | 同一冻结提交通过正式发布检查，工作区干净且创建 v3 标签 | 旧正式证据 BLOCKED。等批准证据与审核人记录后，在最终 SHA 上跑 seed 47。未创建标签 | BLOCKED | `docs/v3/07_release_checklist.md；docs/v3/10_audit_followup.md` | Codex（技术复核） | 2026-11-10T20:09Z | 本候选提交 |
+| V3-05 | v3 | 无阻断缺陷且关键结果经人工复核（11-12 改为单人操作，见 §3 披露） | seed 47 正式 run 中 fangxunwu 在 UI 完成 Gate A（3 份）、Gate B、Gate C 人工审核；存在检查器缺陷 D-01，见 [seed 47 正式 run 记录](12_formal_run_seed47.md) | PASS（人工复核）；阻断缺陷 D-01 已披露 | `docs/v3/12_formal_run_seed47.md` | fangxunwu | 2026-11-12 | `21c3235` |
+| V3-06 | v3 | 同一冻结提交通过正式发布检查，工作区干净且创建 v3 标签 | 正式 run 完成，13/14 PASS；V1-07 因检查器缺陷 D-01 FAIL；`release-check` BLOCKED（2 条缺口均来自 V1-07）；未创建标签；UCI 无剩余独立 Holdout | BLOCKED | `docs/v3/12_formal_run_seed47.md`；`docs/v3/logs/release_check_v3_seed47.json` | automated release-check | 2026-11-12 | `21c3235` |
 
 ## 2. A/B 互审材料（V3-05 的可执行部分）
 

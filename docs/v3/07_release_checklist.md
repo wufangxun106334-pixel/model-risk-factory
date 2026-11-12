@@ -1,7 +1,7 @@
 # V3-06 release checklist — freeze, verification and tag criteria
 
 Owner: V3 交付执行 Agent（`agent-delegated`）。本文件是「能不能打 `v3` 标签」的唯一判定清单。
-当前结论：**候选 `7ffc672` 已推送到 `main`，正式验收 BLOCKED，`v3` 标签未创建。** 启动正式 run 的条件和最终发布所需的补证见 §5。
+当前结论（11-12 更新）：**seed 47 正式 run 已在冻结提交 `21c3235` 上完成，Holdout 已消费；13/14 PASS，V1-07 因检查器缺陷 FAIL，`release-check` BLOCKED，`v3` 标签未创建。** 见 [seed 47 正式 run 记录](12_formal_run_seed47.md)。原结论：候选 `7ffc672` 已推送到 `main`，正式验收 BLOCKED。 启动正式 run 的条件和最终发布所需的补证见 §5。
 
 ---
 
