@@ -66,6 +66,8 @@ Owner of this list: V3 交付执行 Agent（`agent-delegated`）。每条都写�
 
 ### H-05 A/B 两名成员互审（按团队指示暂缓）
 
+> **状态：11-12 改为单人操作披露，不做双人签字；人工复核由正式 run 中 fangxunwu 亲自完成的 Gate A/B/C 承担，见 [最终审核](06_final_review.md) §3。H-02 已由 fangxunwu 确认。**
+
 | 字段 | 内容 |
 | --- | --- |
 | 负责人 | 成员 A（Gate/提交/链接）、成员 B（数值/口径） |

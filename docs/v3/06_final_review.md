@@ -15,7 +15,7 @@ Owner: V3 交付执行 Agent（`agent-delegated`）。Reviewer 字段为真实�
 | V3-02 | v3 | 新环境与容器可复现，真实 Agent 与历史回放来源清楚 | 新环境全量回归通过。候选树上的真实网关合成演练停在 Gate A 待审，26 项资产复核通过。完整合成链路为历史回放 | PASS | [新环境记录](02_new_environment.md)、[审核修复记录](10_audit_followup.md) | Codex（技术复核） | 2026-11-10T20:09Z | `7ffc672` |
 | V3-03 | v3 | 五件套齐全，评委可访问 | 10 页 Deck、1:51 回放视频、一页架构图、一页 RAI 和 README 已入库。评委访问暂缓 | BLOCKED | `materials/submission_checklist.md` | Codex（技术复核） | 2026-11-10T20:09Z | `7ffc672` |
 | V3-04 | v3 | 同任务手工与 Agent 加人工复核配对实测 | 自动化计时可查。0 组有效配对，人工实测暂缓 | BLOCKED | `materials/impact_measurements.csv` | Codex（技术复核） | 2026-11-10T20:09Z | 本候选提交 |
-| V3-05 | v3 | 无阻断缺陷且 A/B 互审关键结果 | 审核修复已落在候选树，双人签核暂缓 | BLOCKED | `本文件 §3；docs/v3/10_audit_followup.md` | Codex（技术复核） | 2026-11-10T20:09Z | 本候选提交 |
+| V3-05 | v3 | 无阻断缺陷且关键结果经人工复核（11-12 改为单人操作，见 §3 披露） | 待 seed 47 正式 run 中 fangxunwu 完成 Gate A/B/C 人工审核 | BLOCKED | `本文件 §3；docs/v3/10_audit_followup.md` | Codex（技术复核） | 2026-11-10T20:09Z | 本候选提交 |
 | V3-06 | v3 | 同一冻结提交通过正式发布检查，工作区干净且创建 v3 标签 | 旧正式证据 BLOCKED。等批准证据与审核人记录后，在最终 SHA 上跑 seed 47。未创建标签 | BLOCKED | `docs/v3/07_release_checklist.md；docs/v3/10_audit_followup.md` | Codex（技术复核） | 2026-11-10T20:09Z | 本候选提交 |
 
 ## 2. A/B 互审材料（V3-05 的可执行部分）
@@ -68,6 +68,9 @@ Owner: V3 交付执行 Agent（`agent-delegated`）。Reviewer 字段为真实�
 
 ## 3. 分工建议（按 SOP §13）
 
+> **11-12 单人操作披露：** 团队登记两名成员（fangxunwu 25208508、kaiwenyao 25202665），但项目实际由 **fangxunwu 一人操作**，不存在独立的第二审核人。因此**不做、也不伪造双人互审签字**。V3-05 的人工复核由 seed 47 正式 run 中 fangxunwu 在 UI 里亲自完成的 Gate A（三份档案）、Gate B（候选源码）、Gate C（报告）审核承担，证据是该 run 的 `review_log.json`（`reviewer=fangxunwu`，绑定 64 位哈希）。以下 §3.1/§3.2 签署栏不再使用。
+
+
 | 审阅人 | 负责核对 | 建议理由 |
 | --- | --- | --- |
 | 成员 A（AI 工程主线） | §2.3 Gate 记录、§2.1 提交范围、§2.4 交付链接与访问 | 与 Agent/门禁/导出实现最熟 |
@@ -105,7 +108,7 @@ Owner: V3 交付执行 Agent（`agent-delegated`）。Reviewer 字段为真实�
 
 **清楚记录的性质与限制**
 
-- 数据：UCI 2005 年台湾信用卡样本，CC BY 4.0，含人口属性（仅审计）；比赛使用授权仍待书面确认。
+- 数据：UCI 2005 年台湾信用卡样本，CC BY 4.0，含人口属性（仅审计）；比赛使用依据官方规则原文记录（`docs/official/2026-11-12_uci_permission.md`，不是主办方单独邮件）。
 - 模型：三个旧模型与旧文档为团队自建模拟资产；只迁移 `MDL_CREDIT_V1`；迁移复用 R 系数、不重新训练。
 - 指标：holdout 为同期随机留出（样本外验证）；漂移为加权抽样敏感性分析；**无跨时间回测**；公平性是审计信号，不是合规结论。
 - Agent 选择审阅重点并返回结构化状态。代码对照指标校验状态，并用模板生成报告结论与审阅提示。请求、重试和审核都有日志。

@@ -77,7 +77,7 @@ git ls-remote --tags origin   # 推送前为空；推送需授权
 | --- | --- | --- | --- |
 | B1 | seed 47 正式 run 待启动 | 11-12 已决：H-01 关闭（官方规则原文）；H-03 由 A 在 UI 人工审核；H-04 v2 永久 BLOCKED、只发 v3（见 [决策记录](11_formal_run_decisions.md)）。**仍待 H-02：B 确认 seed 47 未消费** | 记录交接 H-01～H-04 的决定，确认最终 SHA 后按 §2 执行一次 |
 | B2 | 现有正式证据不可放行 | `release-check` BLOCKED、`verify-context` 两个 ref 均 FAIL | 用 B1 的新 run 提供与 `$FROZEN` 绑定的证据 |
-| B3 | V3-05 人工互审未签 | `docs/v3/06_final_review.md` §3 签署栏为空 | 成员 A/B 签字并记录时间与决定 |
+| B3 | V3-05 人工复核 | 11-12 改为单人操作披露，不做双人签字（`06_final_review.md` §3） | seed 47 正式 run 中 fangxunwu 在 UI 完成 Gate A/B/C 人工审核 |
 | B4 | 评委访问未验证 | 五件套已入库，含 1:51 MP4；仓库私有 | 按 H-06/H-07 核验仓库、材料链接和视频播放 |
 | B5 | 业务价值配对计时未完成 | 0 组手工与 Agent 加人工审核的配对记录 | 按 H-08 完成配对实测 |
 

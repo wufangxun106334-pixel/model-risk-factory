@@ -15,3 +15,6 @@ delivery/
 dev_runs/
 dev_runs-*/
 runs/
+# Filled submission deck: generated locally by materials/build_submission_template.py, not committed
+materials/EXL_UCD_Submission_Challenge04.pptx
+materials/EXL_UCD_Submission_Challenge04.pdf
