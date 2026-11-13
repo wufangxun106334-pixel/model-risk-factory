@@ -20,9 +20,7 @@ materials/EXL_UCD_Submission_Challenge04.pptx
 materials/EXL_UCD_Submission_Challenge04.pdf
 
 # 11-13: internal working documents stay local, not published
-docs/
-# materials: publish only the official deliverables
+docs/*
+!docs/official/
+# materials/ = local working sources; published deliverables live in Doc/ (same as the Google Drive package)
 materials/*
-!materials/architecture.png
-!materials/responsible_ai_note.pdf
-!materials/demo_video.mp4

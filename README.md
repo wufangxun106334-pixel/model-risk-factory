@@ -149,9 +149,14 @@ A formal run uses `init-run --mode uci` from a clean commit. `download-uci` and 
 
 | Material | File |
 | --- | --- |
-| Demo video (1:51, English narration with captions, synthetic replay) | [materials/demo_video.mp4](materials/demo_video.mp4) |
-| Architecture diagram | [materials/architecture.png](materials/architecture.png) |
-| Responsible AI note | [materials/responsible_ai_note.pdf](materials/responsible_ai_note.pdf) |
+| Solution overview (submission template) | [Doc/Overview.pdf](Doc/Overview.pdf) |
+| Solution deck | [Doc/solution_deck.pdf](Doc/solution_deck.pdf) |
+| Demo video (1:51, English narration with captions, synthetic replay) | [Doc/demo_video.mp4](Doc/demo_video.mp4) |
+| Architecture diagram | [Doc/architecture.png](Doc/architecture.png) |
+| Responsible AI note | [Doc/responsible_note.pdf](Doc/responsible_note.pdf) |
+| Official challenge brief and data-use basis | [docs/official/](docs/official/) |
+
+The same package is shared on Google Drive: https://drive.google.com/drive/folders/1GQCx5Ga9PPDK9tbbCBb1uA5KV8qI5pIK
 
 ## 5. Repository layout
 
