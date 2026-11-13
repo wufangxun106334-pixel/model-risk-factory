@@ -78,6 +78,8 @@ Owner of this list: V3 交付执行 Agent（`agent-delegated`）。每条都写�
 
 ### H-06 评委访问权限（按团队指示暂缓）
 
+> **状态：✅ 11-13 已完成：仓库改为 public（https://github.com/wufangxun106334-pixel/model-risk-factory），匿名访问 HTTP 200；公开前历史密钥扫描干净。视频分享链接（H-07）仍待上传。**
+
 | 字段 | 内容 |
 | --- | --- |
 | 负责人 | 仓库所有者（GitHub `wufangxun106334-pixel/model-risk-factory`） |
