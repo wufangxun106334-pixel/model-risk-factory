@@ -18,3 +18,11 @@ runs/
 # Filled submission deck: generated locally by materials/build_submission_template.py, not committed
 materials/EXL_UCD_Submission_Challenge04.pptx
 materials/EXL_UCD_Submission_Challenge04.pdf
+
+# 11-13: internal working documents stay local, not published
+docs/
+# materials: publish only the official deliverables
+materials/*
+!materials/architecture.png
+!materials/responsible_ai_note.pdf
+!materials/demo_video.mp4

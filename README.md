@@ -1,16 +1,18 @@
 # Model Risk Factory
 
+> Internal working documents (SOP, v3 run records, decision logs) are kept by the team locally and are not published in this repository. Paths such as `docs/...` below refer to those local records.
+
 EXL × UCD Data & AI Hackathon 2026 — Challenge 04 Agentic model risk factory。
 
 **v1 已验收（标签 `v1` → 提交 `70858cd`）。v2 工程实现已完成，正式发布仍为 BLOCKED。V3 交付候选 `7ffc672` 已推送至 `main`，正式验收仍为 BLOCKED。**
 
 - v1 正式 run `v1-20261109T181929Z-3fe1c7b5`：V1-01～07 全 PASS（Gate A/B 代理审核），标签 `v1` 指向 `70858cd`。
 - v2 历史验收 run **`v2-20261109T210903Z-3dcfab73`**（campaign seed 46）：记录显示 14 项全 PASS，Gate A/B/C 均由 `agent-delegated` 代理审核。该结果仅用于历史回放：证据树不等于任何提交。
-- V3 新环境回归通过 337 项及 7 个子测试。在干净候选提交上，真实网关合成演练完成 Gate A 前的检查并停在审核提示，`verify-context` 通过。五件套已在仓库准备齐全。详见 [V3 审核修复记录](docs/v3/10_audit_followup.md)。
+- V3 新环境回归通过 337 项及 7 个子测试。在干净候选提交上，真实网关合成演练完成 Gate A 前的检查并停在审核提示，`verify-context` 通过。五件套已在仓库准备齐全。详见 V3 审核修复记录。
 
-> **v3 正式 run（2026-11-12）：** seed 47 在冻结提交 `21c3235` 上完成，1,199 行 Holdout 已单次消费；parity 最大差值 2.22e-16，holdout ROC-AUC 0.699。14 项验收 13 项 PASS，V1-07 因命令链检查器缺陷 FAIL，`release-check` 仍为 **BLOCKED**，未创建 `v3` 标签。详见 [docs/v3/12_formal_run_seed47.md](docs/v3/12_formal_run_seed47.md)。
+> **v3 正式 run（2026-11-12）：** seed 47 在冻结提交 `21c3235` 上完成，1,199 行 Holdout 已单次消费；parity 最大差值 2.22e-16，holdout ROC-AUC 0.699。14 项验收 13 项 PASS，V1-07 因命令链检查器缺陷 FAIL，`release-check` 仍为 **BLOCKED**，未创建 `v3` 标签。详见 docs/v3/12_formal_run_seed47.md。
 >
-> **发布状态 BLOCKED（2026-11-10 V3 复核）。** `release-check --tag 9884e3a --run-id v2-20261109T210903Z-3dcfab73` 返回 **17 条缺口**：seed 46 的证据生成时工作区不干净、初始化提交 `ec6077f` 与发布提交 `9884e3a` 不一致，`verify-context` 在两条路径上都失败。本地存在 `v2` 标签（指向 `9884e3a`，且是在未放行的情况下创建的），`origin` 上没有任何标签（v1 也未推送）。UCI 只剩 **1,199 行**从未用于正式 Holdout。详见 [docs/v3/03_release_readiness.md](docs/v3/03_release_readiness.md)、[发布状态与缺口](#发布状态与缺口)与[重新放行步骤](#v2-重新放行步骤)。
+> **发布状态 BLOCKED（2026-11-10 V3 复核）。** `release-check --tag 9884e3a --run-id v2-20261109T210903Z-3dcfab73` 返回 **17 条缺口**：seed 46 的证据生成时工作区不干净、初始化提交 `ec6077f` 与发布提交 `9884e3a` 不一致，`verify-context` 在两条路径上都失败。本地存在 `v2` 标签（指向 `9884e3a`，且是在未放行的情况下创建的），`origin` 上没有任何标签（v1 也未推送）。UCI 只剩 **1,199 行**从未用于正式 Holdout。详见 docs/v3/03_release_readiness.md、[发布状态与缺口](#发布状态与缺口)与[重新放行步骤](#v2-重新放行步骤)。
 
 交付物是 `delivery/<run_id>_acceptance.json` 与 `delivery/<run_id>_evidence.zip`；`runs/`、`delivery/` 与原始数据不进 Git。Streamlit 四页界面已在 v2 提交、v3 实测并加了状态徽标。
 
@@ -50,19 +52,19 @@ python -m pip install -r requirements-ui.txt
 streamlit run app.py        # four pages: Inventory · Model detail · Migration · Validation report
 ```
 
-**Full end-to-end drill and UI check**: [docs/v3/02_new_environment.md](docs/v3/02_new_environment.md) (clean worktree, fresh venv, real gateway, 29-step run, screenshots in [docs/v3/ui_screens/](docs/v3/ui_screens/)).
+**Full end-to-end drill and UI check**: docs/v3/02_new_environment.md (clean worktree, fresh venv, real gateway, 29-step run, screenshots in docs/v3/ui_screens/).
 
-**Deliverables** (see [materials/submission_checklist.md](materials/submission_checklist.md) for length, links and status)
+**Deliverables** (see materials/submission_checklist.md for length, links and status)
 
 | Material | File |
 | --- | --- |
-| Solution deck (10 slides) | [materials/solution_deck.md](materials/solution_deck.md) · `.pptx` · `.pdf` |
-| Demo video (1:51, synthetic replay) | [MP4](materials/demo_video.mp4) · [transcript](materials/demo_video_script.md) |
-| Architecture diagram (1 page) | [materials/architecture.svg](materials/architecture.svg) · [.md](materials/architecture.md) |
-| Responsible AI note (1 page) | [one-page PDF](materials/responsible_ai_note.pdf) · [source](materials/responsible_ai_note.md) |
-| Business value measurements | [materials/impact_measurements.csv](materials/impact_measurements.csv) · [protocol](materials/impact_measurements_README.md) |
+| Solution deck (10 slides) | materials/solution_deck.md · `.pptx` · `.pdf` |
+| Demo video (1:51, synthetic replay) | [MP4](materials/demo_video.mp4) · transcript |
+| Architecture diagram (1 page) | [materials/architecture.png](materials/architecture.png) · .md |
+| Responsible AI note (1 page) | [one-page PDF](materials/responsible_ai_note.pdf) · source |
+| Business value measurements | materials/impact_measurements.csv · protocol |
 
-**Data licence**: UCI Default of Credit Card Clients (ID 350), CC BY 4.0. The official rules allow "public or synthetic data only" and name public credit-risk datasets as starter data, so the team recorded its use on that basis ([docs/official/2026-11-12_uci_permission.md](docs/official/2026-11-12_uci_permission.md); not a separate organiser e-mail). `config/data_config.json` records `uci_competition_use_approved=true`, and every formal run still needs an explicit `--approve-uci-use` declaration from an authorised operator. The raw file is not committed; a download step verifies its SHA-256.
+**Data licence**: UCI Default of Credit Card Clients (ID 350), CC BY 4.0. The official rules allow "public or synthetic data only" and name public credit-risk datasets as starter data, so the team recorded its use on that basis (docs/official/2026-11-12_uci_permission.md; not a separate organiser e-mail). `config/data_config.json` records `uci_competition_use_approved=true`, and every formal run still needs an explicit `--approve-uci-use` declaration from an authorised operator. The raw file is not committed; a download step verifies its SHA-256.
 
 **AI tools used**: Claude Code and Kimi Code CLI for implementation, tests and documentation; this delivery Agent for the v3 audit, fixes and materials. In the product, the gateway `https://sa.kaiwen.dev/v1` (`openai_chat_completions`) with model **`deepseek-v4.1-flash:1017`** performs inventory extraction, candidate generation and report explanation (the v1 candidate was generated by `kimi-k2.7-code`). The trusted Python reference predictor and all fixed tests are human-written, not Agent output.
 
@@ -74,7 +76,7 @@ streamlit run app.py        # four pages: Inventory · Model detail · Migration
 
 | 路径 | 内容 |
 | --- | --- |
-| [docs/](docs/) | 比赛背景、团队分工、版本验收标准和官方材料。设计决策以 [项目 SOP](docs/02_项目SOP.md) 为准。 |
+| docs/ | 比赛背景、团队分工、版本验收标准和官方材料。设计决策以 项目 SOP 为准。 |
 | [legacy/](legacy/) | R 模型和模拟旧文档。阈值冲突与 Unknown 是用于检验档案提取的预设素材。 |
 | [config/](config/) | 数据划分 seed、模型和候选输入输出契约、Schema、API 与容器运行参数。 |
 | [src/cli.py](src/cli.py) | 命令入口，串联取数、建基准、建档、审批、迁移、验证和导出。 |
@@ -127,13 +129,13 @@ docker build -t model-risk-factory-runner:v1 docker
 ## 分工与交接
 
 - **建模验证**负责数据字典、R 模型和基准、可信 Python 参考实现、固定验证样例与指标。优先看 [数据配置](config/data_config.json)、[候选契约](config/candidate_contract.json) 和 [参考等价性测试](tests/test_reference_parity.py)。
-- **AI 工程**负责网关、Agent、审批、Docker 与证据导出。双方在 [候选契约](config/candidate_contract.json) 和 [SOP 验收标准](docs/02_项目SOP.md) 对齐输入输出、容差和失败状态，再并行修改各自模块。
+- **AI 工程**负责网关、Agent、审批、Docker 与证据导出。双方在 [候选契约](config/candidate_contract.json) 和 SOP 验收标准 对齐输入输出、容差和失败状态，再并行修改各自模块。
 - **联调交接**附上提交、`run_id`、复现命令、测试结果与证据路径。修改已冻结的代码、配置或测试后，用新 run 联调。候选执行走 CLI 门禁与 Docker；正式 Holdout 由冻结后的候选完成一次性验收。
 - **证据交接**以 `export` 为该 run 的最后一步。共享 `delivery/` 中的白名单证据包和验收 JSON，封印后的 run 用于查阅。逐行数据、基准答案和密钥留在本机。
 
 ## 合成开发验证记录
 
-以下是历史合成 run `v1-20261109T160955Z-c4e69c96` 的开发结果。原 V3 候选测试为 **339 passed, 7 subtests passed**；审核修复后的测试见 [V3 审核修复记录](docs/v3/10_audit_followup.md)。合成数据、mock 和人工参考实现用于开发验证，正式结果见下方的逐项验收表。
+以下是历史合成 run `v1-20261109T160955Z-c4e69c96` 的开发结果。原 V3 候选测试为 **339 passed, 7 subtests passed**；审核修复后的测试见 V3 审核修复记录。合成数据、mock 和人工参考实现用于开发验证，正式结果见下方的逐项验收表。
 
 - 合成数据：30,000 行；train/dev/holdout/shift_pool 分别为 15,000/6,000/6,000/3,000；ID 唯一且四集互斥；各集违约率与总体最大差约 0.00003333（比例），低于 0.01。
 - R 基准：真实 `glm` 拟合，导出双精度系数、特征顺序、训练集填补参数、预测和 `sessionInfo`；不使用 ID、标签或人口属性作为特征。
@@ -397,7 +399,7 @@ done
 
 ## 发布状态与缺口
 
-2026-11-10 在临时检出复测 `main`（`92fa3a0`），使用锁定依赖及 SHA-256 与账本一致的 UCI ZIP。全量测试 **287 项通过、7 个子测试通过、0 失败、0 跳过**。**该临时检出**当时没有任何标签：`origin` 至今没有任何标签，而主工作树后来出现了本地 `v1`（`70858cd`）与 `v2`（`9884e3a`）两个附注标签（见 [docs/v3/00_baseline_status.md](docs/v3/00_baseline_status.md) §1）。该次运行的发布判定沿用下文的历史记录。
+2026-11-10 在临时检出复测 `main`（`92fa3a0`），使用锁定依赖及 SHA-256 与账本一致的 UCI ZIP。全量测试 **287 项通过、7 个子测试通过、0 失败、0 跳过**。**该临时检出**当时没有任何标签：`origin` 至今没有任何标签，而主工作树后来出现了本地 `v1`（`70858cd`）与 `v2`（`9884e3a`）两个附注标签（见 docs/v3/00_baseline_status.md §1）。该次运行的发布判定沿用下文的历史记录。
 
 ### 已修复的 3 项阻断
 
@@ -490,7 +492,7 @@ seed 46 的 14 项 PASS、63 个证据文件与导出 ZIP 的哈希、三道代�
 2. **演练后冻结发布提交。** 在独立检出中使用 `dev_runs` 和合成数据演练网关、Docker、三道审核、报告和导出。正式运行前提交代码、测试和配置，确认工作区干净，再执行 `init-run`。候选通过开发测试并冻结后执行一次正式 Holdout，生成同一 run 的报告、验收记录和证据包。
 3. **先验提交，再打标签。** 对该次 run 执行 `release-check --tag <发布提交 SHA> --run-id <新 run_id>`。校验返回 `APPROVED` 后，为同一提交创建并推送 `v2` 标签。
 
-若目标日前数据仍未获批，按 [SOP 的范围变更规则](docs/02_项目SOP.md#缩减与范围变更)提交团队确认。可交付合成数据的工程演示，并将真实指标标为历史回放。原标准下的正式发布继续标记 `BLOCKED`。
+若目标日前数据仍未获批，按 SOP 的范围变更规则提交团队确认。可交付合成数据的工程演示，并将真实指标标为历史回放。原标准下的正式发布继续标记 `BLOCKED`。
 
 ## 已知工具缺陷
 
@@ -511,7 +513,7 @@ v1 记录的 4 条与首个 v2 发布候选发现的 2 条均已在本次修复�
 
 V3 复核与遗留项
 
-7. **V3 已修复档案冲突与摘要判定。** 档案冲突从 `config/inventory_expectations.json` 的已核实条目生成，逐条绑定 R 代码和旧文档的证据。Agent 摘要使用封闭结构，状态与 `derive_facts()` 派生的事实逐项核对。报告结论与审阅提示由模板渲染。[审核修复记录](docs/v3/10_audit_followup.md)
+7. **V3 已修复档案冲突与摘要判定。** 档案冲突从 `config/inventory_expectations.json` 的已核实条目生成，逐条绑定 R 代码和旧文档的证据。Agent 摘要使用封闭结构，状态与 `derive_facts()` 派生的事实逐项核对。报告结论与审阅提示由模板渲染。审核修复记录
 8. 候选审查记录（不影响本次结果，v3 未改动）：`--model` 在候选实现中可选并回退到与 artifact 相等的常量；十六进制字面量（如 `0x10`）被当作不可解析而拒绝，R 的 `as.numeric` 会接受。
 
 ### V3 进度与阻塞（2026-11-10）
@@ -520,14 +522,14 @@ V3 复核与遗留项
 
 | 项 | 状态 | 证据 |
 | --- | --- | --- |
-| V3-01 回归与固定数据复跑 | BLOCKED（测试通过，正式 V1-02 待完成） | [V3 审核修复记录](docs/v3/10_audit_followup.md) |
-| V3-02 新环境复现 | PASS | [docs/v3/02_new_environment.md](docs/v3/02_new_environment.md)、[docs/v3/ui_screens/](docs/v3/ui_screens/) |
-| V3-03 五件套交付 | BLOCKED（成片及材料已就绪，评委访问待验证） | [materials/submission_checklist.md](materials/submission_checklist.md) |
-| V3-04 业务价值证据 | BLOCKED（按团队指示暂缓配对实测） | [materials/impact_measurements.csv](materials/impact_measurements.csv) |
-| V3-05 最终审核 | BLOCKED（缺 A/B 两名成员签署） | [docs/v3/06_final_review.md](docs/v3/06_final_review.md) |
-| V3-06 版本冻结 | BLOCKED（seed 47 正式 run 尚未启动，未创建 `v3` 标签） | [发布清单](docs/v3/07_release_checklist.md) |
+| V3-01 回归与固定数据复跑 | BLOCKED（测试通过，正式 V1-02 待完成） | V3 审核修复记录 |
+| V3-02 新环境复现 | PASS | docs/v3/02_new_environment.md、docs/v3/ui_screens/ |
+| V3-03 五件套交付 | BLOCKED（成片及材料已就绪，评委访问待验证） | materials/submission_checklist.md |
+| V3-04 业务价值证据 | BLOCKED（按团队指示暂缓配对实测） | materials/impact_measurements.csv |
+| V3-05 最终审核 | BLOCKED（缺 A/B 两名成员签署） | docs/v3/06_final_review.md |
+| V3-06 版本冻结 | BLOCKED（seed 47 正式 run 尚未启动，未创建 `v3` 标签） | 发布清单 |
 
-团队计划先完成正式验收。启动前需记录主办方的 UCI 使用批准、团队权威账本对 seed 47 未消费的确认，以及 Gate A/B/C 审核人或明确代理授权。届时从干净的最终 SHA 启动，完成一次正式 Holdout 和发布校验。A/B 互审、手工与 Agent 加人工审核的配对计时、评委访问验证按团队安排暂缓，仍是最终发布的阻塞项。[交接与负责人](docs/v3/08_handoff.md)
+团队计划先完成正式验收。启动前需记录主办方的 UCI 使用批准、团队权威账本对 seed 47 未消费的确认，以及 Gate A/B/C 审核人或明确代理授权。届时从干净的最终 SHA 启动，完成一次正式 Holdout 和发布校验。A/B 互审、手工与 Agent 加人工审核的配对计时、评委访问验证按团队安排暂缓，仍是最终发布的阻塞项。交接与负责人
 
 ## 退出码与验收状态
 
@@ -573,4 +575,4 @@ shasum -a 256 "delivery/${RUN}_evidence.zip"   # 与 export_verified.json 的 ar
 - 已发布版本的模型 ID 以正式 run 的能力检查与候选生成记录为准。
 - 使用 NumPy、pandas、Pydantic、pytest、xlrd、Docker、R base `glm` 与 `rpart`；指标计算只用 NumPy（未引入 scikit-learn）。Streamlit 四页界面（`app.py` + `src/ui_data.py` + `src/ui_charts.py`，依赖 `requirements-ui.txt`）已实现并在 v3 实测。
 - 验证口径：Holdout 为同期随机留出（样本外验证）；场景 A 漂移批次为加权抽样的敏感性分析；跨时间回测在本数据上不可得，报告中列为缺失证据。公平性结果为审计信号，不构成公平性或合规结论。
-- 设计主文件仍为 [docs/02_项目SOP.md](docs/02_项目SOP.md)；官方背景见 [docs/01_比赛背景与官方要求.md](docs/01_比赛背景与官方要求.md)。
+- 设计主文件仍为 docs/02_项目SOP.md；官方背景见 docs/01_比赛背景与官方要求.md。
