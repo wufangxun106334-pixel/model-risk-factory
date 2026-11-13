@@ -454,6 +454,26 @@ def _chain_binding_problems(
     return problems
 
 
+def _superseded_attempt(event: dict, command: str, expected_attempt: int | None) -> int | None:
+    """Attempt number of a success that an approved repair replaced, else None.
+
+    Defect D-01 (docs/v3/12_formal_run_seed47.md): the SOP allows an initial
+    generation plus up to two repairs. A success recorded on an attempt strictly
+    lower than the frozen one is repair history; it stays in the log as evidence but
+    must not stand in for the frozen attempt's own step. Applies to runs after the
+    fix only; the seed 47 verdict was computed on its frozen commit and is unchanged.
+    """
+
+    argv = event.get("argv") or []
+    attempt_scoped = command in ATTEMPT_SCOPED or (command == "approve" and _argv_option(argv, "--gate") == "Gate_B")
+    if expected_attempt is None or not attempt_scoped:
+        return None
+    recorded = _argv_option(argv, "--attempt")
+    if recorded is None or not recorded.isdigit() or int(recorded) >= expected_attempt:
+        return None
+    return int(recorded)
+
+
 def _command_chain(run_dir: Path, run_id: str) -> list[str]:
     path = run_dir / "command_log.jsonl"
     if not path.is_file():
@@ -474,6 +494,7 @@ def _command_chain(run_dir: Path, run_id: str) -> list[str]:
         # Failures inside a run are legal retries as long as a later success of the
         # same step follows: the failed records stay in the log as evidence.
         failures: list[object] = []
+        superseded: list[int] = []
         success: dict | None = None
         while position < len(events):
             event = events[position]
@@ -487,10 +508,19 @@ def _command_chain(run_dir: Path, run_id: str) -> list[str]:
             if event.get("exit_code") != 0:
                 failures.append(event.get("exit_code"))
                 continue
+            replaced = _superseded_attempt(event, command, expected_attempt)
+            if replaced is not None:
+                superseded.append(replaced)
+                continue
             success = event
             break
         if success is None:
-            if failures:
+            if superseded:
+                problems.append(
+                    f"{label} has no success on the frozen attempt {expected_attempt} "
+                    f"(only superseded attempts {sorted(set(superseded))})"
+                )
+            elif failures:
                 problems.append(f"{label} has no successful attempt (failed exit codes: {failures})")
             else:
                 problems.append(f"{label} record missing or out of order")

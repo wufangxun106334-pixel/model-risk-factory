@@ -131,7 +131,7 @@ Docker Desktop、R 和 Python 需在开发机实际验证。依赖版本在接�
 
 **11-10 演练与界面（`dev_runs/v2-20261110T144500Z-cb29b7ef`，合成数据）：** 网关、数据准备、R 基准、parity、fixtures、故意错误、Docker 边界、三份档案（Gate A 由 A 在 UI 中人工审批）、真实 API 候选（Gate B 由 A 在 UI 中人工审批）、开发测试、冻结、Holdout（**1,199 行**）、四类指标、Agent 摘要、报告全部通过；dev 与 holdout 的 parity 最大差值都是 5.6e-17。这些指标基于合成数据，只证明流程可用，不代表模型表现。界面新增结果可视化（`src/ui_charts.py`）：迁移页有 R/Python parity 散点图；报告页有 AUC/Brier 指标卡、校准曲线、混淆矩阵、PSI 柱状图（0.10/0.25 阈值线）、公平性 TPR/FPR 点图，每张图都附数据表。演练中曾因运行期间修改 `src/` 导致 context 失效，那次 run 作废，说明 context 绑定按设计生效。
 
-**11-12 seed 47 正式 run：** 在冻结提交 `21c3235` 上完成，Gate A/B/C 由 fangxunwu 在 UI 人工审核，Holdout（1,199 行）已单次消费。13/14 PASS；V1-07 因命令链检查器缺陷（D-01）FAIL，`release-check` BLOCKED，未打 `v3` 标签；UCI 已无剩余独立 Holdout。检查器未修改（在验收失败后修改被权限系统拦截），是否修复留待团队决定。详见 `docs/v3/12_formal_run_seed47.md`。
+**11-12 seed 47 正式 run：** 在冻结提交 `21c3235` 上完成，Gate A/B/C 由 fangxunwu 在 UI 人工审核，Holdout（1,199 行）已单次消费。13/14 PASS；V1-07 因命令链检查器缺陷（D-01）FAIL，`release-check` BLOCKED，未打 `v3` 标签；UCI 已无剩余独立 Holdout。检查器未修改（在验收失败后修改被权限系统拦截），11-13：D-01 已修复（只对之后的 run 生效，事后只读复核命令链为 0 问题，不构成放行）；最终交付口径定为「V3 候选已交付，最终验收 BLOCKED」。详见 `docs/v3/12_formal_run_seed47.md`。
 
 **v2 剩余任务清单**（完成即划掉）：
 

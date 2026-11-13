@@ -332,3 +332,46 @@ def test_truncated_output_is_reported_as_truncation_not_as_a_silent_retry(tmp_pa
     assert provider.calls == 1
     events = [json.loads(line) for line in (run_dir / "agent_audit_log.jsonl").read_text().splitlines()]
     assert any(event["event"] == "OUTPUT_TRUNCATED" for event in events)
+
+
+# D-01 (docs/v3/12_formal_run_seed47.md): a legal repair must not be misread as a broken chain,
+# while every existing strictness check stays in force.
+
+def test_repair_after_an_infrastructure_failure_verifies(tmp_path):
+    """Seed 47 shape: attempt 0 generated and approved, its dev run failed because Docker was
+    down, and the approved repair attempt 1 was frozen. Attempt-0 records stay as evidence."""
+
+    run_dir, context = _bound_run(tmp_path, attempt=1)
+    base = ["--run-id", RUN_ID]
+    entries: list[tuple[list[str], int]] = []
+    for argv in _good_chain(1):
+        if argv[0] == "generate-candidate":
+            entries.append((["generate-candidate", *base, "--attempt", "0"], 0))
+            entries.append((["approve", *base, "--gate", "Gate_B", "--attempt", "0", "--sha256", "d" * 64], 0))
+            entries.append((["run-dev", *base, "--attempt", "0"], 1))
+            entries.append((["run-dev", *base, "--attempt", "0"], 2))
+        entries.append((argv, 0))
+    _log(run_dir, entries, context=context)
+    assert _command_chain(run_dir, RUN_ID) == []
+
+
+def test_superseded_attempt_cannot_replace_a_missing_frozen_step(tmp_path):
+    run_dir, context = _bound_run(tmp_path, attempt=1)
+    base = ["--run-id", RUN_ID]
+    entries = [(argv, 0) for argv in _good_chain(1) if not (argv[0] == "approve" and "Gate_B" in argv)]
+    position = next(index for index, (argv, _) in enumerate(entries) if argv[0] == "run-dev")
+    # Only an attempt-0 Gate B approval exists: the frozen attempt 1 was never approved.
+    entries.insert(position, (["approve", *base, "--gate", "Gate_B", "--attempt", "0", "--sha256", "d" * 64], 0))
+    _log(run_dir, entries, context=context)
+    problems = _command_chain(run_dir, RUN_ID)
+    assert any("Gate_B" in problem and "frozen attempt 1" in problem for problem in problems)
+
+
+def test_a_later_attempt_than_the_frozen_one_is_still_rejected(tmp_path):
+    run_dir, context = _bound_run(tmp_path, attempt=0)
+    base = ["--run-id", RUN_ID]
+    entries = [(argv, 0) for argv in _good_chain(0)]
+    index = next(i for i, (argv, _) in enumerate(entries) if argv[0] == "generate-candidate")
+    entries[index] = (["generate-candidate", *base, "--attempt", "1"], 0)
+    _log(run_dir, entries, context=context)
+    assert any("frozen attempt 0" in problem for problem in _command_chain(run_dir, RUN_ID))

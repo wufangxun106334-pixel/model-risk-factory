@@ -161,7 +161,9 @@ def review_form(gate: str, sha256: str, key: str, *, model: str | None = None, a
 
 # ---------------------------------------------------------------- sidebar
 st.sidebar.title("Model Risk Factory")
-root_name = st.sidebar.radio("Runs root", ["dev_runs", "runs"], help="dev_runs = synthetic dry runs; runs = formal runs (single-use Holdout)")
+# Optional deep link for screenshots and demos: ?root=runs&run=<run_id>&page=<1-4>. Read-only selection.
+QUERY = st.query_params
+root_name = st.sidebar.radio("Runs root", ["dev_runs", "runs"], index=1 if QUERY.get("root") == "runs" else 0, help="dev_runs = synthetic dry runs; runs = formal runs (single-use Holdout)")
 ROOT = ui_data.runs_root(root_name)
 runs = ui_data.list_runs(ROOT)
 run_ids = [row["run_id"] for row in runs]
@@ -176,11 +178,14 @@ PROGRESS = {run_id: progress(run_id) for run_id in run_ids}
 STATES = {row["run_id"]: row["state"] for row in runs}
 # Default to the newest run that has work in it, not an empty run that was just initialised.
 default_index = next((index for index, run_id in enumerate(run_ids) if PROGRESS[run_id]), 0) if run_ids else None
+if QUERY.get("run") in run_ids:
+    default_index = run_ids.index(QUERY.get("run"))
 RUN_ID = st.sidebar.selectbox(
     "Run", run_ids, index=default_index, placeholder="no runs yet",
     format_func=lambda run_id: f"{run_id} · {PROGRESS[run_id]}/3 inventories · {STATES.get(run_id)}",
 )
-page = st.sidebar.radio("Page", PAGES)
+page_param = QUERY.get("page", "1")
+page = st.sidebar.radio("Page", PAGES, index=int(page_param) - 1 if page_param in {"1", "2", "3", "4"} else 0)
 
 with st.sidebar.expander("New run"):
     if root_name == "runs":
